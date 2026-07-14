@@ -39,8 +39,33 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           if git diff --quiet -- inbound-dashboard-data.js index.html; then
             echo "No data change — nothing to commit."
-            exit 0
+          else
+            git add inbound-dashboard-data.js index.html
+            git commit -m "Auto-refresh data ($(date -u '+%Y-%m-%d %H:%M UTC'))"
+            git push
           fi
-          git add inbound-dashboard-data.js index.html
-          git commit -m "Auto-refresh data ($(date -u '+%Y-%m-%d %H:%M UTC'))"
-          git push
+
+      - name: Business-health alert (emails only if something is wrong)
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: python scripts/alert.py
+
+      - name: Notify on sync failure
+        if: failure()
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: |
+          python - <<'PY'
+          import os, smtplib
+          from email.mime.text import MIMEText
+          u=os.environ["GMAIL_USER"]; p=os.environ["GMAIL_APP_PASSWORD"]
+          to="rohit.bagga@myhq.in"
+          m=MIMEText("The 3-hourly data refresh workflow FAILED.\n"
+                     "Check: https://github.com/myHQBuddy/inbound-dashboard/actions","plain","utf-8")
+          m["Subject"]="🔴 Inbound sync FAILED"; m["From"]=u; m["To"]=to
+          with smtplib.SMTP_SSL("smtp.gmail.com",465) as s:
+              s.login(u,p); s.sendmail(u,[to],m.as_string())
+          print("failure email sent")
+          PY
