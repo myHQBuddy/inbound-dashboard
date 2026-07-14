@@ -23,6 +23,7 @@ import urllib.error
 
 API_URL = "https://api-smartflo.tatateleservices.com/v1/call/records"
 PAGE_LIMIT = 500          # records per page
+CHUNK_DAYS = 28           # API caps each query window at 1 month; stay safely under
 AFTER_HOURS_START = 20    # calls at hour >= 20 (8pm) count as after-hours
 AFTER_HOURS_END = 9       # ...or before 9am
 REQUEST_PAUSE = 0.3       # seconds between pages, be polite to the API
@@ -201,12 +202,23 @@ def main():
     days_back = int(os.environ.get("DAYS_BACK", "44"))
     today = dt.date.today()
     start = today - dt.timedelta(days=days_back - 1)
-    from_date = f"{start.isoformat()} 00:00:00"
-    to_date = f"{today.isoformat()} 23:59:59"
 
-    print(f"Fetching {from_date} -> {to_date} (limit {PAGE_LIMIT}/page)", flush=True)
-    raw = fetch_all(auth, from_date, to_date)
-    print(f"Fetched {len(raw)} raw records.", flush=True)
+    # The API caps each date window at 1 month, so walk the range in chunks
+    # and dedup by record id in case a boundary day overlaps.
+    raw_by_id = {}
+    chunk_start = start
+    while chunk_start <= today:
+        chunk_end = min(chunk_start + dt.timedelta(days=CHUNK_DAYS - 1), today)
+        from_date = f"{chunk_start.isoformat()} 00:00:00"
+        to_date = f"{chunk_end.isoformat()} 23:59:59"
+        print(f"Chunk {from_date} -> {to_date} (limit {PAGE_LIMIT}/page)", flush=True)
+        for rec in fetch_all(auth, from_date, to_date):
+            rid = rec.get("id") or rec.get("call_id") or id(rec)
+            raw_by_id[rid] = rec
+        chunk_start = chunk_end + dt.timedelta(days=1)
+
+    raw = list(raw_by_id.values())
+    print(f"Fetched {len(raw)} unique raw records.", flush=True)
 
     records = [r for r in (classify(x) for x in raw) if r]
     # sort newest first within each day like the existing file (date asc, time desc within-day is fine either way)
