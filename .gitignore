@@ -1,0 +1,7 @@
+# Redundant duplicate of the data file (real data lives in inbound-dashboard-data.js)
+inbound-dashboard-data (1).js
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
