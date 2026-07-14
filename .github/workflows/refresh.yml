@@ -42,7 +42,11 @@ jobs:
           else
             git add inbound-dashboard-data.js index.html
             git commit -m "Auto-refresh data ($(date -u '+%Y-%m-%d %H:%M UTC'))"
-            git push
+            for i in 1 2 3; do
+              git push && break
+              echo "Push rejected — pulling latest and retrying ($i)..."
+              git pull --rebase --autostash origin main
+            done
           fi
 
       - name: Business-health alert (emails only if something is wrong)
