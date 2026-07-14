@@ -1,0 +1,1646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inbound Call Centre — myHQ</title>
+<script src="inbound-dashboard-data.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --brand:#1E22AA;--brand-light:#E8EAFB;--green:#16A34A;--green-bg:#DCFCE7;
+  --red:#EF4444;--red-bg:#FEE2E2;--amber:#F59E0B;--amber-bg:#FEF3C7;
+  --orange:#EA580C;--orange-bg:#FFEDD5;
+  --bg:#F0F1F8;--surface:#fff;--ink:#1A1D35;--muted:#7B7F9E;--border:#DDE0F0;
+  --topbar-h:54px;--tabbar-h:44px;--radius:10px;
+}
+html{scroll-behavior:smooth}
+body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5}
+
+/* TOPBAR */
+.topbar{position:fixed;top:0;left:0;right:0;z-index:200;height:var(--topbar-h);background:var(--brand);display:flex;align-items:center;justify-content:space-between;padding:0 20px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.tb-left{display:flex;align-items:center;gap:12px}
+.tb-right{display:flex;align-items:center;gap:10px}
+.brand-mark{width:26px;height:26px;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:10px;color:var(--brand);letter-spacing:-.5px}
+.tb-title{color:#fff;font-weight:700;font-size:15px}
+.tb-sub{color:rgba(255,255,255,.5);font-size:11px;margin-left:2px}
+.df-pills{display:flex;gap:3px}
+.df-pill{padding:4px 10px;border-radius:20px;border:1px solid rgba(255,255,255,.25);background:transparent;color:rgba(255,255,255,.7);font-size:12px;font-family:inherit;cursor:pointer;transition:all .12s}
+.df-pill:hover{background:rgba(255,255,255,.12);color:#fff}
+.df-pill.active{background:#fff;color:var(--brand);border-color:#fff;font-weight:600}
+.date-sep{color:rgba(255,255,255,.3);font-size:11px}
+.date-input{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:6px;color:#fff;font-size:11px;padding:3px 6px;font-family:inherit;color-scheme:dark;cursor:pointer;width:104px}
+.tb-meta{color:rgba(255,255,255,.4);font-size:11px}
+
+/* TABBAR */
+.tabbar{position:fixed;top:var(--topbar-h);left:0;right:0;z-index:150;height:var(--tabbar-h);background:#fff;border-bottom:2px solid var(--border);display:flex;align-items:stretch;padding:0 20px;gap:0}
+.tab{display:flex;align-items:center;gap:6px;padding:0 18px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .12s;white-space:nowrap;background:none;border-left:none;border-right:none;border-top:none;font-family:inherit}
+.tab:hover{color:var(--ink)}
+.tab.active{color:var(--brand);border-bottom-color:var(--brand);font-weight:600}
+.badge{background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 5px;min-width:18px;text-align:center;line-height:16px}
+
+/* LAYOUT */
+.page-wrap{margin-top:calc(var(--topbar-h) + var(--tabbar-h));padding:20px}
+.tab-panel{display:none}.tab-panel.active{display:block}
+
+/* CARDS & KPIs */
+.kpi-row{display:grid;gap:12px;margin-bottom:20px}
+.kpi-row.cols-4{grid-template-columns:repeat(4,1fr)}
+.kpi-row.cols-5{grid-template-columns:repeat(5,1fr)}
+.kpi-row.cols-3{grid-template-columns:repeat(3,1fr)}
+.kpi{background:var(--surface);border-radius:var(--radius);padding:16px 18px;border:1px solid var(--border)}
+.kpi-val{font-size:26px;font-weight:700;color:var(--brand);line-height:1.1}
+.kpi-lbl{font-size:12px;color:var(--muted);margin-top:3px}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:4px}
+.kpi.red .kpi-val{color:var(--red)}
+.kpi.green .kpi-val{color:var(--green)}
+.kpi.amber .kpi-val{color:var(--amber)}
+
+.card{background:var(--surface);border-radius:var(--radius);padding:18px;border:1px solid var(--border);margin-bottom:16px}
+.card-title{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:14px}
+.card-row{display:grid;gap:16px;margin-bottom:16px}
+.card-row.two{grid-template-columns:1fr 1fr}
+.card-row.three{grid-template-columns:1fr 1fr 1fr}
+
+/* TABLES */
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{text-align:left;font-weight:600;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:6px 10px;border-bottom:2px solid var(--border)}
+.tbl td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:#fafbff}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.pill-green{display:inline-block;background:var(--green-bg);color:var(--green);border-radius:12px;padding:2px 8px;font-size:11px;font-weight:600}
+.pill-red{display:inline-block;background:var(--red-bg);color:var(--red);border-radius:12px;padding:2px 8px;font-size:11px;font-weight:600}
+.pill-amber{display:inline-block;background:var(--amber-bg);color:var(--amber);border-radius:12px;padding:2px 8px;font-size:11px;font-weight:600}
+.pill-orange{display:inline-block;background:var(--orange-bg);color:var(--orange);border-radius:12px;padding:2px 8px;font-size:11px;font-weight:600}
+
+/* HEATMAP */
+.hm-wrap{overflow-x:auto}
+.hm-table{border-collapse:collapse;font-size:11px}
+.hm-table th{padding:4px 6px;font-weight:600;color:var(--muted);font-size:10px;text-align:center;white-space:nowrap}
+.hm-table td{width:52px;height:40px;text-align:center;border:1px solid rgba(255,255,255,.6);border-radius:4px;font-size:11px;font-weight:600;cursor:default}
+.hm-row-lbl{text-align:right!important;padding-right:10px!important;color:var(--muted)!important;font-weight:500!important;background:transparent!important;border:none!important;width:40px;white-space:nowrap}
+
+/* INSIGHT CARDS */
+.insight-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.insight-card{border-radius:var(--radius);padding:14px 16px;border-left:4px solid}
+.insight-card.peak{background:#EFF6FF;border-color:#3B82F6}
+.insight-card.danger{background:var(--red-bg);border-color:var(--red)}
+.insight-card.best{background:var(--green-bg);border-color:var(--green)}
+.insight-card.info{background:var(--amber-bg);border-color:var(--amber)}
+.ic-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;color:var(--muted)}
+.ic-val{font-size:18px;font-weight:700;color:var(--ink);margin-bottom:2px}
+.ic-desc{font-size:12px;color:var(--muted)}
+
+/* FUNNEL */
+.funnel-wrap{display:flex;align-items:center;gap:0;margin:16px 0}
+.funnel-stage{flex:1;text-align:center}
+.funnel-bar-wrap{background:#F1F5F9;border-radius:6px;height:14px;overflow:hidden;margin:6px 0}
+.funnel-bar{height:100%;border-radius:6px;transition:width .4s}
+.funnel-val{font-size:20px;font-weight:700;color:var(--brand)}
+.funnel-lbl{font-size:11px;color:var(--muted);margin-top:2px}
+.funnel-pct{font-size:12px;font-weight:600;color:var(--green)}
+.funnel-arrow{font-size:18px;color:var(--border);padding:0 6px;flex:0}
+
+/* ACTION SECTIONS */
+.action-section{margin-bottom:20px}
+.section-hdr{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.section-hdr-title{font-size:14px;font-weight:700;color:var(--ink)}
+.section-hdr-count{font-size:12px;color:var(--muted)}
+.action-empty{background:var(--surface);border-radius:var(--radius);padding:24px;text-align:center;color:var(--muted);border:1px solid var(--border);font-size:13px}
+
+/* SHOW MORE */
+.show-more-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:10px;font-family:inherit}
+.show-more-btn:hover{background:var(--bg)}
+
+/* CHART CONTAINERS */
+.chart-wrap{position:relative;height:260px}
+.chart-wrap.tall{height:320px}
+
+/* TOGGLE BUTTONS */
+.tog-btn{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;border:2px solid;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;background:#fff;transition:all .12s;white-space:nowrap}
+.tog-btn.off{opacity:.35;text-decoration:line-through}
+.tog-ck{font-size:11px;font-weight:800;flex-shrink:0;margin-right:2px}
+.tog-btn.off .tog-ck{opacity:.5}
+.day-tog{display:flex;align-items:center;padding:3px 9px;border-radius:6px;border:1.5px solid #CBD5E1;color:#64748B;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;background:#fff;transition:all .12s;white-space:nowrap}
+.day-tog.active{border-color:currentColor;color:#1E22AA;background:#EEF0FB}
+.day-tog.active.is-sun{color:#94A3B8;background:#F1F5F9}
+.day-tog.off{opacity:.35;background:#f3f4f6;text-decoration:line-through}
+
+/* MINI BARS */
+.mini-bar-wrap{display:flex;align-items:center;gap:6px;font-size:12px}
+.mini-bar-track{flex:1;height:6px;background:#EEF0FA;border-radius:3px;overflow:hidden}
+.mini-bar-fill{height:100%;border-radius:3px;background:var(--brand)}
+.mini-bar-fill.green{background:var(--green)}
+.mini-bar-fill.red{background:var(--red)}
+
+/* PHONE DISPLAY */
+.phone{font-family:monospace;font-size:12px;color:var(--muted)}
+
+/* SECTION TITLE */
+.sec-title{font-size:16px;font-weight:700;margin-bottom:4px}
+.sec-desc{font-size:12px;color:var(--muted);margin-bottom:16px}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="tb-left">
+    <div class="brand-mark">mH</div>
+    <span class="tb-title">Inbound Call Centre</span>
+    <span class="tb-sub" id="tb-updated"></span>
+  </div>
+  <div class="tb-right">
+    <div class="df-pills">
+      <button class="df-pill" data-df="1">Today</button>
+      <button class="df-pill" data-df="7">7D</button>
+      <button class="df-pill" data-df="14">14D</button>
+      <button class="df-pill" data-df="30">30D</button>
+      <button class="df-pill active" data-df="all">All</button>
+    </div>
+    <span class="date-sep">|</span>
+    <input class="date-input" type="date" id="df-from">
+    <span class="date-sep">→</span>
+    <input class="date-input" type="date" id="df-to">
+  </div>
+</div>
+
+<!-- TABBAR -->
+<div class="tabbar">
+  <button class="tab active" data-tab="volume">📊 Volume</button>
+  <button class="tab" data-tab="hourly">🕐 Hourly Pattern</button>
+  <button class="tab" data-tab="callbacks">📞 Callbacks</button>
+  <button class="tab" data-tab="leads">🎯 Leads</button>
+  <button class="tab" data-tab="action">⚡ Action</button>
+</div>
+
+<!-- MAIN -->
+<div class="page-wrap">
+
+  <!-- ═══ TAB: VOLUME ═══ -->
+  <div class="tab-panel active" id="tab-volume">
+    <div class="kpi-row cols-5" id="vol-kpis"></div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div class="card-title" style="margin-bottom:0">Daily Call Volume — Answered / Agent Missed / Queue Missed / AOH</div>
+        <div id="bar-toggles" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+      <div class="chart-wrap tall"><canvas id="daily-chart"></canvas></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div class="card-title" style="margin-bottom:0">Daily Averages — Day by Day Trend</div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+        <div id="avg-toggles" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        <div id="day-toggles" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+      </div>
+      </div>
+      <div class="chart-wrap tall"><canvas id="daily-avg-chart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: HOURLY ═══ -->
+  <div class="tab-panel" id="tab-hourly">
+    <div class="insight-row" id="hourly-insights"></div>
+    <div class="card">
+      <div class="card-title">Answer Rate Heatmap — by Day & Hour</div>
+      <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:12px">Green = high answer rate · Red = low · Grey = no calls · Numbers show answer rate %</div>
+      <div class="hm-wrap" id="hm-container"></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div class="card-title" style="margin-bottom:0">Average Volume by Hour — Answered / Agent Missed / Queue Missed / AOH</div>
+        <div id="hourly-bar-toggles" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+      <div class="chart-wrap tall"><canvas id="hourly-chart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: CALLBACKS ═══ -->
+  <div class="tab-panel" id="tab-callbacks">
+    <div class="kpi-row cols-5" id="cb-kpis"></div>
+    <div id="miss-type-breakdown"></div>
+    <div class="card">
+      <div class="card-title">Reconnect Funnel</div>
+      <div id="funnel-wrap"></div>
+      <div id="attempt-funnel" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px"></div>
+      <div id="reconnect-funnel" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px"></div>
+    </div>
+    <div class="card-row two">
+      <div class="card">
+        <div class="card-title">Time to First Callback</div>
+        <div class="chart-wrap"><canvas id="ttc-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Connect Rate by Attempt Number</div>
+        <div class="chart-wrap"><canvas id="attempt-chart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: LEADS ═══ -->
+  <div class="tab-panel" id="tab-leads">
+    <div class="kpi-row cols-5" id="leads-kpis"></div>
+    <div class="card-row two">
+      <div class="card">
+        <div class="card-title">Leads by Product</div>
+        <div class="chart-wrap"><canvas id="leads-product-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">New vs Existing by Product</div>
+        <div class="chart-wrap"><canvas id="leads-type-chart"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Daily Averages — Day by Day Trend</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px" id="leads-day-toggles"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="leads-trend-toggles"></div>
+      <div class="chart-wrap tall"><canvas id="leads-trend-chart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: ACTION ═══ -->
+  <div class="tab-panel" id="tab-action">
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div class="card-title" style="margin-bottom:0">🟢 Active Agents — 7-min Slots</div>
+        <input type="date" id="agent-activity-date" style="margin-left:auto;font-size:13px;padding:4px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);cursor:pointer">
+      </div>
+      <div class="chart-wrap" style="height:200px"><canvas id="agent-activity-chart"></canvas></div>
+    </div>
+    <div class="insight-row" id="action-insights" style="grid-template-columns:repeat(4,1fr)"></div>
+    <div class="kpi-row cols-3" id="action-counts" style="margin-bottom:16px"></div>
+  </div>
+
+</div><!-- /page-wrap -->
+
+<script>
+// ── Helpers ──────────────────────────────────────────────────────────────────
+const fmtN = n => n == null ? '—' : n.toLocaleString('en-IN');
+const pct  = (a, b) => b ? Math.round(a / b * 100) : 0;
+const fmtS = s => {
+  if (!s) return '0s';
+  if (s < 60) return s + 's';
+  return Math.floor(s/60) + 'm ' + (s%60) + 's';
+};
+const maskPhone = cn => {
+  if (!cn || cn.length < 5) return cn;
+  const d = cn.replace('+91','').replace(/\D/g,'');
+  if (d.length === 10) return `+91-XXXXX-X${d.slice(6)}`;
+  return cn.slice(0,-4).replace(/\d/g,'X') + cn.slice(-4);
+};
+const toMin = (d, ti) => {
+  try {
+    const [y,mo,day] = d.split('-').map(Number);
+    const [h,m,s] = ti.split(':').map(Number);
+    return (y*525600 + mo*44640 + day*1440 + h*60 + m);
+  } catch { return 0; }
+};
+const fmtTime = ti => {
+  if (!ti) return '';
+  const [h,m] = ti.split(':');
+  const hr = parseInt(h);
+  return (hr%12||12) + ':' + m + (hr<12?'am':'pm');
+};
+
+// ── Charts registry ───────────────────────────────────────────────────────────
+const CHARTS = {};
+let HIDDEN_DOW = new Set();
+let _avgM = null, _avgAllDays = null, _avgDailyAgMiss = {}, _avgDailyQMiss = {}, _avgDailyAhMiss = {};
+let LEADS_HIDDEN_DOW = new Set();
+let _leadsAnsRecs = null, _leadsAllDays = null;
+
+function makeChart(id, cfg) {
+  if (CHARTS[id]) { CHARTS[id].destroy(); }
+  const el = document.getElementById(id);
+  if (!el) return;
+  CHARTS[id] = new Chart(el, cfg);
+  return CHARTS[id];
+}
+
+// ── Date filter ───────────────────────────────────────────────────────────────
+let FILTER_FROM = null, FILTER_TO = null;
+const ALL = typeof INBOUND_RECORDS !== 'undefined' ? INBOUND_RECORDS : [];
+
+// Find date range
+const allDates = ALL.filter(r => r.d).map(r => r.d).sort();
+const DATA_MIN = allDates[0] || '';
+const DATA_MAX = allDates[allDates.length - 1] || '';
+
+document.getElementById('tb-updated').textContent = DATA_MAX ? `· Last updated: ${DATA_MAX}` : '';
+
+function setDateFilter(from, to) {
+  FILTER_FROM = from; FILTER_TO = to;
+  document.getElementById('df-from').value = from || '';
+  document.getElementById('df-to').value = to || '';
+  renderAll();
+}
+
+function filtered() {
+  if (!FILTER_FROM && !FILTER_TO) return ALL;
+  return ALL.filter(r => {
+    if (FILTER_FROM && r.d < FILTER_FROM) return false;
+    if (FILTER_TO   && r.d > FILTER_TO)   return false;
+    return true;
+  });
+}
+
+// Date pills
+document.querySelectorAll('.df-pill').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.df-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const df = btn.dataset.df;
+    if (df === 'all') { setDateFilter(null, null); return; }
+    const days = parseInt(df);
+    const to = DATA_MAX;
+    const d = new Date(to);
+    d.setDate(d.getDate() - days + 1);
+    const from = d.toISOString().slice(0,10);
+    setDateFilter(from, to);
+  });
+});
+document.getElementById('df-from').addEventListener('change', e => {
+  document.querySelectorAll('.df-pill').forEach(b => b.classList.remove('active'));
+  setDateFilter(e.target.value, FILTER_TO);
+});
+document.getElementById('df-to').addEventListener('change', e => {
+  document.querySelectorAll('.df-pill').forEach(b => b.classList.remove('active'));
+  setDateFilter(FILTER_FROM, e.target.value);
+});
+
+// Tabs
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('tab-' + t.dataset.tab).classList.add('active');
+  });
+});
+
+// ── Core computations ─────────────────────────────────────────────────────────
+function compute(recs) {
+  const ib    = recs.filter(r => r.dr === 'inbound');
+  const cb    = recs.filter(r => r.dr === 'callback');
+  const ansIB = ib.filter(r => r.st === 'answered');
+  const missIB= ib.filter(r => r.st !== 'answered');
+  const ansCB = cb.filter(r => r.st === 'answered');
+
+  // Agents
+  const agents = {};
+  ansIB.forEach(r => {
+    if (!r.ag) return;
+    if (!agents[r.ag]) agents[r.ag] = { ans: 0, dur: 0 };
+    agents[r.ag].ans++;
+    agents[r.ag].dur += (r.as || 0);
+  });
+  missIB.forEach(r => {
+    if (!r.ag) return;
+    if (!agents[r.ag]) agents[r.ag] = { ans: 0, dur: 0 };
+  });
+
+  // Daily volumes
+  const daily = {};
+  ib.forEach(r => {
+    if (!daily[r.d]) daily[r.d] = { ans: 0, miss: 0 };
+    r.st === 'answered' ? daily[r.d].ans++ : daily[r.d].miss++;
+  });
+
+  // Hourly: by hour and day (all 7 days, 9am–11pm)
+  const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const HOURS = Array.from({length:15}, (_,i) => i+9); // 9..23
+  const hmData = {};
+  DAYS.forEach(d => { hmData[d] = {}; HOURS.forEach(h => { hmData[d][h] = {ans:0,total:0}; }); });
+  ib.forEach(r => {
+    const d = r.w; const h = r.h;
+    if (DAYS.includes(d) && h >= 9 && h <= 23) {
+      if (!hmData[d]) return;
+      if (!hmData[d][h]) hmData[d][h] = {ans:0,total:0};
+      hmData[d][h].total++;
+      if (r.st === 'answered') hmData[d][h].ans++;
+    }
+  });
+
+  // Hourly totals
+  const hourlyAns    = Array(24).fill(0);
+  const hourlyMiss   = Array(24).fill(0);
+  const hourlyAgMiss = Array(24).fill(0);
+  const hourlyQMiss  = Array(24).fill(0);
+  const hourlyAhMiss = Array(24).fill(0);
+  const hourlyTotal  = Array(24).fill(0);
+  const cbHourAns    = Array(24).fill(0);
+  const cbHourTotal  = Array(24).fill(0);
+  ib.forEach(r => {
+    hourlyTotal[r.h]++;
+    if (r.st === 'answered') {
+      hourlyAns[r.h]++;
+    } else {
+      hourlyMiss[r.h]++;
+      if (r.mt === 'Agent Missed')                   hourlyAgMiss[r.h]++;
+      else if (r.mt === 'Queue Missed - Within Hours') hourlyQMiss[r.h]++;
+      else if (r.mt === 'Queue Missed - After Hours')  hourlyAhMiss[r.h]++;
+    }
+  });
+  cb.forEach(r => {
+    cbHourTotal[r.h]++;
+    if (r.st === 'answered') cbHourAns[r.h]++;
+  });
+
+  // Callback matching
+  const missedByNum = {};
+  missIB.forEach(r => {
+    if (!r.cn) return;
+    if (!missedByNum[r.cn]) missedByNum[r.cn] = [];
+    missedByNum[r.cn].push(r);
+  });
+  const cbByNum = {};
+  cb.forEach(r => {
+    if (!r.cn) return;
+    if (!cbByNum[r.cn]) cbByNum[r.cn] = [];
+    cbByNum[r.cn].push(r);
+  });
+  // Sort callbacks by time
+  Object.values(cbByNum).forEach(arr => arr.sort((a,b) => toMin(a.d,a.ti) - toMin(b.d,b.ti)));
+  Object.values(missedByNum).forEach(arr => arr.sort((a,b) => toMin(a.d,a.ti) - toMin(b.d,b.ti)));
+
+  const uniqueMissed = Object.keys(missedByNum).length;
+  let reconnected = 0, connected = 0;
+  const ttcBuckets = {'<1hr':0,'1-4hr':0,'4-24hr':0,'1-2d':0,'2d+':0,'never':0};
+  const attemptConn = {}; // attempt index -> {conn, total}
+  const reContactConn = {}; // re-calls after first connection -> {conn, total}
+  const connFreq = {}; // how many clients connected 1x, 2x, 3x...
+  const unreachable = []; // 3+ attempts never connected
+
+  Object.entries(missedByNum).forEach(([cn, misses]) => {
+    const cbs = cbByNum[cn] || [];
+    if (!cbs.length) { ttcBuckets['never']++; return; }
+    reconnected++;
+    const isConn = cbs.some(c => c.st === 'answered' && c.ct !== 'Voice Mail');
+    if (isConn) connected++;
+
+    // TTC
+    const firstMiss = misses[0];
+    const firstCb   = cbs[0];
+    const deltaHr = (toMin(firstCb.d, firstCb.ti) - toMin(firstMiss.d, firstMiss.ti)) / 60;
+    if (deltaHr < 1)       ttcBuckets['<1hr']++;
+    else if (deltaHr < 4)  ttcBuckets['1-4hr']++;
+    else if (deltaHr < 24) ttcBuckets['4-24hr']++;
+    else if (deltaHr < 48) ttcBuckets['1-2d']++;
+    else                   ttcBuckets['2d+']++;
+
+    // Attempt analysis — stop at first connection so caller doesn't bleed into next buckets
+    const connIdx = cbs.findIndex(c => c.st === 'answered' && c.ct !== 'Voice Mail');
+    const maxAttempt = connIdx >= 0 ? connIdx + 1 : cbs.length; // stop after connecting
+    for (let i = 0; i < Math.min(maxAttempt, 4); i++) {
+      const key = i + 1;
+      if (!attemptConn[key]) attemptConn[key] = {conn:0, total:0};
+      attemptConn[key].total++;
+      if (connIdx === i) attemptConn[key].conn++;
+    }
+    if (maxAttempt >= 5) {
+      if (!attemptConn['5+']) attemptConn['5+'] = {conn:0, total:0};
+      attemptConn['5+'].total++;
+      if (connIdx >= 4) attemptConn['5+'].conn++;
+    }
+
+    // Re-contact after connection — callers called again after first pick-up
+    if (connIdx >= 0 && cbs.length > connIdx + 1) {
+      const afterCbs = cbs.slice(connIdx + 1);
+      const reConnIdx = afterCbs.findIndex(c => c.st === 'answered' && c.ct !== 'Voice Mail');
+      const reMax = reConnIdx >= 0 ? reConnIdx + 1 : afterCbs.length;
+      for (let i = 0; i < Math.min(reMax, 4); i++) {
+        const key = i + 1;
+        if (!reContactConn[key]) reContactConn[key] = {conn:0, total:0};
+        reContactConn[key].total++;
+        if (reConnIdx === i) reContactConn[key].conn++;
+      }
+      if (reMax >= 5) {
+        if (!reContactConn['5+']) reContactConn['5+'] = {conn:0, total:0};
+        reContactConn['5+'].total++;
+        if (reConnIdx >= 4) reContactConn['5+'].conn++;
+      }
+    }
+
+    // Connection frequency — how many times did this caller connect?
+    const totalConns = cbs.filter(c => c.st === 'answered' && c.ct !== 'Voice Mail').length;
+    if (totalConns > 0) {
+      const fkey = totalConns >= 5 ? '5+' : String(totalConns);
+      connFreq[fkey] = (connFreq[fkey] || 0) + 1;
+    }
+
+    // Unreachable: 3+ attempts, never connected
+    if (!isConn && cbs.length >= 3) {
+      const lastCb = cbs[cbs.length-1];
+      unreachable.push({ cn, missTime: firstMiss.d + ' ' + fmtTime(firstMiss.ti), attempts: cbs.length, lastAttempt: lastCb.d + ' ' + fmtTime(lastCb.ti) });
+    }
+  });
+
+  // Action: missed on latest date with no callback
+  const latestDate = DATA_MAX;
+  const todayMissed = missIB.filter(r => r.d === latestDate);
+  const todayMissNoCb = todayMissed.filter(r => !cbByNum[r.cn]);
+
+  // Attempted not reached
+  const attemptedNotReached = Object.entries(missedByNum)
+    .filter(([cn]) => cbByNum[cn] && !cbByNum[cn].some(c => c.st === 'answered'))
+    .map(([cn, misses]) => {
+      const cbs = cbByNum[cn];
+      const lastCb = cbs[cbs.length-1];
+      return { cn, missTime: misses[0].d + ' ' + fmtTime(misses[0].ti), attempts: cbs.length, lastAttempt: lastCb.d + ' ' + fmtTime(lastCb.ti), missRow: misses[0] };
+    })
+    .sort((a,b) => b.attempts - a.attempts);
+
+  // Never called back
+  const neverCalledBack = Object.entries(missedByNum)
+    .filter(([cn]) => !cbByNum[cn])
+    .map(([cn, misses]) => ({ cn, missTime: misses[0].d + ' ' + fmtTime(misses[0].ti), missRow: misses[0] }))
+    .sort((a,b) => a.missTime < b.missTime ? 1 : -1);
+
+  // Insights
+  const peakHr = HOURS.reduce((best, h) => hourlyTotal[h] > hourlyTotal[best] ? h : best, HOURS[0]);
+  const lowestArHr = HOURS.filter(h => hourlyTotal[h] >= 5).reduce((worst, h) => {
+    return pct(hourlyAns[h], hourlyTotal[h]) < pct(hourlyAns[worst], hourlyTotal[worst]) ? h : worst;
+  }, HOURS[0]);
+  const bestCbHr = HOURS.filter(h => cbHourTotal[h] >= 5).reduce((best, h) => {
+    return pct(cbHourAns[h], cbHourTotal[h]) > pct(cbHourAns[best], cbHourTotal[best]) ? h : best;
+  }, HOURS[0]);
+
+  // Miss type counts
+  const missTypeCount = { agentMissed: 0, queueMissed: 0, aohMissed: 0 };
+  missIB.forEach(r => {
+    if (r.mt === 'Agent Missed') missTypeCount.agentMissed++;
+    else if (r.mt === 'Queue Missed - Within Hours') missTypeCount.queueMissed++;
+    else if (r.mt === 'Queue Missed - After Hours') missTypeCount.aohMissed++;
+  });
+
+  const numDays = Math.max(Object.keys(daily).length, 1);
+  const fmtHr = h => (h%12||12) + (h<12?'am':'pm');
+  const avgDaily = ib.length / numDays;
+
+  return {
+    ib, cb, ansIB, missIB, ansCB, agents, daily, hmData, DAYS, HOURS,
+    hourlyAns, hourlyMiss, hourlyAgMiss, hourlyQMiss, hourlyAhMiss, hourlyTotal, cbHourAns, cbHourTotal,
+    uniqueMissed, reconnected, connected, ttcBuckets, attemptConn, reContactConn, connFreq, unreachable,
+    todayMissNoCb, attemptedNotReached, neverCalledBack,
+    peakHr, lowestArHr, bestCbHr, fmtHr, avgDaily, latestDate,
+    numDays, missTypeCount
+  };
+}
+
+// ── Render all ────────────────────────────────────────────────────────────────
+function renderAll() {
+  const recs = filtered();
+  const m = compute(recs);
+  renderVolume(m);
+  renderHourly(m);
+  renderCallbacks(m);
+  renderLeads(recs);
+  renderAction(m);
+}
+
+// ── VOLUME ────────────────────────────────────────────────────────────────────
+function renderVolume(m) {
+  const ib = m.ib.length, ans = m.ansIB.length, miss = m.missIB.length;
+  const agMiss = m.missIB.filter(r => r.mt === 'Agent Missed');
+  const qMiss  = m.missIB.filter(r => r.mt === 'Queue Missed - Within Hours');
+  const ahMiss = m.missIB.filter(r => r.mt === 'Queue Missed - After Hours');
+  const ar = pct(ans, ib);
+
+  document.getElementById('vol-kpis').innerHTML =
+    kpiCard('Total Inbound',  fmtN(ib),           `avg ${fmtN(Math.round(m.avgDaily))}/day`, '') +
+    kpiCard('Answer Rate',    ar+'%',              `${fmtN(ans)} answered`, ar >= 70 ? 'green' : ar >= 55 ? '' : 'red') +
+    kpiCard('Agent Missed',   fmtN(agMiss.length), `${pct(agMiss.length,ib)}% — rung, not picked up`, agMiss.length ? 'red' : 'green') +
+    kpiCard('Queue Missed',   fmtN(qMiss.length),  `${pct(qMiss.length,ib)}% — dropped in queue`, qMiss.length ? 'red' : 'green') +
+    kpiCard('After-Hrs Missed', fmtN(ahMiss.length), `${pct(ahMiss.length,ib)}% of inbound`, '');
+
+  // Daily stacked chart: answered / agent missed / queue missed / after-hours missed
+  const days = Object.keys(m.daily).sort();
+  // compute per-day agent/queue/after-hrs missed
+  const dailyAgMiss = {}, dailyQMiss = {}, dailyAhMiss = {};
+  m.missIB.forEach(r => {
+    if (r.mt === 'Agent Missed')                   dailyAgMiss[r.d] = (dailyAgMiss[r.d]||0)+1;
+    else if (r.mt === 'Queue Missed - Within Hours') dailyQMiss[r.d]  = (dailyQMiss[r.d]||0)+1;
+    else if (r.mt === 'Queue Missed - After Hours')  dailyAhMiss[r.d] = (dailyAhMiss[r.d]||0)+1;
+  });
+  // DOW labels for bar chart x-axis
+  const DOW_ARR = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const dayLabels = days.map(d => {
+    const dt = new Date(d + 'T00:00:00');
+    return [DOW_ARR[dt.getDay()], d.slice(5).replace('-','/')];
+  });
+  const totals    = days.map(d => (m.daily[d].ans||0)+(dailyAgMiss[d]||0)+(dailyQMiss[d]||0)+(dailyAhMiss[d]||0));
+
+  // ── Bar chart — stacked + total label + toggle buttons ────────────────────
+  const avgOf = arr => Math.round(arr.reduce((s,v)=>s+v,0)/(arr.length||1));
+
+  const ansPerDay = days.map(d => m.daily[d].ans || 0);
+  const BAR_DS = [
+    // Green — show answer rate % inside segment
+    { label:'Answered', data:ansPerDay, color:'#16A34A',
+      datalabels:{
+        display:(ctx) => ansPerDay[ctx.dataIndex] >= 20,
+        anchor:'center', align:'center',
+        color:'#fff', font:{size:9,weight:'700'},
+        formatter:(v,ctx) => Math.round(v/totals[ctx.dataIndex]*100)+'%',
+      }
+    },
+    // Red — no label
+    { label:'Agent Missed', data:days.map(d=>dailyAgMiss[d]||0), color:'#EF4444', datalabels:{display:false} },
+    // Orange — show queue missed % inside segment
+    { label:'Queue Missed', data:days.map(d=>dailyQMiss[d]||0), color:'#F59E0B',
+      datalabels:{
+        display:(ctx) => (dailyQMiss[days[ctx.dataIndex]]||0) >= 20,
+        anchor:'center', align:'center',
+        color:'#fff', font:{size:9,weight:'700'},
+        formatter:(v,ctx) => Math.round(v/totals[ctx.dataIndex]*100)+'%',
+      }
+    },
+    // Grey (top) — % inside segment + total count above bar
+    { label:'AOH Missed', data:days.map(d=>dailyAhMiss[d]||0), color:'#94A3B8',
+      datalabels:{
+        display:true,
+        anchor:'center', align:'center',
+        color:'#374151', font:{size:9,weight:'700'},
+        formatter:(v,ctx) => {
+          const i = ctx.dataIndex;
+          const tot = totals[i];
+          if (!tot || v < 5) return null;
+          return Math.round(v/tot*100)+'%';
+        },
+      }
+    },
+    // Invisible dataset to carry the total count label above each bar
+    { label:'_total', data:totals.map(()=>0), color:'rgba(0,0,0,0)',
+      datalabels:{
+        display:true, anchor:'end', align:'end',
+        color:'#374151', font:{size:9,weight:'700'},
+        formatter:(_v,ctx) => totals[ctx.dataIndex] || null,
+      }
+    },
+  ];
+
+  const barChart = makeChart('daily-chart', {
+    type: 'bar',
+    data: {
+      labels: dayLabels,
+      datasets: BAR_DS.map(({label,data,color,datalabels}) => ({
+        label, data, backgroundColor:color, stack:'s', datalabels
+      }))
+    },
+    plugins:[ChartDataLabels],
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      layout:{ padding:{ top:32 } },
+      plugins:{
+        legend:{display:false},
+        datalabels:{display:false},
+        tooltip:{callbacks:{title:items=>items[0].label.join(' ')}},
+      },
+      scales:{
+        x:{ stacked:true, ticks:{font:{size:9}, maxTicksLimit:30,
+          color:(ctx)=>{ const d=days[ctx.index]; const dt=new Date(d+'T00:00:00'); return dt.getDay()===0?'#aaa':'#374151'; }
+        }},
+        y:{stacked:true, beginAtZero:true, grace:'15%'}
+      }
+    }
+  });
+
+  // Bar chart toggle buttons
+  const barTogWrap = document.getElementById('bar-toggles');
+  if (barTogWrap && barChart) {
+    barTogWrap.innerHTML = '';
+    BAR_DS.forEach(({label,color},i) => {
+      if (label === '_total') return;
+      const btn = document.createElement('button');
+      btn.className = 'tog-btn';
+      btn.style.borderColor = color; btn.style.color = color;
+      btn.innerHTML = `<span class="tog-ck">✓</span>${label}`;
+      btn.onclick = () => {
+        const meta = barChart.getDatasetMeta(i);
+        meta.hidden = !meta.hidden;
+        btn.classList.toggle('off', meta.hidden);
+        btn.querySelector('.tog-ck').textContent = meta.hidden ? '✗' : '✓';
+        barChart.update();
+      };
+      barTogWrap.appendChild(btn);
+    });
+  }
+
+  // Build day objects for all days and store for rebuilds
+  const dayObjects = days.map(d => {
+    const dt = new Date(d + 'T00:00:00');
+    return { date:d, dow:DOW_ARR[dt.getDay()], isSunday: dt.getDay()===0 };
+  });
+  _avgM = m;
+  _avgAllDays = dayObjects;
+  _avgDailyAgMiss = dailyAgMiss;
+  _avgDailyQMiss  = dailyQMiss;
+  _avgDailyAhMiss = dailyAhMiss;
+
+  buildAvgChart();
+
+  // Day filter buttons
+  const dayTogWrap = document.getElementById('day-toggles');
+  if (dayTogWrap) {
+    dayTogWrap.innerHTML = '';
+    ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(dow => {
+      const btn = document.createElement('button');
+      const isSun = dow === 'Sun';
+      const color = isSun ? '#94A3B8' : '#374151';
+      const hidden = HIDDEN_DOW.has(dow);
+      btn.className = 'tog-btn' + (hidden ? ' off' : '');
+      btn.style.borderColor = color; btn.style.color = color;
+      btn.innerHTML = `<span class="tog-ck">${hidden ? '✗' : '✓'}</span>${dow}`;
+      btn.onclick = () => {
+        if (HIDDEN_DOW.has(dow)) HIDDEN_DOW.delete(dow);
+        else HIDDEN_DOW.add(dow);
+        const isHidden = HIDDEN_DOW.has(dow);
+        btn.classList.toggle('off', isHidden);
+        btn.querySelector('.tog-ck').textContent = isHidden ? '✗' : '✓';
+        buildAvgChart();
+      };
+      dayTogWrap.appendChild(btn);
+    });
+  }
+}
+
+function buildAvgChart() {
+  if (!_avgM || !_avgAllDays) return;
+  const m = _avgM;
+  const dailyAgMiss = _avgDailyAgMiss;
+  const dailyQMiss  = _avgDailyQMiss;
+  const dailyAhMiss = _avgDailyAhMiss;
+
+  const visDays = _avgAllDays.filter(o => !HIDDEN_DOW.has(o.dow));
+  if (!visDays.length) return;
+
+  const avgOf = arr => Math.round(arr.reduce((s,v)=>s+v,0)/(arr.length||1));
+  const totalData = visDays.map(o => (m.daily[o.date]?.ans||0)+(dailyAgMiss[o.date]||0)+(dailyQMiss[o.date]||0)+(dailyAhMiss[o.date]||0));
+  const ansData   = visDays.map(o => m.daily[o.date]?.ans||0);
+  const qData     = visDays.map(o => dailyQMiss[o.date]||0);
+  const aohData   = visDays.map(o => dailyAhMiss[o.date]||0);
+
+  const avgTotal = avgOf(totalData), avgAns = avgOf(ansData),
+        avgQ     = avgOf(qData),     avgAoh  = avgOf(aohData);
+
+  const avgChartLabels = visDays.map(o => [o.dow, o.date.slice(5).replace('-','/')]);
+
+  const METRICS = [
+    { label:'Total Calls',  data:totalData, color:'#1E22AA', avg:avgTotal },
+    { label:'Answered',     data:ansData,   color:'#16A34A', avg:avgAns   },
+    { label:'Queue Missed', data:qData,     color:'#D97706', avg:avgQ     },
+    { label:'AOH Missed',   data:aohData,   color:'#64748B', avg:avgAoh   },
+  ];
+
+  const lineDs = ({label,data,color}) => ({
+    label, data, borderColor:color, backgroundColor:color+'18',
+    borderWidth:2.5, pointRadius:2.5, pointHoverRadius:6,
+    fill:false, tension:0.3, datalabels:{display:false},
+  });
+  const avgDs = ({label,color,avg}) => ({
+    label:`Avg ${label}: ${avg}`,
+    data:visDays.map(()=>avg),
+    borderColor:color, borderWidth:1.5, borderDash:[5,4],
+    pointRadius:0, fill:false, tension:0,
+    datalabels:{
+      display:(ctx)=>ctx.dataIndex===visDays.length-1,
+      anchor:'center', align:'right', offset:6,
+      color:color, font:{size:9,weight:'700'},
+      formatter:v=>`${v}`,
+    },
+  });
+
+  const sundayPlugin = {
+    id:'sundayBands',
+    beforeDraw(chart){
+      const {ctx, chartArea:{left,right,top,bottom}, scales:{x}} = chart;
+      if(!x) return;
+      visDays.forEach((o,i)=>{
+        if(!o.isSunday) return;
+        const tick = x.getPixelForValue(i);
+        const half = (x.getPixelForValue(1)-x.getPixelForValue(0))/2;
+        ctx.save();
+        ctx.fillStyle='rgba(0,0,0,.04)';
+        ctx.fillRect(tick-half, top, half*2, bottom-top);
+        ctx.restore();
+      });
+    }
+  };
+
+  const avgChart = makeChart('daily-avg-chart', {
+    type:'line',
+    data:{
+      labels: avgChartLabels,
+      datasets:[...METRICS.map(lineDs), ...METRICS.map(avgDs)]
+    },
+    plugins:[ChartDataLabels, sundayPlugin],
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      layout:{padding:{right:80}},
+      plugins:{
+        legend:{display:false},
+        datalabels:{display:false},
+        tooltip:{callbacks:{title:items=>items[0].label.join(' ')}},
+      },
+      scales:{
+        x:{
+          ticks:{
+            font:(ctx)=>({ size:9, weight: ctx.tick && visDays[ctx.index]?.isSunday ? '400' : '600' }),
+            color:(ctx)=>visDays[ctx.index]?.isSunday ? '#aaa' : '#374151',
+            maxRotation:0, maxTicksLimit:40,
+          }
+        },
+        y:{beginAtZero:true}
+      }
+    }
+  });
+
+  // Metric toggle buttons — rebuilt each time so they reference the fresh chart
+  const togWrap = document.getElementById('avg-toggles');
+  if (togWrap && avgChart) {
+    togWrap.innerHTML = '';
+    METRICS.forEach(({label,color},i)=>{
+      const btn = document.createElement('button');
+      btn.className = 'tog-btn';
+      btn.style.borderColor = color; btn.style.color = color;
+      btn.innerHTML = `<span class="tog-ck">✓</span>${label}`;
+      btn.onclick = () => {
+        const meta = avgChart.getDatasetMeta(i);
+        meta.hidden = !meta.hidden;
+        const avgMeta = avgChart.getDatasetMeta(i + METRICS.length);
+        avgMeta.hidden = meta.hidden;
+        btn.classList.toggle('off', meta.hidden);
+        btn.querySelector('.tog-ck').textContent = meta.hidden ? '✗' : '✓';
+        avgChart.update();
+      };
+      togWrap.appendChild(btn);
+    });
+  }
+}
+
+function buildLeadsTrendChart() {
+  if (!_leadsAnsRecs || !_leadsAllDays) return;
+  const PRODUCTS = ['AM','VO','OD'];
+  const PROD_COLORS = { AM:'#1E22AA', VO:'#16A34A', OD:'#F59E0B' };
+
+  const visDays = _leadsAllDays.filter(o => !LEADS_HIDDEN_DOW.has(o.dow));
+  if (!visDays.length) return;
+
+  // Count disposed leads per visible day per product
+  const dailyProd = {};
+  visDays.forEach(o => { dailyProd[o.date] = { AM:0, VO:0, OD:0 }; });
+  _leadsAnsRecs.forEach(r => {
+    if (r.pr && dailyProd[r.d]) dailyProd[r.d][r.pr] = (dailyProd[r.d][r.pr]||0)+1;
+  });
+
+  const avgOf = arr => Math.round(arr.reduce((s,v)=>s+v,0)/(arr.length||1));
+  const trendLabels = visDays.map(o => [o.dow, o.date.slice(5).replace('-','/')]);
+
+  const lineDs = p => ({
+    label:p, data:visDays.map(o=>dailyProd[o.date][p]||0),
+    borderColor:PROD_COLORS[p], backgroundColor:PROD_COLORS[p]+'30',
+    borderWidth:2.5, pointRadius:2.5, pointHoverRadius:6,
+    fill:false, tension:0.3, datalabels:{display:false},
+  });
+  const avgDs = p => {
+    const data = visDays.map(o=>dailyProd[o.date][p]||0);
+    const avg = avgOf(data);
+    return {
+      label:`Avg ${p}: ${avg}`,
+      data:visDays.map(()=>avg),
+      borderColor:PROD_COLORS[p], borderWidth:1.5, borderDash:[5,4],
+      pointRadius:0, fill:false, tension:0,
+      datalabels:{
+        display:(ctx)=>ctx.dataIndex===visDays.length-1,
+        anchor:'center', align:'right', offset:6,
+        color:PROD_COLORS[p], font:{size:9,weight:'700'},
+        formatter:v=>`${v}`,
+      },
+    };
+  };
+
+  const sundayPlugin = {
+    id:'leadsSunBands',
+    beforeDraw(chart){
+      const {ctx, chartArea:{left,right,top,bottom}, scales:{x}} = chart;
+      if(!x || visDays.length<2) return;
+      visDays.forEach((o,i)=>{
+        if(!o.isSunday) return;
+        const tick = x.getPixelForValue(i);
+        const half = (x.getPixelForValue(1)-x.getPixelForValue(0))/2;
+        ctx.save(); ctx.fillStyle='rgba(0,0,0,.04)';
+        ctx.fillRect(tick-half,top,half*2,bottom-top); ctx.restore();
+      });
+    }
+  };
+
+  const trendChart = makeChart('leads-trend-chart', {
+    type:'line',
+    data:{ labels:trendLabels, datasets:[...PRODUCTS.map(lineDs), ...PRODUCTS.map(avgDs)] },
+    plugins:[ChartDataLabels, sundayPlugin],
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      layout:{padding:{right:80}},
+      plugins:{
+        legend:{display:false},
+        datalabels:{display:false},
+        tooltip:{callbacks:{title:items=>items[0].label.join(' ')}}
+      },
+      scales:{
+        x:{ ticks:{font:{size:9},maxRotation:0,maxTicksLimit:40} },
+        y:{beginAtZero:true}
+      }
+    }
+  });
+
+  // Product toggle buttons — rebuild each time to reference fresh chart
+  const tTogWrap = document.getElementById('leads-trend-toggles');
+  if (tTogWrap && trendChart) {
+    tTogWrap.innerHTML = '';
+    PRODUCTS.forEach((p,i) => {
+      const btn = document.createElement('button');
+      btn.className = 'tog-btn';
+      btn.style.borderColor = PROD_COLORS[p]; btn.style.color = PROD_COLORS[p];
+      btn.innerHTML = `<span class="tog-ck">✓</span>${p}`;
+      btn.onclick = () => {
+        const meta = trendChart.getDatasetMeta(i);
+        meta.hidden = !meta.hidden;
+        const avgMeta = trendChart.getDatasetMeta(i + PRODUCTS.length);
+        avgMeta.hidden = meta.hidden;
+        btn.classList.toggle('off', meta.hidden);
+        btn.querySelector('.tog-ck').textContent = meta.hidden ? '✗' : '✓';
+        trendChart.update();
+      };
+      tTogWrap.appendChild(btn);
+    });
+  }
+}
+
+function kpiCard(lbl, val, sub, cls) {
+  return `<div class="kpi ${cls}"><div class="kpi-val">${val}</div><div class="kpi-lbl">${lbl}</div>${sub?`<div class="kpi-sub">${sub}</div>`:''}</div>`;
+}
+
+// ── HOURLY ────────────────────────────────────────────────────────────────────
+function renderHourly(m) {
+  const { peakHr, lowestArHr, bestCbHr, fmtHr, HOURS, hourlyAns, hourlyMiss, hourlyAgMiss, hourlyQMiss, hourlyAhMiss, hourlyTotal, cbHourAns, cbHourTotal } = m;
+
+  const peakVol = Math.round((hourlyAns[peakHr] + hourlyMiss[peakHr]));
+  const dangerAr = pct(hourlyAns[lowestArHr], hourlyTotal[lowestArHr]);
+  const bestCbAr = pct(cbHourAns[bestCbHr], cbHourTotal[bestCbHr]);
+  const within1hrPct = m.ttcBuckets['<1hr'] ? Math.round(m.ttcBuckets['<1hr'] / Math.max(m.reconnected,1) * 100) : 0;
+
+  document.getElementById('hourly-insights').innerHTML = `
+    <div class="insight-card peak"><div class="ic-title">📈 Peak Volume Hour</div><div class="ic-val">${fmtHr(peakHr)}</div><div class="ic-desc">${fmtN(peakVol)} total calls — highest inbound hour</div></div>
+    <div class="insight-card danger"><div class="ic-title">⚠️ Danger Zone</div><div class="ic-val">${fmtHr(lowestArHr)} — ${dangerAr}% AR</div><div class="ic-desc">Lowest answer rate — needs more agent coverage</div></div>
+    <div class="insight-card best"><div class="ic-title">📞 Best Callback Window</div><div class="ic-val">${fmtHr(bestCbHr)} — ${bestCbAr}% connect</div><div class="ic-desc">Highest callback answer rate — prioritize this slot</div></div>`;
+
+  // Heatmap
+  const hm = m.hmData;
+  const maxTotal = Math.max(...m.DAYS.flatMap(d => m.HOURS.map(h => hm[d]?.[h]?.total || 0)));
+  function cellColor(ans, total) {
+    if (!total) return '#F1F5F9';
+    const r = ans / total;
+    if (r >= 0.80) return '#BBF7D0';
+    if (r >= 0.65) return '#86EFAC';
+    if (r >= 0.50) return '#FDE68A';
+    if (r >= 0.35) return '#FCA5A5';
+    return '#F87171';
+  }
+  let hmHtml = `<table class="hm-table"><thead><tr><th></th>${m.HOURS.map(h => `<th>${fmtHr(h)}</th>`).join('')}</tr></thead><tbody>`;
+  m.DAYS.forEach(d => {
+    hmHtml += `<tr><td class="hm-row-lbl">${d}</td>`;
+    m.HOURS.forEach(h => {
+      const cell = hm[d]?.[h] || {ans:0,total:0};
+      const bg = cellColor(cell.ans, cell.total);
+      const txt = cell.total ? pct(cell.ans, cell.total)+'%' : '';
+      hmHtml += `<td style="background:${bg}" title="${d} ${fmtHr(h)}: ${cell.ans}/${cell.total} answered">${txt}</td>`;
+    });
+    hmHtml += '</tr>';
+  });
+  hmHtml += '</tbody></table>';
+  document.getElementById('hm-container').innerHTML = hmHtml;
+
+  // Hourly avg chart — same style as Daily Call Volume
+  const numDays = m.numDays || 1;
+  const rnd = v => Math.round(v / numDays * 10) / 10;
+  const hrLabels = HOURS.map(fmtHr);
+
+  const hrAnsD   = HOURS.map(h => rnd(hourlyAns[h]));
+  const hrAgD    = HOURS.map(h => rnd(hourlyAgMiss[h]));
+  const hrQD     = HOURS.map(h => rnd(hourlyQMiss[h]));
+  const hrAhD    = HOURS.map(h => rnd(hourlyAhMiss[h]));
+  const hrTotals = HOURS.map(h => rnd(hourlyAns[h] + hourlyMiss[h]));
+
+  const HOUR_DS = [
+    { label:'Answered', data:hrAnsD, color:'#16A34A',
+      datalabels:{
+        display:(ctx) => hrAnsD[ctx.dataIndex] >= 2,
+        anchor:'center', align:'center',
+        color:'#fff', font:{size:9,weight:'700'},
+        formatter:(v,ctx) => hrTotals[ctx.dataIndex] ? Math.round(v/hrTotals[ctx.dataIndex]*100)+'%' : null,
+      }
+    },
+    { label:'Agent Missed', data:hrAgD, color:'#EF4444', datalabels:{display:false} },
+    { label:'Queue Missed', data:hrQD, color:'#F59E0B',
+      datalabels:{
+        display:(ctx) => hrQD[ctx.dataIndex] >= 2,
+        anchor:'center', align:'center',
+        color:'#fff', font:{size:9,weight:'700'},
+        formatter:(v,ctx) => hrTotals[ctx.dataIndex] ? Math.round(v/hrTotals[ctx.dataIndex]*100)+'%' : null,
+      }
+    },
+    { label:'AOH Missed', data:hrAhD, color:'#94A3B8',
+      datalabels:{
+        display:(ctx) => hrAhD[ctx.dataIndex] >= 2,
+        anchor:'center', align:'center',
+        color:'#374151', font:{size:9,weight:'700'},
+        formatter:(v,ctx) => hrTotals[ctx.dataIndex] ? Math.round(v/hrTotals[ctx.dataIndex]*100)+'%' : null,
+      }
+    },
+    { label:'_total', data:hrTotals.map(()=>0), color:'rgba(0,0,0,0)',
+      datalabels:{
+        display:true, anchor:'end', align:'end',
+        color:'#374151', font:{size:9,weight:'700'},
+        formatter:(_v,ctx) => hrTotals[ctx.dataIndex] || null,
+      }
+    },
+  ];
+
+  const hourlyChart = makeChart('hourly-chart', {
+    type: 'bar',
+    data: {
+      labels: hrLabels,
+      datasets: HOUR_DS.map(({label,data,color,datalabels}) => ({
+        label, data, backgroundColor:color, stack:'s', datalabels
+      }))
+    },
+    plugins:[ChartDataLabels],
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      layout:{ padding:{ top:28 } },
+      plugins:{
+        legend:{display:false},
+        datalabels:{display:false},
+        tooltip:{callbacks:{label:ctx=>`${ctx.raw} avg/day`}},
+      },
+      scales:{
+        x:{stacked:true, ticks:{font:{size:9}}},
+        y:{stacked:true, beginAtZero:true, grace:'15%'}
+      }
+    }
+  });
+
+  // Toggle buttons
+  const hrTogWrap = document.getElementById('hourly-bar-toggles');
+  if (hrTogWrap && hourlyChart) {
+    hrTogWrap.innerHTML = '';
+    HOUR_DS.forEach(({label,color},i) => {
+      if (label === '_total') return;
+      const btn = document.createElement('button');
+      btn.className = 'tog-btn';
+      btn.style.borderColor = color; btn.style.color = color;
+      btn.innerHTML = `<span class="tog-ck">✓</span>${label}`;
+      btn.onclick = () => {
+        const meta = hourlyChart.getDatasetMeta(i);
+        meta.hidden = !meta.hidden;
+        btn.classList.toggle('off', meta.hidden);
+        btn.querySelector('.tog-ck').textContent = meta.hidden ? '✗' : '✓';
+        hourlyChart.update();
+      };
+      hrTogWrap.appendChild(btn);
+    });
+  }
+}
+
+// ── CALLBACKS ─────────────────────────────────────────────────────────────────
+function renderCallbacks(m) {
+  const { uniqueMissed, reconnected, connected, ttcBuckets, attemptConn, reContactConn, connFreq, unreachable, missTypeCount } = m;
+  const neverAtt = uniqueMissed - reconnected;
+  const reconPct = pct(reconnected, uniqueMissed);
+  const connPct  = pct(connected, uniqueMissed);
+  const _cbMissed = {};
+  const _missSet = new Set(m.missIB.map(r => r.cn));
+  m.cb.forEach(r => { if (_missSet.has(r.cn)) _cbMissed[r.cn] = (_cbMissed[r.cn]||0) + 1; });
+  const _uAtt = Object.keys(_cbMissed).length;
+  const _totCb = Object.values(_cbMissed).reduce((s,v)=>s+v, 0);
+  const avgAtt = _uAtt > 0 ? (_totCb / _uAtt).toFixed(1) : '0';
+
+  document.getElementById('cb-kpis').innerHTML =
+    kpiCard('Unique Missed', fmtN(uniqueMissed), 'distinct callers', '') +
+    kpiCard('Called Back', reconPct+'%', fmtN(reconnected)+' of missed', reconPct >= 70 ? 'green' : 'amber') +
+    kpiCard('Never Attempted', fmtN(neverAtt), pct(neverAtt,uniqueMissed)+'% of missed', neverAtt ? 'red' : 'green') +
+    kpiCard('Avg Attempts', avgAtt, 'callbacks per missed number', '') +
+    kpiCard('Reached', connPct+'%', fmtN(connected)+' actually connected', connected ? 'green' : '');
+
+  // Miss type breakdown
+  const mtc = missTypeCount || {};
+  document.getElementById('miss-type-breakdown').innerHTML = `
+    <div style="display:flex;gap:16px;flex-wrap:wrap;padding:6px 2px 14px;font-size:12px;align-items:center">
+      <span style="font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em">Missed breakdown</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#EF4444"></span><strong style="color:#EF4444">${fmtN(mtc.agentMissed||0)}</strong> <span style="color:var(--muted)">Agent Missed</span></span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#F59E0B"></span><strong style="color:#D97706">${fmtN(mtc.queueMissed||0)}</strong> <span style="color:var(--muted)">Queue Missed</span></span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#94A3B8"></span><strong style="color:#64748B">${fmtN(mtc.aohMissed||0)}</strong> <span style="color:var(--muted)">After-Hours</span></span>
+    </div>`;
+
+  // Funnel
+  document.getElementById('funnel-wrap').innerHTML = `
+    <div class="funnel-wrap">
+      <div class="funnel-stage">
+        <div class="funnel-val">${fmtN(uniqueMissed)}</div>
+        <div class="funnel-lbl">Unique Missed</div>
+        <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:100%;background:#94A3B8"></div></div>
+      </div>
+      <div class="funnel-arrow">→</div>
+      <div class="funnel-stage">
+        <div class="funnel-val">${fmtN(reconnected)}</div>
+        <div class="funnel-lbl">Callback Attempted</div>
+        <div class="funnel-pct">${reconPct}% of missed</div>
+        <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:${reconPct}%;background:#3B82F6"></div></div>
+      </div>
+      <div class="funnel-arrow">→</div>
+      <div class="funnel-stage">
+        <div class="funnel-val">${fmtN(connected)}</div>
+        <div class="funnel-lbl">Connected</div>
+        <div class="funnel-pct">${connPct}% of missed · ${pct(connected,reconnected)}% of attempted</div>
+        <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:${connPct}%;background:#16A34A"></div></div>
+      </div>
+      <div class="funnel-arrow">→</div>
+      <div class="funnel-stage">
+        <div class="funnel-val" style="color:var(--red)">${fmtN(neverAtt)}</div>
+        <div class="funnel-lbl">Never Called Back</div>
+        <div class="funnel-pct" style="color:var(--red)">${pct(neverAtt,uniqueMissed)}% of missed</div>
+        <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:${pct(neverAtt,uniqueMissed)}%;background:#EF4444"></div></div>
+      </div>
+    </div>`;
+
+  // Attempt-by-attempt funnel
+  const attFunnelKeys = [1,2,3,4,'5+'].filter(k => attemptConn[k]);
+  if (attFunnelKeys.length) {
+    let afHtml = `
+      <div style="margin-bottom:4px">
+        <div style="font-size:12px;font-weight:700;color:var(--ink)">Callback Funnel — Did they pick up?</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Each row = unique callers who received that callback attempt. Green = connected on that call.</div>
+      </div>
+      <div style="display:flex;gap:12px;margin-bottom:12px;font-size:11px;color:var(--muted)">
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#16A34A;display:inline-block"></span>Connected (picked up)</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#FCA5A5;display:inline-block"></span>Didn't pick up</span>
+      </div>`;
+    const maxTried = Math.max(...attFunnelKeys.map(k => attemptConn[k].total));
+    attFunnelKeys.forEach((k, idx) => {
+      const {conn, total} = attemptConn[k];
+      const notConn = total - conn;
+      const connPct2 = pct(conn, total);
+      const barW = Math.round(total / maxTried * 100);
+      const nextTotal = idx < attFunnelKeys.length-1 ? attemptConn[attFunnelKeys[idx+1]].total : 0;
+      const dropOff = total - conn - nextTotal;
+      afHtml += `
+        <div style="margin-bottom:4px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:72px;font-size:12px;font-weight:700;color:var(--ink);flex-shrink:0">${k === '5+' ? '5+ calls' : k === 1 ? '1st call' : k === 2 ? '2nd call' : k === 3 ? '3rd call' : '4th call'}</div>
+            <div style="flex:1;position:relative;height:28px">
+              <div style="width:${barW}%;height:100%;display:flex;border-radius:4px;overflow:hidden;gap:2px">
+                <div style="width:${connPct2}%;background:#16A34A;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;min-width:0">${conn > total*0.12 ? conn : ''}</div>
+                <div style="flex:1;background:#FCA5A5;display:flex;align-items:center;justify-content:center;color:#7f1d1d;font-size:10px;font-weight:700;min-width:0">${notConn > total*0.12 ? notConn : ''}</div>
+              </div>
+            </div>
+            <div style="width:180px;flex-shrink:0;font-size:11px;color:var(--muted)">
+              <strong style="color:var(--green)">${connPct2}%</strong> connected · ${fmtN(total)} unique callers
+            </div>
+          </div>
+          ${idx < attFunnelKeys.length-1 ? `
+          <div style="display:flex;align-items:center;gap:10px;margin:2px 0">
+            <div style="width:72px;flex-shrink:0"></div>
+            <div style="flex:1;padding-left:8px;font-size:10px;color:var(--muted)">
+              out of ${fmtN(notConn)} who didn't pick up &nbsp;↓ ${fmtN(nextTotal)} got another call · ${dropOff > 0 ? `${fmtN(dropOff)} not attempted again` : 'all attempted again'}
+            </div>
+          </div>` : ''}`;
+    });
+    afHtml += '</div>';
+    document.getElementById('attempt-funnel').innerHTML = afHtml;
+  }
+
+  // Connection frequency chart — how many clients connected 1x, 2x, 3x...
+  const cfKeys = ['1','2','3','4','5+'].filter(k => connFreq[k]);
+  if (cfKeys.length) {
+    const maxCf = Math.max(...cfKeys.map(k => connFreq[k]));
+    const totalConnected = cfKeys.reduce((s,k) => s + connFreq[k], 0);
+    let rcHtml = `
+      <div style="margin-bottom:4px">
+        <div style="font-size:12px;font-weight:700;color:var(--ink)">How Many Times Did a Client Connect?</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Of ${fmtN(totalConnected)} clients who connected at least once — how many were reached again on a 2nd, 3rd, or 4th call.</div>
+      </div>`;
+    const labels = {'1':'Connected once','2':'Connected twice','3':'Connected 3 times','4':'Connected 4 times','5+':'Connected 5+ times'};
+    const colors = {'1':'#16A34A','2':'#1E22AA','3':'#F97316','4':'#DC2626','5+':'#7C3AED'};
+    cfKeys.forEach(k => {
+      const count = connFreq[k];
+      const barW = Math.round(count / maxCf * 100);
+      const share = pct(count, totalConnected);
+      rcHtml += `
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="width:130px;font-size:12px;font-weight:600;color:var(--ink);flex-shrink:0">${labels[k]}</div>
+          <div style="flex:1;height:28px;position:relative">
+            <div style="width:${barW}%;height:100%;background:${colors[k]};border-radius:4px;display:flex;align-items:center;padding-left:10px;box-sizing:border-box;min-width:40px">
+              <span style="color:#fff;font-size:11px;font-weight:700">${fmtN(count)}</span>
+            </div>
+          </div>
+          <div style="width:100px;flex-shrink:0;font-size:11px;color:var(--muted);text-align:right">${share}% of connected</div>
+        </div>`;
+    });
+    rcHtml += '</div>';
+    document.getElementById('reconnect-funnel').innerHTML = rcHtml;
+  }
+
+  // TTC chart
+  const ttcLabels = ['<1 hr','1–4 hr','4–24 hr','1–2 days','2+ days','Never'];
+  const ttcVals = [ttcBuckets['<1hr'], ttcBuckets['1-4hr'], ttcBuckets['4-24hr'], ttcBuckets['1-2d'], ttcBuckets['2d+'], ttcBuckets['never']];
+  const ttcColors = ['#16A34A','#86EFAC','#FDE68A','#FDBA74','#F87171','#94A3B8'];
+  const ttcTotal = ttcVals.reduce((s,v)=>s+v, 0);
+  makeChart('ttc-chart', {
+    type: 'bar',
+    data: { labels: ttcLabels, datasets: [{
+      label:'Callers', data: ttcVals, backgroundColor: ttcColors, borderRadius:4,
+      datalabels:{
+        display:true, anchor:'end', align:'end',
+        color:'#374151', font:{size:10,weight:'700'},
+        formatter:(v) => v ? `${v}\n${Math.round(v/ttcTotal*100)}%` : null,
+      }
+    }] },
+    plugins:[ChartDataLabels],
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      layout:{ padding:{ top:32 } },
+      plugins:{
+        legend:{display:false},
+        datalabels:{display:false},
+      },
+      scales:{ y:{beginAtZero:true, grace:'20%'} }
+    }
+  });
+
+  // Attempt success chart
+  const attKeys = [1,2,3,4,'5+'].filter(k => attemptConn[k]);
+  makeChart('attempt-chart', {
+    type: 'bar',
+    data: {
+      labels: attKeys.map(k => 'Attempt '+k),
+      datasets: [{ label:'Connect Rate %', data: attKeys.map(k => pct(attemptConn[k]?.conn, attemptConn[k]?.total)),
+        backgroundColor:'#1E22AA', borderRadius:4 }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label: ctx => `${ctx.raw}% (${attemptConn[attKeys[ctx.dataIndex]]?.conn} connected of ${attemptConn[attKeys[ctx.dataIndex]]?.total})` } } },
+      scales:{ y:{ beginAtZero:true, max:100, ticks:{ callback: v => v+'%' } } }
+    }
+  });
+
+}
+
+
+// ── LEADS ─────────────────────────────────────────────────────────────────────
+function renderLeads(recs) {
+  // Answered inbound (direct) + answered callbacks (missed call handling) — both can carry disposition
+  const ans = recs.filter(r => r.st === 'answered' && (r.dr === 'inbound' || r.dr === 'callback'));
+  const PRODUCTS = ['AM','VO','OD'];
+  const PROD_COLORS = { AM:'#1E22AA', VO:'#16A34A', OD:'#F59E0B' };
+
+  // Count by product + type
+  const byProd = {};
+  PRODUCTS.forEach(p => { byProd[p] = { New:0, Existing:0, Query:0, total:0 }; });
+  // Undisposed = only inbound answered (callbacks don't require disposition)
+  const ansInbound = ans.filter(r => r.dr === 'inbound');
+  const undisposed = ansInbound.filter(r => !r.pr);
+  ans.forEach(r => {
+    if (!r.pr || !byProd[r.pr]) return;
+    byProd[r.pr].total++;
+    if (r.ct === 'New') byProd[r.pr].New++;
+    else if (r.ct === 'Existing') byProd[r.pr].Existing++;
+    else if (r.ct === 'Query') byProd[r.pr].Query++;
+  });
+  const totalDisposed = PRODUCTS.reduce((s,p) => s + byProd[p].total, 0);
+
+  // KPIs
+  document.getElementById('leads-kpis').innerHTML =
+    kpiCard('Total Disposed', fmtN(totalDisposed), `${pct(totalDisposed,ans.length)}% of answered`, '') +
+    kpiCard('AM Leads', fmtN(byProd.AM.total), `New: ${byProd.AM.New} · Existing: ${byProd.AM.Existing}`, 'green') +
+    kpiCard('VO Leads', fmtN(byProd.VO.total), `New: ${byProd.VO.New} · Existing: ${byProd.VO.Existing}`, '') +
+    kpiCard('OD Leads', fmtN(byProd.OD.total), `New: ${byProd.OD.New} · Existing: ${byProd.OD.Existing}`, 'amber') +
+    kpiCard('Undisposed', fmtN(undisposed.length), `${pct(undisposed.length,ansInbound.length)}% of inbound answered`, undisposed.length > ansInbound.length*0.2 ? 'red' : '');
+
+  // Product donut chart — with count + % labels inside slices
+  makeChart('leads-product-chart', {
+    type:'doughnut',
+    data:{
+      labels: PRODUCTS,
+      datasets:[{
+        data: PRODUCTS.map(p=>byProd[p].total),
+        backgroundColor: PRODUCTS.map(p=>PROD_COLORS[p]),
+        borderWidth:2,
+        datalabels:{
+          color:'#fff', font:{size:11, weight:'700'},
+          formatter:(v) => { const p=pct(v,totalDisposed); return p>=5?`${v}\n${p}%`:null; }
+        }
+      }]
+    },
+    plugins:[ChartDataLabels],
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'bottom'},
+        datalabels:{display:true},
+        tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.raw} (${pct(ctx.raw,totalDisposed)}%)`}}
+      }
+    }
+  });
+
+  // New vs Existing grouped bar — with count + % of product total labels
+  makeChart('leads-type-chart', {
+    type:'bar',
+    data:{
+      labels: PRODUCTS,
+      datasets:[
+        { label:'New', data:PRODUCTS.map(p=>byProd[p].New), backgroundColor:'#1E22AA', borderRadius:4,
+          datalabels:{display:true,anchor:'end',align:'end',color:'#1E22AA',font:{size:9,weight:'700'},
+            formatter:(v,ctx)=>{ const pt=byProd[PRODUCTS[ctx.dataIndex]].total; return v?`${v}\n${pct(v,pt)}%`:null; }} },
+        { label:'Existing', data:PRODUCTS.map(p=>byProd[p].Existing), backgroundColor:'#86EFAC', borderRadius:4,
+          datalabels:{display:true,anchor:'end',align:'end',color:'#16A34A',font:{size:9,weight:'700'},
+            formatter:(v,ctx)=>{ const pt=byProd[PRODUCTS[ctx.dataIndex]].total; return v?`${v}\n${pct(v,pt)}%`:null; }} },
+        { label:'Query', data:PRODUCTS.map(p=>byProd[p].Query), backgroundColor:'#FDE68A', borderRadius:4,
+          datalabels:{display:true,anchor:'end',align:'end',color:'#D97706',font:{size:9,weight:'700'},
+            formatter:(v,ctx)=>{ const pt=byProd[PRODUCTS[ctx.dataIndex]].total; return v?`${v}\n${pct(v,pt)}%`:null; }} },
+      ]
+    },
+    plugins:[ChartDataLabels],
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      layout:{padding:{top:28}},
+      plugins:{ legend:{position:'bottom'}, datalabels:{display:false} },
+      scales:{ x:{}, y:{beginAtZero:true, grace:'15%'} }
+    }
+  });
+
+  // Cache for day-filter rebuilds
+  const DOW_ARR = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const allDays = [...new Set(ans.map(r=>r.d))].sort();
+  _leadsAnsRecs = ans;
+  _leadsAllDays = allDays.map(d => {
+    const dt = new Date(d+'T00:00:00');
+    return { date:d, dow:DOW_ARR[dt.getDay()], isSunday:dt.getDay()===0 };
+  });
+
+  buildLeadsTrendChart();
+
+  // Day filter buttons (same pattern as Volume tab)
+  const dayTogWrap = document.getElementById('leads-day-toggles');
+  if (dayTogWrap) {
+    dayTogWrap.innerHTML = '';
+    ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(dow => {
+      const btn = document.createElement('button');
+      const isSun = dow === 'Sun';
+      const color = isSun ? '#94A3B8' : '#374151';
+      const hidden = LEADS_HIDDEN_DOW.has(dow);
+      btn.className = 'tog-btn' + (hidden ? ' off' : '');
+      btn.style.borderColor = color; btn.style.color = color;
+      btn.innerHTML = `<span class="tog-ck">${hidden ? '✗' : '✓'}</span>${dow}`;
+      btn.onclick = () => {
+        if (LEADS_HIDDEN_DOW.has(dow)) LEADS_HIDDEN_DOW.delete(dow);
+        else LEADS_HIDDEN_DOW.add(dow);
+        const isHidden = LEADS_HIDDEN_DOW.has(dow);
+        btn.classList.toggle('off', isHidden);
+        btn.querySelector('.tog-ck').textContent = isHidden ? '✗' : '✓';
+        buildLeadsTrendChart();
+      };
+      dayTogWrap.appendChild(btn);
+    });
+  }
+
+}
+
+// ── ACTION ────────────────────────────────────────────────────────────────────
+function renderAction(m) {
+  const { todayMissNoCb, attemptedNotReached, neverCalledBack, bestCbHr, fmtHr, ttcBuckets, reconnected } = m;
+  const within1hr = ttcBuckets['<1hr'];
+  const within1hrPct = reconnected ? Math.round(within1hr/reconnected*100) : 0;
+  const afterHrsMissed = m.missIB.filter(r => r.ah === 1 || r.ah === '1').length;
+
+  // ── Active Agents — 15-min slot chart ───────────────────────────────────────
+  const dateInput = document.getElementById('agent-activity-date');
+  if (dateInput) {
+    dateInput.min = DATA_MIN;
+    dateInput.max = DATA_MAX;
+    if (!dateInput.value) dateInput.value = m.latestDate;
+    dateInput.onchange = () => buildAgentActivityChart(dateInput.value);
+  }
+  buildAgentActivityChart(dateInput && dateInput.value ? dateInput.value : m.latestDate);
+
+  // 3 count cards — store contact lists for modal
+  const stuck10List = attemptedNotReached.filter(u => u.attempts >= 10);
+  const zeroAttemptList = neverCalledBack;
+  const lowAttemptList = attemptedNotReached.filter(u => u.attempts < 3);
+
+  _actionLists = {
+    stuck10:     { title: '10+ Attempts, Not Connected', rows: stuck10List },
+    zeroAttempt: { title: '0 Callbacks Made', rows: zeroAttemptList.map(r => ({ ...r, attempts: undefined, lastAttempt: undefined })) },
+    lowAttempt:  { title: '< 3 Attempts, Not Connected', rows: lowAttemptList },
+  };
+
+  const acEl = document.getElementById('action-counts');
+  if (acEl) acEl.innerHTML = `
+    <div class="kpi red" style="cursor:pointer" onclick="openContactModal('stuck10')">
+      <div class="kpi-val">${fmtN(stuck10List.length)}</div>
+      <div class="kpi-lbl">10+ Attempts, Not Connected</div>
+      <div class="kpi-sub">Likely unreachable — click to view</div>
+    </div>
+    <div class="kpi ${zeroAttemptList.length > 20 ? 'amber' : ''}" style="cursor:pointer" onclick="openContactModal('zeroAttempt')">
+      <div class="kpi-val">${fmtN(zeroAttemptList.length)}</div>
+      <div class="kpi-lbl">0 Callbacks Made</div>
+      <div class="kpi-sub">Missed calls never attempted — click to view</div>
+    </div>
+    <div class="kpi ${lowAttemptList.length > 0 ? 'green' : ''}" style="cursor:pointer" onclick="openContactModal('lowAttempt')">
+      <div class="kpi-val">${fmtN(lowAttemptList.length)}</div>
+      <div class="kpi-lbl">&lt; 3 Attempts, Not Connected</div>
+      <div class="kpi-sub">Fresh leads — click to view</div>
+    </div>`;
+
+  // Avg inbound calls per unique client number
+  const inboundByPhone = {};
+  m.ib.forEach(r => { inboundByPhone[r.cn] = (inboundByPhone[r.cn]||0) + 1; });
+  const inboundCounts = Object.values(inboundByPhone);
+  const avgInboundPerCaller = inboundCounts.length
+    ? Math.round(inboundCounts.reduce((s,v)=>s+v,0) / inboundCounts.length * 10) / 10
+    : 0;
+
+  // Insights
+  const cbAr = pct(m.ansCB.length, m.cb.length);
+  const reconnectRate = pct(m.connected, m.uniqueMissed);
+  const missedPhones = new Set(m.missIB.map(r => r.cn));
+  const cbPerMissed = {};
+  m.cb.forEach(r => { if (missedPhones.has(r.cn)) cbPerMissed[r.cn] = (cbPerMissed[r.cn]||0) + 1; });
+  const totalCbToMissed = Object.values(cbPerMissed).reduce((s,v)=>s+v, 0);
+  const uniqueAttempted = Object.keys(cbPerMissed).length;
+  const avgAttemptsAll = uniqueAttempted > 0
+    ? Math.round(totalCbToMissed / uniqueAttempted * 10) / 10
+    : 0;
+
+  const cbByMissedPhone = {};
+  m.cb.forEach(r => {
+    if (!missedPhones.has(r.cn)) return;
+    if (!cbByMissedPhone[r.cn]) cbByMissedPhone[r.cn] = [];
+    cbByMissedPhone[r.cn].push(r);
+  });
+  const attemptsToConnect = [];
+  Object.values(cbByMissedPhone).forEach(cbs => {
+    const idx = cbs.findIndex(c => c.st === 'answered');
+    if (idx >= 0) attemptsToConnect.push(idx + 1);
+  });
+  const avgToConnect = attemptsToConnect.length
+    ? Math.round(attemptsToConnect.reduce((s,v)=>s+v,0) / attemptsToConnect.length * 10) / 10
+    : 0;
+
+  document.getElementById('action-insights').style.gridTemplateColumns = 'repeat(4,1fr)';
+  document.getElementById('action-insights').innerHTML = `
+    <div class="insight-card best"><div class="ic-title">📞 Best Callback Time</div><div class="ic-val">${fmtHr(bestCbHr)}</div><div class="ic-desc">Highest customer answer rate for callbacks</div></div>
+    <div class="insight-card peak"><div class="ic-title">⚡ Same-Hour Callbacks</div><div class="ic-val">${within1hrPct}%</div><div class="ic-desc">of reached callers connected within 1 hour — prioritize speed</div></div>
+    <div class="insight-card ${afterHrsMissed > 50 ? 'danger' : 'info'}"><div class="ic-title">🌙 After-Hours Missed</div><div class="ic-val">${fmtN(afterHrsMissed)}</div><div class="ic-desc">missed after 8pm — schedule morning callbacks</div></div>
+    <div class="insight-card info"><div class="ic-title">📊 Callback Answer Rate</div><div class="ic-val">${cbAr}%</div><div class="ic-desc">${fmtN(m.ansCB.length)} of ${fmtN(m.cb.length)} callbacks answered</div></div>
+    <div class="insight-card ${reconnectRate >= 60 ? 'best' : reconnectRate >= 40 ? 'peak' : 'danger'}"><div class="ic-title">🔄 Reconnect Rate</div><div class="ic-val">${reconnectRate}%</div><div class="ic-desc">${fmtN(m.connected)} of ${fmtN(m.uniqueMissed)} missed callers eventually reached</div></div>
+    <div class="insight-card info"><div class="ic-title">📲 Avg Attempts / Missed #</div><div class="ic-val">${avgAttemptsAll}</div><div class="ic-desc">${fmtN(uniqueAttempted)} numbers · ${fmtN(totalCbToMissed)} attempts</div></div>
+    <div class="insight-card peak"><div class="ic-title">✅ Avg Calls to Connect</div><div class="ic-val">${avgToConnect}</div><div class="ic-desc">avg callbacks before reaching a connected caller</div></div>
+    <div class="insight-card info"><div class="ic-title">📱 Client Calls (Inbound) Avg</div><div class="ic-val">${avgInboundPerCaller}</div><div class="ic-desc">avg times a client dials myHQ · ${fmtN(inboundCounts.length)} unique numbers</div></div>`;
+}
+
+function buildAgentActivityChart(date) {
+  const dayAns = filtered().filter(r => r.d === date && r.st === 'answered' && r.dr === 'inbound' && r.ag);
+
+  // Build 7-min buckets 9:00 → 21:00
+  const SLOT_MIN = 7;
+  const S_START = Math.floor(9 * 60 / SLOT_MIN);
+  const S_END   = Math.floor(21 * 60 / SLOT_MIN);
+  const slotAgents = {};
+  for (let s = S_START; s < S_END; s++) slotAgents[s] = new Set();
+  dayAns.forEach(r => {
+    const parts = r.ti.split(':');
+    const totalMin = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    const slot = Math.floor(totalMin / SLOT_MIN);
+    if (slotAgents[slot]) slotAgents[slot].add(r.ag);
+  });
+
+  const slots = Object.keys(slotAgents).map(Number);
+  const slotLabels = slots.map(s => {
+    const totalMin = s * SLOT_MIN;
+    const h = Math.floor(totalMin / 60), mn = totalMin % 60;
+    return `${h}:${mn.toString().padStart(2,'0')}`;
+  });
+  const slotCounts = slots.map(s => slotAgents[s].size);
+  const slotAgentNames = slots.map(s => [...slotAgents[s]].join(', ') || 'None');
+  const maxActive = Math.max(...slotCounts, 1);
+
+  makeChart('agent-activity-chart', {
+    type: 'line',
+    data: {
+      labels: slotLabels,
+      datasets: [{
+        label: 'Active Agents',
+        data: slotCounts,
+        stepped: 'before',
+        fill: true,
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        segment: {
+          borderColor: ctx => {
+            const v = ctx.p0.parsed.y;
+            return v === 0 ? '#D1D5DB' : v === 1 ? '#F472B6' : v === 2 ? '#F97316' : '#DC2626';
+          },
+          backgroundColor: ctx => {
+            const v = ctx.p0.parsed.y;
+            return v === 0 ? 'rgba(209,213,219,0.25)' : v === 1 ? 'rgba(244,114,182,0.35)' : v === 2 ? 'rgba(249,115,22,0.4)' : 'rgba(220,38,38,0.45)';
+          }
+        },
+        datalabels: { display: false }
+      }]
+    },
+    plugins: [ChartDataLabels],
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      layout: { padding: { top: 18 } },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        datalabels: { display: false },
+        tooltip: {
+          callbacks: {
+            title: items => slotLabels[items[0].dataIndex] + ' (+7 min)',
+            label: items => {
+              const count = items.raw;
+              const names = slotAgentNames[items.dataIndex];
+              if (!count) return '0 agents';
+              return [`${count} agent${count !== 1 ? 's' : ''}:`,
+                      ...names.split(', ').map(n => '  • ' + n)];
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { font: { size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 24 } },
+        y: { beginAtZero: true, ticks: { stepSize: 1 }, grace: '15%' }
+      }
+    }
+  });
+}
+
+// ── Contact Modal ─────────────────────────────────────────────────────────────
+let _actionLists = {};
+
+function openContactModal(key) {
+  const { title, rows } = _actionLists[key] || { title: '', rows: [] };
+  const modal = document.getElementById('contact-modal');
+  document.getElementById('contact-modal-title').textContent = title + ' (' + rows.length + ')';
+  document.getElementById('contact-modal-body').innerHTML = rows.length ? `
+    <table style="width:100%;border-collapse:collapse;font-size:13px;color:#111827">
+      <thead>
+        <tr style="border-bottom:2px solid #E5E7EB;text-align:left;background:#F9FAFB">
+          <th style="padding:8px 12px;color:#6B7280;font-weight:600">#</th>
+          <th style="padding:8px 12px;color:#6B7280;font-weight:600">Phone</th>
+          ${rows[0].attempts !== undefined ? '<th style="padding:8px 12px;text-align:center;color:#6B7280;font-weight:600">Attempts</th>' : ''}
+          <th style="padding:8px 12px;color:#6B7280;font-weight:600">Missed On</th>
+          ${rows[0].lastAttempt ? '<th style="padding:8px 12px;color:#6B7280;font-weight:600">Last Attempt</th>' : ''}
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map((r, i) => `
+          <tr style="border-bottom:1px solid #F3F4F6;background:${i%2===0?'#fff':'#FAFAFA'}">
+            <td style="padding:8px 12px;color:#9CA3AF">${i+1}</td>
+            <td style="padding:8px 12px;font-family:monospace;font-weight:600;color:#111827">${r.cn}</td>
+            ${r.attempts !== undefined ? `<td style="padding:8px 12px;text-align:center;font-weight:700;color:${r.attempts >= 10 ? '#DC2626' : r.attempts < 3 ? '#16A34A' : '#F97316'}">${r.attempts}</td>` : ''}
+            <td style="padding:8px 12px;color:#6B7280">${r.missTime}</td>
+            ${r.lastAttempt !== undefined ? `<td style="padding:8px 12px;color:#6B7280">${r.lastAttempt || '—'}</td>` : ''}
+          </tr>`).join('')}
+      </tbody>
+    </table>` : '<div style="padding:20px;color:#6B7280;text-align:center">No contacts in this category</div>';
+  modal.style.display = 'flex';
+}
+
+function closeContactModal() {
+  document.getElementById('contact-modal').style.display = 'none';
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+renderAll();
+</script>
+
+<!-- Contact Details Modal -->
+<div id="contact-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center" onclick="if(event.target===this)closeContactModal()">
+  <div style="background:#ffffff;color:#111827;border-radius:14px;width:min(700px,95vw);max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
+    <div style="display:flex;align-items:center;padding:18px 20px;border-bottom:1px solid #E5E7EB">
+      <div id="contact-modal-title" style="font-weight:700;font-size:15px;flex:1;color:#111827"></div>
+      <button onclick="closeContactModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6B7280;line-height:1">×</button>
+    </div>
+    <div id="contact-modal-body" style="overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+</body>
+</html>
