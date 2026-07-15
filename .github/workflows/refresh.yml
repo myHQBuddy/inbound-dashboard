@@ -24,10 +24,9 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Fetch + transform TATA data
+      - name: Incremental sync from TATA
         env:
           TATA_TOKEN: ${{ secrets.TATA_TOKEN }}
-          DAYS_BACK: "44"
         run: python scripts/sync.py
 
       - name: Sync index.html to dashboard
@@ -37,10 +36,10 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- inbound-dashboard-data.js index.html; then
+          if git diff --quiet -- inbound-dashboard-data.js inbound_call_records.csv sync_state.json index.html; then
             echo "No data change — nothing to commit."
           else
-            git add inbound-dashboard-data.js index.html
+            git add inbound-dashboard-data.js inbound_call_records.csv sync_state.json index.html
             git commit -m "Auto-refresh data ($(date -u '+%Y-%m-%d %H:%M UTC'))"
             for i in 1 2 3; do
               git push && break
