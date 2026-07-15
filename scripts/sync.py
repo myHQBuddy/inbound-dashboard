@@ -89,14 +89,15 @@ def http_get(params, auth):
     raise SystemExit(f"ERROR: exhausted retries fetching page.\n{last_err}")
 
 
-def fetch_all(auth, from_date, to_date):
-    """Page through every record in the window."""
+def _paginate(auth, from_date, to_date, direction):
+    """Page through one direction of the window."""
     all_rows = []
     page = 1
     while True:
         data = http_get({
             "from_date": from_date,
             "to_date": to_date,
+            "direction": direction,
             "page": page,
             "limit": PAGE_LIMIT,
         }, auth)
@@ -105,12 +106,27 @@ def fetch_all(auth, from_date, to_date):
         count = int(data.get("count", 0) or 0)
         size = int(data.get("size", len(results)) or 0)
         got = (page - 1) * PAGE_LIMIT + size
-        print(f"  page {page}: +{size} rows ({got}/{count})", flush=True)
+        print(f"  [{direction}] page {page}: +{size} rows ({got}/{count})", flush=True)
         if size == 0 or got >= count:
             break
         page += 1
         time.sleep(REQUEST_PAUSE)
     return all_rows
+
+
+def fetch_all(auth, from_date, to_date):
+    """Mirror tata_sync.py exactly — three sources, deduped later by call_id:
+      1. Inbound-type records from the outbound feed (call_type == 'inbound')
+      2. Callbacks from the outbound feed (call_type != 'inbound')
+      3. Direct/after-hours inbound calls from the inbound feed
+    """
+    outbound = _paginate(auth, from_date, to_date, "outbound")
+    inbound_calls = [r for r in outbound
+                     if (r.get("dialer_call_details") or {}).get("call_type", "").lower() == "inbound"]
+    callbacks = [r for r in outbound
+                 if (r.get("dialer_call_details") or {}).get("call_type", "").lower() != "inbound"]
+    raw_inbound = _paginate(auth, from_date, to_date, "inbound")
+    return inbound_calls + callbacks + raw_inbound
 
 
 def is_after_hours(hour, service, description):
@@ -145,28 +161,33 @@ def classify(rec):
     answered = status == "answered"
     dcd = rec.get("dialer_call_details") or {}
     dispo_name = (dcd.get("disposition_name") or "").strip()
-    api_direction = (rec.get("direction") or "").lower()
+    call_type = (dcd.get("call_type") or "").lower()
     service = rec.get("service") or ""
     description = rec.get("description") or ""
-    ah = 1 if is_after_hours(hour, service, description) else 0
+    ah = is_after_hours(hour, service, description)
 
-    # ---- Direction (Rule 1.1) ----
-    # The authoritative field is the top-level `direction`:
-    #   direction == "inbound"  -> customer called us (inbound)
-    #   anything else (outbound) -> team called customer (callback)
-    dr = "inbound" if api_direction == "inbound" else "callback"
+    # ---- Direction (tata_sync.derive_call_direction) ----
+    #   no dialer context      -> inbound (direct CloudPhone call)
+    #   dcd.call_type=="inbound" -> inbound
+    #   else                    -> callback
+    if not dcd:
+        dr = "inbound"
+    elif call_type == "inbound":
+        dr = "inbound"
+    else:
+        dr = "callback"
 
-    # ---- Miss type (Rule 2.2) ----
-    dl = dispo_name.lower()
+    # ---- Miss type (tata_sync.derive_missed_type) ----
     if answered:
         mt = "Answered"
     elif dr == "callback":
         mt = "Callback Missed"
-    elif "missed by agent" in dl or "agent missed" in dl:
+    elif ah:
+        mt = "Queue Missed - After Hours"
+    elif dispo_name == "Missed By Agent":
         mt = "Agent Missed"
     else:
-        # queue missed (or any other inbound miss) — split by hours
-        mt = "Queue Missed - After Hours" if ah else "Queue Missed - Within Hours"
+        mt = "Queue Missed - Within Hours"
 
     # ---- Product / call type from disposition (Rule 6.2) ----
     pr, ct = "", ""
@@ -198,7 +219,7 @@ def classify(rec):
         "dr": dr,
         "st": "answered" if answered else "missed",
         "mt": mt,
-        "ah": ah,
+        "ah": 1 if ah else 0,
         "qt": qt,
         "as": as_,
         "pr": pr,
@@ -226,7 +247,9 @@ def main():
         to_date = f"{chunk_end.isoformat()} 23:59:59"
         print(f"Chunk {from_date} -> {to_date} (limit {PAGE_LIMIT}/page)", flush=True)
         for rec in fetch_all(auth, from_date, to_date):
-            rid = rec.get("id") or rec.get("call_id") or id(rec)
+            # Dedup by call_id exactly like tata_sync.py (the outbound + inbound
+            # feeds overlap; call_id is the stable key).
+            rid = rec.get("call_id") or rec.get("uuid") or id(rec)
             raw_by_id[rid] = rec
         chunk_start = chunk_end + dt.timedelta(days=1)
 
