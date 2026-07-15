@@ -156,6 +156,7 @@ body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--
   <div class="tb-right">
     <div class="df-pills">
       <button class="df-pill" data-df="1">Today</button>
+      <button class="df-pill" data-df="yest">Yesterday</button>
       <button class="df-pill" data-df="7">7D</button>
       <button class="df-pill" data-df="14">14D</button>
       <button class="df-pill" data-df="30">30D</button>
@@ -355,6 +356,14 @@ document.querySelectorAll('.df-pill').forEach(btn => {
     btn.classList.add('active');
     const df = btn.dataset.df;
     if (df === 'all') { setDateFilter(null, null); return; }
+    if (df === 'yest') {
+      // Yesterday = the single day before the latest data date
+      const y = new Date(DATA_MAX);
+      y.setDate(y.getDate() - 1);
+      const day = y.toISOString().slice(0,10);
+      setDateFilter(day, day);
+      return;
+    }
     const days = parseInt(df);
     const to = DATA_MAX;
     const d = new Date(to);
