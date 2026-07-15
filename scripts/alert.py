@@ -5,7 +5,8 @@ checks TODAY's operation against data-derived thresholds, and emails
 rohit.bagga@myhq.in ONLY when something is wrong.
 
 Checks:
-  1. Coverage gap    — a working hour (9-18) with >=3 inbound calls, 0 agents answered
+  1. Coverage short  — a core hour (10-17) with real demand (>=5 calls) but
+                       fewer than 2 active agents answering
   2. Answer-rate      — today's answer rate < 65%  (norm ~68%)
   3. Callback breakdown — missed callers today with 0 callback attempts
   4. Sync freshness   — data file didn't update (GENERATED_AT not today)
@@ -23,9 +24,14 @@ import smtplib
 import datetime as dt
 from email.mime.text import MIMEText
 
-AR_THRESHOLD = 65          # answer-rate alert below this %
-WORK_START, WORK_END = 9, 18   # working hours 9am-7pm -> check hours 9..18
-MIN_CALLS_FOR_GAP = 3
+AR_THRESHOLD = 65             # answer-rate alert below this %
+# Coverage rule: every CORE working hour should have >=2 agents answering.
+# "Active agents" = distinct agents who answered an inbound call that hour
+# (same definition as the dashboard's Active Agents chart).
+CORE_START, CORE_END = 10, 17     # check hours 10:00..17:00 (10am-6pm core)
+MIN_AGENTS = 2                    # want at least this many active agents/hour
+MIN_CALLS_FOR_COVERAGE = 5        # only judge coverage when demand was real
+                                  # (quiet hours naturally show few agents)
 DATA_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                          "inbound-dashboard-data.js")
 RECIPIENT = os.environ.get("ALERT_TO", "rohit.bagga@myhq.in")
@@ -65,7 +71,7 @@ def check(records, generated_at):
     if ar < AR_THRESHOLD:
         alerts.append(f"📉 ANSWER RATE {ar}% today ({ans}/{len(today_ib)}) — below {AR_THRESHOLD}% target.")
 
-    # --- 1. coverage gaps (per working hour) ---
+    # --- 1. coverage: every core hour should have >=2 active agents ---
     by_hour = {}
     for r in today_ib:
         h = r["h"]
@@ -75,14 +81,20 @@ def check(records, generated_at):
             d["agents"].add(r["ag"])
     now_hour = dt.datetime.now().hour
     gap_hours = []
-    for h in range(WORK_START, WORK_END + 1):
-        if h >= now_hour:        # don't flag an hour that hasn't finished
+    for h in range(CORE_START, CORE_END + 1):
+        if h >= now_hour:        # don't judge an hour that hasn't finished
             continue
         d = by_hour.get(h)
-        if d and d["tot"] >= MIN_CALLS_FOR_GAP and not d["agents"]:
-            gap_hours.append(f"{h}:00 ({d['tot']} calls, 0 agents)")
+        if not d:
+            continue
+        # Only flag when there was real demand (avoids false alarms on quiet hours).
+        if d["tot"] >= MIN_CALLS_FOR_COVERAGE and len(d["agents"]) < MIN_AGENTS:
+            gap_hours.append(f"{h}:00 ({len(d['agents'])} agent(s), {d['tot']} calls)")
     if gap_hours:
-        alerts.append("🚨 COVERAGE GAP — no agent answered during: " + "; ".join(gap_hours))
+        alerts.append(
+            f"🚨 COVERAGE SHORT — fewer than {MIN_AGENTS} agents during: "
+            + "; ".join(gap_hours)
+        )
 
     # --- 3. callback breakdown ---
     missed_today = [r for r in today_ib if r["st"] != "answered"]
