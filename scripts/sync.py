@@ -145,18 +145,16 @@ def classify(rec):
     answered = status == "answered"
     dcd = rec.get("dialer_call_details") or {}
     dispo_name = (dcd.get("disposition_name") or "").strip()
-    call_type = (dcd.get("call_type") or "").lower()
+    api_direction = (rec.get("direction") or "").lower()
     service = rec.get("service") or ""
     description = rec.get("description") or ""
     ah = 1 if is_after_hours(hour, service, description) else 0
 
     # ---- Direction (Rule 1.1) ----
-    # inbound  = dialer call_type "inbound" OR no dialer context (direct call)
-    # callback = ALL other outbound records (no call_type filter)
-    if call_type == "inbound" or not dcd:
-        dr = "inbound"
-    else:
-        dr = "callback"
+    # The authoritative field is the top-level `direction`:
+    #   direction == "inbound"  -> customer called us (inbound)
+    #   anything else (outbound) -> team called customer (callback)
+    dr = "inbound" if api_direction == "inbound" else "callback"
 
     # ---- Miss type (Rule 2.2) ----
     dl = dispo_name.lower()
