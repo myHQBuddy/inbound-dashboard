@@ -24,22 +24,34 @@ import urllib.error
 API_URL = "https://api-smartflo.tatateleservices.com/v1/call/records"
 PAGE_LIMIT = 500          # records per page
 CHUNK_DAYS = 28           # API caps each query window at 1 month; stay safely under
-AFTER_HOURS_START = 20    # calls at hour >= 20 (8pm) count as after-hours
-AFTER_HOURS_END = 9       # ...or before 9am
 REQUEST_PAUSE = 0.3       # seconds between pages, be polite to the API
 MAX_RETRIES = 4
 
-# disposition_name -> (product, call_type) for lead classification.
-# Anything not listed falls back to product "" and a best-effort ct.
+# disposition_name -> (product, call_type). Per dashboard-rules.pdf Rule 6.2.
+# Products map to AM/VO/OD; non-product tags keep pr="" with a normalized ct.
 DISPO_MAP = {
-    "AM New":       ("AM", "New"),
-    "AM Existing":  ("AM", "Existing"),
-    "VO New":       ("VO", "New"),
-    "VO Existing":  ("VO", "Existing"),
-    "VO Queries":   ("VO", "Query"),
-    "OD New":       ("OD", "New"),
-    "OD Existing":  ("OD", "Existing"),
-    "OD Queries":   ("OD", "Query"),
+    "AM New":                 ("AM", "New"),
+    "AM Existing":            ("AM", "Existing"),
+    "VO New":                 ("VO", "New"),
+    "VO Existing":            ("VO", "Existing"),
+    "VO Queries":             ("VO", "Query"),
+    "OD New":                 ("OD", "New"),
+    "OD Existing":            ("OD", "Existing"),
+    "OD Queries":             ("OD", "Query"),
+    # non-product dispositions (pr stays blank)
+    "Others":                 ("", "Other"),
+    "Voice Mail":             ("", "Voice Mail"),
+    "Did Not Respond":        ("", "Did Not Respond"),
+    "Invalid Num":            ("", "Invalid"),
+    "Undisposed":             ("", "Undisposed"),
+    "Queue Missed":           ("", ""),
+    "Missed By Agent":        ("", "Missed By Agent"),
+    "Receiver is Busy":       ("", "Busy"),
+    "System Failure":         ("", "System Failure"),
+    "Call Rejected":          ("", "Call Rejected"),
+    "Not Reachable":          ("", "Not Reachable"),
+    "No Answer":              ("", "No Answer"),
+    "Network / Channel Issue": ("", "Network/Channel Issue"),
 }
 
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -101,12 +113,18 @@ def fetch_all(auth, from_date, to_date):
     return all_rows
 
 
-def is_after_hours(hour):
-    return hour >= AFTER_HOURS_START or hour < AFTER_HOURS_END
+def is_after_hours(hour, service, description):
+    """Rule 1.4: after-hours if service/description mentions 'After office',
+    OR the call hour is outside 9:00-19:59 (before 9am or 8pm+)."""
+    text = (service + " " + description).lower()
+    if "after office" in text:
+        return True
+    return hour < 9 or hour >= 20
 
 
 def classify(rec):
-    """Transform one API record into the dashboard record, or None to drop it."""
+    """Transform one API record into the dashboard record, or None to drop it.
+    Follows dashboard-rules.pdf v1.0."""
     date = rec.get("date")
     ti = rec.get("time")
     if not date or not ti:
@@ -123,39 +141,36 @@ def classify(rec):
     except ValueError:
         return None
 
-    api_dir = (rec.get("direction") or "").lower()
     status = (rec.get("status") or "").lower()
     answered = status == "answered"
     dcd = rec.get("dialer_call_details") or {}
     dispo_name = (dcd.get("disposition_name") or "").strip()
-    dispo_code = (dcd.get("disposition_code") or "").strip().upper()
     call_type = (dcd.get("call_type") or "").lower()
-    missed_agents = rec.get("missed_agents") or []
-    ah = 1 if is_after_hours(hour) else 0
+    service = rec.get("service") or ""
+    description = rec.get("description") or ""
+    ah = 1 if is_after_hours(hour, service, description) else 0
 
-    # ---- direction: inbound stays inbound; manual outbound = callback ----
-    if api_dir == "inbound":
+    # ---- Direction (Rule 1.1) ----
+    # inbound  = dialer call_type "inbound" OR no dialer context (direct call)
+    # callback = ALL other outbound records (no call_type filter)
+    if call_type == "inbound" or not dcd:
         dr = "inbound"
-    elif api_dir == "outbound" and call_type == "manual":
-        dr = "callback"
     else:
-        # broadcast / dialer campaigns etc. — not part of the dashboard model
-        return None
+        dr = "callback"
 
-    # ---- miss type ----
+    # ---- Miss type (Rule 2.2) ----
+    dl = dispo_name.lower()
     if answered:
         mt = "Answered"
     elif dr == "callback":
         mt = "Callback Missed"
-    elif dispo_code == "QMISS" or "queue missed" in dispo_name.lower():
-        mt = "Queue Missed - After Hours" if ah else "Queue Missed - Within Hours"
-    elif missed_agents:
+    elif "missed by agent" in dl or "agent missed" in dl:
         mt = "Agent Missed"
     else:
-        # inbound miss with no queue/agent signal: treat by hours
+        # queue missed (or any other inbound miss) — split by hours
         mt = "Queue Missed - After Hours" if ah else "Queue Missed - Within Hours"
 
-    # ---- product / call type from disposition ----
+    # ---- Product / call type from disposition (Rule 6.2) ----
     pr, ct = "", ""
     if dispo_name in DISPO_MAP:
         pr, ct = DISPO_MAP[dispo_name]
