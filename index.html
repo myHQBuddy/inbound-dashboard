@@ -331,7 +331,8 @@ const allDates = ALL.filter(r => r.d).map(r => r.d).sort();
 const DATA_MIN = allDates[0] || '';
 const DATA_MAX = allDates[allDates.length - 1] || '';
 
-document.getElementById('tb-updated').textContent = DATA_MAX ? `· Last updated: ${DATA_MAX}` : '';
+const LAST_UPDATED = (typeof GENERATED_AT !== 'undefined' && GENERATED_AT) ? GENERATED_AT : DATA_MAX;
+document.getElementById('tb-updated').textContent = LAST_UPDATED ? `· Last updated: ${LAST_UPDATED} IST` : '';
 
 function setDateFilter(from, to) {
   FILTER_FROM = from; FILTER_TO = to;
