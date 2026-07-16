@@ -2,8 +2,8 @@ name: Refresh dashboard data
 
 on:
   schedule:
-    # 10:00, 13:00, 16:00 IST  ->  04:30, 07:30, 10:30 UTC (IST = UTC+5:30)
-    - cron: "30 4,7,10 * * *"
+    # Hourly 10:00–19:00 IST  ->  04:30–13:30 UTC (IST = UTC+5:30)
+    - cron: "30 4-13 * * *"
   workflow_dispatch: {}
 
 permissions:
@@ -66,7 +66,7 @@ jobs:
           from email.mime.text import MIMEText
           u=os.environ["GMAIL_USER"]; p=os.environ["GMAIL_APP_PASSWORD"]
           to="rohit.bagga@myhq.in"
-          m=MIMEText("The 3-hourly data refresh workflow FAILED.\n"
+          m=MIMEText("The hourly data refresh workflow FAILED.\n"
                      "Check: https://github.com/myHQBuddy/inbound-dashboard/actions","plain","utf-8")
           m["Subject"]="🔴 Inbound sync FAILED"; m["From"]=u; m["To"]=to
           with smtplib.SMTP_SSL("smtp.gmail.com",465) as s:
