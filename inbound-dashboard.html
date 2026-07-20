@@ -1593,7 +1593,9 @@ function renderDidHealth(recs) {
 }
 
 function buildAgentActivityChart(date) {
-  const dayAns = filtered().filter(r => r.d === date && r.st === 'answered' && r.dr === 'inbound' && r.ag);
+  // Uses ALL data (not the global date filter) — this chart has its own date
+  // picker and is independent of the Today/Yesterday/7D filter.
+  const dayAns = ALL.filter(r => r.d === date && r.st === 'answered' && r.dr === 'inbound' && r.ag);
 
   // Build 7-min buckets 9:00 → 21:00
   const SLOT_MIN = 7;
