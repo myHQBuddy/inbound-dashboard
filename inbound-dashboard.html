@@ -274,6 +274,11 @@ body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--
     </div>
     <div class="insight-row" id="action-insights" style="grid-template-columns:repeat(4,1fr)"></div>
     <div class="kpi-row cols-3" id="action-counts" style="margin-bottom:16px"></div>
+    <div class="card">
+      <div class="card-title">📵 DID Health — Outbound Pickup Rate</div>
+      <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:12px">Pickup rate per outbound caller ID (DID). A DID well below the average may be flagged as spam by carriers. Only DIDs with ≥30 calls shown.</div>
+      <div id="did-health"></div>
+    </div>
   </div>
 
 </div><!-- /page-wrap -->
@@ -610,6 +615,7 @@ function renderAll() {
   renderCallbacks(m);
   renderLeads(recs);
   renderAction(m);
+  renderDidHealth(recs);
 }
 
 // ── VOLUME ────────────────────────────────────────────────────────────────────
@@ -1520,6 +1526,67 @@ function renderAction(m) {
     <div class="insight-card info"><div class="ic-title">📲 Avg Attempts / Missed #</div><div class="ic-val">${avgAttemptsAll}</div><div class="ic-desc">${fmtN(uniqueAttempted)} numbers · ${fmtN(totalCbToMissed)} attempts</div></div>
     <div class="insight-card peak"><div class="ic-title">✅ Avg Calls to Connect</div><div class="ic-val">${avgToConnect}</div><div class="ic-desc">avg callbacks before reaching a connected caller</div></div>
     <div class="insight-card info"><div class="ic-title">📱 Client Calls (Inbound) Avg</div><div class="ic-val">${avgInboundPerCaller}</div><div class="ic-desc">avg times a client dials myHQ · ${fmtN(inboundCounts.length)} unique numbers</div></div>`;
+}
+
+// ── DID HEALTH (outbound pickup rate per caller ID) ─────────────────────────
+function renderDidHealth(recs) {
+  const el = document.getElementById('did-health');
+  if (!el) return;
+  const MIN_CALLS = 30;
+
+  // Outbound = callbacks. Pickup = answered. Group by DID (dd).
+  const byDid = {};
+  let allTot = 0, allAns = 0;
+  recs.forEach(r => {
+    if (r.dr !== 'callback' || !r.dd) return;
+    if (!byDid[r.dd]) byDid[r.dd] = { tot: 0, ans: 0 };
+    byDid[r.dd].tot++;
+    allTot++;
+    if (r.st === 'answered') { byDid[r.dd].ans++; allAns++; }
+  });
+
+  const rows = Object.entries(byDid)
+    .filter(([, v]) => v.tot >= MIN_CALLS)
+    .map(([did, v]) => ({ did, tot: v.tot, ans: v.ans, pct: pct(v.ans, v.tot) }))
+    .sort((a, b) => a.pct - b.pct); // worst first
+
+  if (!rows.length) {
+    el.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:13px">No outbound calls in this range (need ≥30 calls per DID).</div>';
+    return;
+  }
+
+  const avgPct = pct(allAns, allTot);
+  const maxPct = Math.max(...rows.map(r => r.pct), 1);
+  // Spam-risk = pickup notably below the average (>=10 points under)
+  const flag = p => {
+    if (p <= avgPct - 10) return { cls: 'pill-red', txt: '⚠ Spam risk' };
+    if (p < avgPct)       return { cls: 'pill-amber', txt: 'Below avg' };
+    return { cls: 'pill-green', txt: 'Healthy' };
+  };
+
+  let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">Overall outbound pickup: <strong style="color:var(--ink)">${avgPct}%</strong> · ${fmtN(allAns)}/${fmtN(allTot)} answered · ${rows.length} DIDs</div>`;
+  html += `<table class="tbl"><thead><tr>
+      <th>DID (caller ID)</th><th class="num">Calls</th><th class="num">Answered</th>
+      <th style="width:180px">Pickup rate</th><th>Status</th></tr></thead><tbody>`;
+  rows.forEach(r => {
+    const f = flag(r.pct);
+    const barColor = r.pct <= avgPct - 10 ? 'var(--red)' : r.pct < avgPct ? 'var(--amber)' : 'var(--green)';
+    const w = Math.round(r.pct / maxPct * 100);
+    html += `<tr>
+      <td class="phone" style="font-size:13px;color:var(--ink)">${r.did}</td>
+      <td class="num">${fmtN(r.tot)}</td>
+      <td class="num">${fmtN(r.ans)}</td>
+      <td>
+        <div class="mini-bar-wrap">
+          <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${w}%;background:${barColor}"></div></div>
+          <span style="min-width:34px;text-align:right;font-weight:600;color:${barColor}">${r.pct}%</span>
+        </div>
+      </td>
+      <td><span class="${f.cls}">${f.txt}</span></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
 }
 
 function buildAgentActivityChart(date) {
