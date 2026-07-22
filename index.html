@@ -201,6 +201,11 @@ body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--
       </div>
       <div class="chart-wrap tall"><canvas id="daily-avg-chart"></canvas></div>
     </div>
+    <div class="card">
+      <div class="card-title">Queue Missed by Campaign</div>
+      <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:12px">Which campaign/queue the missed inbound calls dropped in. The main "Incoming Campagin" queue matches SmartFlo's campaign report; other rows (outreach, after-hours, blank) are additional inbound the dashboard captures.</div>
+      <div id="missed-by-campaign"></div>
+    </div>
   </div>
 
   <!-- ═══ TAB: HOURLY ═══ -->
@@ -616,6 +621,7 @@ function renderAll() {
   renderLeads(recs);
   renderAction(m);
   renderDidHealth(recs);
+  renderMissedByCampaign(recs);
 }
 
 // ── VOLUME ────────────────────────────────────────────────────────────────────
@@ -1586,6 +1592,59 @@ function renderDidHealth(recs) {
         </div>
       </td>
       <td style="text-align:center"><span class="${f.cls}">${f.txt}</span></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+// ── QUEUE MISSED BY CAMPAIGN ─────────────────────────────────────────────────
+function renderMissedByCampaign(recs) {
+  const el = document.getElementById('missed-by-campaign');
+  if (!el) return;
+
+  // Inbound queue-missed calls (within + after hours), grouped by campaign.
+  const byCamp = {};
+  let total = 0;
+  recs.forEach(r => {
+    if (r.dr !== 'inbound' || r.st === 'answered') return;
+    if (!r.mt || r.mt.indexOf('Queue Missed') !== 0) return; // queue-missed only
+    const camp = (r.cp && r.cp.trim()) ? r.cp.trim()
+               : (r.sc && r.sc.indexOf('After office') >= 0 ? '(After-hours Auto Attendant)' : '(No campaign / routing)');
+    if (!byCamp[camp]) byCamp[camp] = { tot: 0, wh: 0, ah: 0 };
+    byCamp[camp].tot++;
+    if (r.ah === 1) byCamp[camp].ah++; else byCamp[camp].wh++;
+    total++;
+  });
+
+  const rows = Object.entries(byCamp)
+    .map(([camp, v]) => ({ camp, ...v }))
+    .sort((a, b) => b.tot - a.tot);
+
+  if (!rows.length) {
+    el.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:13px">No queue-missed inbound calls in this range.</div>';
+    return;
+  }
+
+  const maxTot = Math.max(...rows.map(r => r.tot), 1);
+  let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">Total queue-missed inbound: <strong style="color:var(--ink)">${fmtN(total)}</strong></div>`;
+  html += `<table class="tbl" style="table-layout:fixed"><thead><tr>
+      <th>Campaign / Queue</th>
+      <th style="width:130px;text-align:center">Within Hours</th>
+      <th style="width:120px;text-align:center">After Hours</th>
+      <th style="width:170px">Total</th></tr></thead><tbody>`;
+  rows.forEach(r => {
+    const w = Math.round(r.tot / maxTot * 100);
+    html += `<tr>
+      <td style="color:var(--ink);font-weight:500">${r.camp}</td>
+      <td style="text-align:center;font-variant-numeric:tabular-nums">${fmtN(r.wh)}</td>
+      <td style="text-align:center;font-variant-numeric:tabular-nums;color:var(--muted)">${fmtN(r.ah)}</td>
+      <td>
+        <div class="mini-bar-wrap">
+          <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${w}%;background:var(--amber)"></div></div>
+          <span style="min-width:34px;text-align:right;font-weight:600">${fmtN(r.tot)}</span>
+        </div>
+      </td>
     </tr>`;
   });
   html += '</tbody></table>';

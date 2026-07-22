@@ -257,7 +257,7 @@ def regenerate_js(rows):
             "qt": _i(r["queue_time"]), "as": _i(r["answered_seconds"]),
             "pr": r["product"], "ct": r["call_type"], "cl": r["caller_circle"],
             "cn": r["client_number"], "ag": r["agent_name"], "sc": r["service"],
-            "dd": r["did_number"],
+            "dd": r["did_number"], "cp": r.get("campaign_name", ""),
         })
     records.sort(key=lambda x: (x["d"], x["ti"]))
     dates = [r["d"] for r in records if r["d"]]
