@@ -1448,15 +1448,21 @@ function renderAction(m) {
   const within1hrPct = reconnected ? Math.round(within1hr/reconnected*100) : 0;
   const afterHrsMissed = m.missIB.filter(r => r.ah === 1 || r.ah === '1').length;
 
-  // ── Active Agents — 15-min slot chart ───────────────────────────────────────
+  // ── Active Agents — 7-min slot chart ────────────────────────────────────────
+  // Follows the top date filter: shows the latest day within the current range
+  // (for Today/Yesterday that's the single selected day). The picker still lets
+  // you override to any specific day manually.
   const dateInput = document.getElementById('agent-activity-date');
+  // Latest date present in the current filtered range (fall back to DATA_MAX).
+  const filteredDates = m.ib.map(r => r.d).filter(Boolean).sort();
+  const rangeLatest = FILTER_TO || filteredDates[filteredDates.length - 1] || DATA_MAX;
   if (dateInput) {
     dateInput.min = DATA_MIN;
     dateInput.max = DATA_MAX;
-    if (!dateInput.value) dateInput.value = m.latestDate;
+    dateInput.value = rangeLatest;           // sync to the active filter each render
     dateInput.onchange = () => buildAgentActivityChart(dateInput.value);
   }
-  buildAgentActivityChart(dateInput && dateInput.value ? dateInput.value : m.latestDate);
+  buildAgentActivityChart(rangeLatest);
 
   // 3 count cards — store contact lists for modal
   const stuck10List = attemptedNotReached.filter(u => u.attempts >= 10);
