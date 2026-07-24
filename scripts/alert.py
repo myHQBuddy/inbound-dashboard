@@ -26,12 +26,15 @@ from email.mime.text import MIMEText
 
 AR_THRESHOLD = 65             # answer-rate alert below this %
 # Coverage rule: every CORE working hour should have >=2 agents answering.
-# "Active agents" = distinct agents who answered an inbound call that hour
-# (same definition as the dashboard's Active Agents chart).
+# "Active agents" = distinct inbound-team agents who answered an inbound call
+# that hour (same definition + whitelist as the dashboard's Active Agents chart).
 CORE_START, CORE_END = 10, 17     # check hours 10:00..17:00 (10am-6pm core)
 MIN_AGENTS = 2                    # want at least this many active agents/hour
 MIN_CALLS_FOR_COVERAGE = 5        # only judge coverage when demand was real
                                   # (quiet hours naturally show few agents)
+# Only the real inbound team counts — TATA tags some outbound-campaign calls as
+# inbound, so counting any agent would inflate coverage with outreach agents.
+INBOUND_TEAM = {"Nakul verma", "Sushmita pathak", "Gagan Preet", "Lakshay sharma"}
 DATA_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                          "inbound-dashboard-data.js")
 RECIPIENT = os.environ.get("ALERT_TO", "rohit.bagga@myhq.in")
@@ -77,7 +80,7 @@ def check(records, generated_at):
         h = r["h"]
         d = by_hour.setdefault(h, {"tot": 0, "agents": set()})
         d["tot"] += 1
-        if r["st"] == "answered" and r["ag"]:
+        if r["st"] == "answered" and r["ag"] in INBOUND_TEAM:
             d["agents"].add(r["ag"])
     now_hour = dt.datetime.now().hour
     gap_hours = []
