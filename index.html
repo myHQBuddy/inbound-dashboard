@@ -1654,7 +1654,11 @@ function renderMissedByCampaign(recs) {
 function buildAgentActivityChart(date) {
   // Uses ALL data (not the global date filter) — this chart has its own date
   // picker and is independent of the Today/Yesterday/7D filter.
-  const dayAns = ALL.filter(r => r.d === date && r.st === 'answered' && r.dr === 'inbound' && r.ag);
+  // Exclude outbound campaigns (Lead Qualification / Outreach) that TATA tags
+  // call_type=inbound — those are outreach agents, not the inbound team.
+  const OUTBOUND_CAMPAIGNS = ['Lead Qualification', 'Outreach Sprint v1', 'Outreach Campagin'];
+  const dayAns = ALL.filter(r => r.d === date && r.st === 'answered' && r.dr === 'inbound' && r.ag
+    && !OUTBOUND_CAMPAIGNS.includes(r.cp));
 
   // Build 7-min buckets 9:00 → 21:00
   const SLOT_MIN = 7;
