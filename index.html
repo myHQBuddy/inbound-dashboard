@@ -322,7 +322,12 @@ const CHARTS = {};
 let HIDDEN_DOW = new Set();
 let _avgM = null, _avgAllDays = null, _avgDailyAgMiss = {}, _avgDailyQMiss = {}, _avgDailyAhMiss = {};
 let LEADS_HIDDEN_DOW = new Set();
+let LEADS_HIDDEN_PROD = new Set();   // persists AM/VO/OD selection across re-renders
 let _leadsAnsRecs = null, _leadsAllDays = null;
+// Persist series on/off selection for the remaining toggle groups (by dataset label).
+let VOL_HIDDEN = new Set();      // Volume daily bar chart
+let AVG_HIDDEN = new Set();      // Daily Averages metric lines
+let HOUR_HIDDEN = new Set();     // Hourly avg bar chart
 
 function makeChart(id, cfg) {
   if (CHARTS[id]) { CHARTS[id].destroy(); }
@@ -710,7 +715,7 @@ function renderVolume(m) {
     data: {
       labels: dayLabels,
       datasets: BAR_DS.map(({label,data,color,datalabels}) => ({
-        label, data, backgroundColor:color, stack:'s', datalabels
+        label, data, backgroundColor:color, stack:'s', datalabels, hidden: VOL_HIDDEN.has(label)
       }))
     },
     plugins:[ChartDataLabels],
@@ -738,14 +743,16 @@ function renderVolume(m) {
     BAR_DS.forEach(({label,color},i) => {
       if (label === '_total') return;
       const btn = document.createElement('button');
-      btn.className = 'tog-btn';
+      const hidden0 = VOL_HIDDEN.has(label);
+      btn.className = 'tog-btn' + (hidden0 ? ' off' : '');
       btn.style.borderColor = color; btn.style.color = color;
-      btn.innerHTML = `<span class="tog-ck">✓</span>${label}`;
+      btn.innerHTML = `<span class="tog-ck">${hidden0 ? '✗' : '✓'}</span>${label}`;
       btn.onclick = () => {
-        const meta = barChart.getDatasetMeta(i);
-        meta.hidden = !meta.hidden;
-        btn.classList.toggle('off', meta.hidden);
-        btn.querySelector('.tog-ck').textContent = meta.hidden ? '✗' : '✓';
+        const nowHidden = !VOL_HIDDEN.has(label);
+        if (nowHidden) VOL_HIDDEN.add(label); else VOL_HIDDEN.delete(label);
+        barChart.getDatasetMeta(i).hidden = nowHidden;
+        btn.classList.toggle('off', nowHidden);
+        btn.querySelector('.tog-ck').textContent = nowHidden ? '✗' : '✓';
         barChart.update();
       };
       barTogWrap.appendChild(btn);
@@ -857,7 +864,10 @@ function buildAvgChart() {
     type:'line',
     data:{
       labels: avgChartLabels,
-      datasets:[...METRICS.map(lineDs), ...METRICS.map(avgDs)]
+      datasets:[
+        ...METRICS.map(m => ({ ...lineDs(m), hidden: AVG_HIDDEN.has(m.label) })),
+        ...METRICS.map(m => ({ ...avgDs(m),  hidden: AVG_HIDDEN.has(m.label) })),
+      ]
     },
     plugins:[ChartDataLabels, sundayPlugin],
     options:{
@@ -887,16 +897,17 @@ function buildAvgChart() {
     togWrap.innerHTML = '';
     METRICS.forEach(({label,color},i)=>{
       const btn = document.createElement('button');
-      btn.className = 'tog-btn';
+      const hidden0 = AVG_HIDDEN.has(label);
+      btn.className = 'tog-btn' + (hidden0 ? ' off' : '');
       btn.style.borderColor = color; btn.style.color = color;
-      btn.innerHTML = `<span class="tog-ck">✓</span>${label}`;
+      btn.innerHTML = `<span class="tog-ck">${hidden0 ? '✗' : '✓'}</span>${label}`;
       btn.onclick = () => {
-        const meta = avgChart.getDatasetMeta(i);
-        meta.hidden = !meta.hidden;
-        const avgMeta = avgChart.getDatasetMeta(i + METRICS.length);
-        avgMeta.hidden = meta.hidden;
-        btn.classList.toggle('off', meta.hidden);
-        btn.querySelector('.tog-ck').textContent = meta.hidden ? '✗' : '✓';
+        const nowHidden = !AVG_HIDDEN.has(label);
+        if (nowHidden) AVG_HIDDEN.add(label); else AVG_HIDDEN.delete(label);
+        avgChart.getDatasetMeta(i).hidden = nowHidden;
+        avgChart.getDatasetMeta(i + METRICS.length).hidden = nowHidden;
+        btn.classList.toggle('off', nowHidden);
+        btn.querySelector('.tog-ck').textContent = nowHidden ? '✗' : '✓';
         avgChart.update();
       };
       togWrap.appendChild(btn);
@@ -960,9 +971,14 @@ function buildLeadsTrendChart() {
     }
   };
 
+  // Apply persisted product visibility so the selection survives re-renders.
+  const _prodHidden = p => ({ hidden: LEADS_HIDDEN_PROD.has(p) });
   const trendChart = makeChart('leads-trend-chart', {
     type:'line',
-    data:{ labels:trendLabels, datasets:[...PRODUCTS.map(lineDs), ...PRODUCTS.map(avgDs)] },
+    data:{ labels:trendLabels, datasets:[
+      ...PRODUCTS.map(p => ({ ...lineDs(p), ..._prodHidden(p) })),
+      ...PRODUCTS.map(p => ({ ...avgDs(p),  ..._prodHidden(p) })),
+    ] },
     plugins:[ChartDataLabels, sundayPlugin],
     options:{
       responsive:true, maintainAspectRatio:false,
@@ -985,16 +1001,17 @@ function buildLeadsTrendChart() {
     tTogWrap.innerHTML = '';
     PRODUCTS.forEach((p,i) => {
       const btn = document.createElement('button');
-      btn.className = 'tog-btn';
+      const hidden0 = LEADS_HIDDEN_PROD.has(p);
+      btn.className = 'tog-btn' + (hidden0 ? ' off' : '');
       btn.style.borderColor = PROD_COLORS[p]; btn.style.color = PROD_COLORS[p];
-      btn.innerHTML = `<span class="tog-ck">✓</span>${p}`;
+      btn.innerHTML = `<span class="tog-ck">${hidden0 ? '✗' : '✓'}</span>${p}`;
       btn.onclick = () => {
-        const meta = trendChart.getDatasetMeta(i);
-        meta.hidden = !meta.hidden;
-        const avgMeta = trendChart.getDatasetMeta(i + PRODUCTS.length);
-        avgMeta.hidden = meta.hidden;
-        btn.classList.toggle('off', meta.hidden);
-        btn.querySelector('.tog-ck').textContent = meta.hidden ? '✗' : '✓';
+        const nowHidden = !LEADS_HIDDEN_PROD.has(p);
+        if (nowHidden) LEADS_HIDDEN_PROD.add(p); else LEADS_HIDDEN_PROD.delete(p);
+        trendChart.getDatasetMeta(i).hidden = nowHidden;
+        trendChart.getDatasetMeta(i + PRODUCTS.length).hidden = nowHidden;
+        btn.classList.toggle('off', nowHidden);
+        btn.querySelector('.tog-ck').textContent = nowHidden ? '✗' : '✓';
         trendChart.update();
       };
       tTogWrap.appendChild(btn);
@@ -1097,7 +1114,7 @@ function renderHourly(m) {
     data: {
       labels: hrLabels,
       datasets: HOUR_DS.map(({label,data,color,datalabels}) => ({
-        label, data, backgroundColor:color, stack:'s', datalabels
+        label, data, backgroundColor:color, stack:'s', datalabels, hidden: HOUR_HIDDEN.has(label)
       }))
     },
     plugins:[ChartDataLabels],
@@ -1123,14 +1140,16 @@ function renderHourly(m) {
     HOUR_DS.forEach(({label,color},i) => {
       if (label === '_total') return;
       const btn = document.createElement('button');
-      btn.className = 'tog-btn';
+      const hidden0 = HOUR_HIDDEN.has(label);
+      btn.className = 'tog-btn' + (hidden0 ? ' off' : '');
       btn.style.borderColor = color; btn.style.color = color;
-      btn.innerHTML = `<span class="tog-ck">✓</span>${label}`;
+      btn.innerHTML = `<span class="tog-ck">${hidden0 ? '✗' : '✓'}</span>${label}`;
       btn.onclick = () => {
-        const meta = hourlyChart.getDatasetMeta(i);
-        meta.hidden = !meta.hidden;
-        btn.classList.toggle('off', meta.hidden);
-        btn.querySelector('.tog-ck').textContent = meta.hidden ? '✗' : '✓';
+        const nowHidden = !HOUR_HIDDEN.has(label);
+        if (nowHidden) HOUR_HIDDEN.add(label); else HOUR_HIDDEN.delete(label);
+        hourlyChart.getDatasetMeta(i).hidden = nowHidden;
+        btn.classList.toggle('off', nowHidden);
+        btn.querySelector('.tog-ck').textContent = nowHidden ? '✗' : '✓';
         hourlyChart.update();
       };
       hrTogWrap.appendChild(btn);
