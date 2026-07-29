@@ -736,6 +736,12 @@ function renderVolume(m) {
     }
   });
 
+  // Enforce persisted visibility on the fresh chart's meta.
+  if (barChart) {
+    BAR_DS.forEach(({label},i) => { barChart.getDatasetMeta(i).hidden = VOL_HIDDEN.has(label); });
+    barChart.update();
+  }
+
   // Bar chart toggle buttons
   const barTogWrap = document.getElementById('bar-toggles');
   if (barTogWrap && barChart) {
@@ -891,6 +897,16 @@ function buildAvgChart() {
     }
   });
 
+  // Enforce persisted visibility on the fresh chart's meta.
+  if (avgChart) {
+    METRICS.forEach(({label},i) => {
+      const h = AVG_HIDDEN.has(label);
+      avgChart.getDatasetMeta(i).hidden = h;
+      avgChart.getDatasetMeta(i + METRICS.length).hidden = h;
+    });
+    avgChart.update();
+  }
+
   // Metric toggle buttons — rebuilt each time so they reference the fresh chart
   const togWrap = document.getElementById('avg-toggles');
   if (togWrap && avgChart) {
@@ -994,6 +1010,17 @@ function buildLeadsTrendChart() {
       }
     }
   });
+
+  // Enforce persisted visibility on the fresh chart's meta (belt-and-suspenders:
+  // guarantees the AM/VO/OD selection sticks regardless of rebuild path).
+  if (trendChart) {
+    PRODUCTS.forEach((p,i) => {
+      const h = LEADS_HIDDEN_PROD.has(p);
+      trendChart.getDatasetMeta(i).hidden = h;
+      trendChart.getDatasetMeta(i + PRODUCTS.length).hidden = h;
+    });
+    trendChart.update();
+  }
 
   // Product toggle buttons — rebuild each time to reference fresh chart
   const tTogWrap = document.getElementById('leads-trend-toggles');
@@ -1132,6 +1159,12 @@ function renderHourly(m) {
       }
     }
   });
+
+  // Enforce persisted visibility on the fresh chart's meta.
+  if (hourlyChart) {
+    HOUR_DS.forEach(({label},i) => { hourlyChart.getDatasetMeta(i).hidden = HOUR_HIDDEN.has(label); });
+    hourlyChart.update();
+  }
 
   // Toggle buttons
   const hrTogWrap = document.getElementById('hourly-bar-toggles');
