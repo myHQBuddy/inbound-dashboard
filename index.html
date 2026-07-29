@@ -1820,7 +1820,7 @@ function renderContactTable() {
       <thead>
         <tr style="border-bottom:2px solid #E5E7EB;background:#F9FAFB">
           <th style="padding:8px 12px;color:#6B7280;font-weight:600;text-align:left">#</th>
-          ${cols.map(c => `<th style="${thStyle(c.align)}" onclick="sortContactModal('${c.key}')" title="Sort by ${c.label}">${c.label}<span style="color:#9CA3AF;font-size:11px">${arrow(c.key)}</span></th>`).join('')}
+          ${cols.map(c => `<th data-sortkey="${c.key}" style="${thStyle(c.align)}" title="Sort by ${c.label}">${c.label}<span style="color:#9CA3AF;font-size:11px">${arrow(c.key)}</span></th>`).join('')}
         </tr>
       </thead>
       <tbody>
@@ -1834,6 +1834,11 @@ function renderContactTable() {
           </tr>`).join('')}
       </tbody>
     </table>`;
+
+  // Attach sort handlers programmatically (more robust than inline onclick).
+  body.querySelectorAll('th[data-sortkey]').forEach(th => {
+    th.addEventListener('click', () => sortContactModal(th.dataset.sortkey));
+  });
 }
 
 function openContactModal(key) {
