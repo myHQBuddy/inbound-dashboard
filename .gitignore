@@ -5,3 +5,7 @@ inbound-dashboard-data (1).js
 .DS_Store
 Thumbs.db
 *.swp
+pull_lq_calls.ps1
+lq_calls.csv
+day.json
+d.json

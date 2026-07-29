@@ -1746,24 +1746,85 @@ function buildAgentActivityChart(date) {
 
 // ── Contact Modal ─────────────────────────────────────────────────────────────
 let _actionLists = {};
+let _modalState = { rows: [], title: '', sortKey: null, sortDir: 1 };
 
-function openContactModal(key) {
-  const { title, rows } = _actionLists[key] || { title: '', rows: [] };
-  const modal = document.getElementById('contact-modal');
-  document.getElementById('contact-modal-title').textContent = title + ' (' + rows.length + ')';
-  document.getElementById('contact-modal-body').innerHTML = rows.length ? `
+// Parse "YYYY-MM-DD h:mmam/pm" (as built by fmtTime) into a sortable number.
+function _parseContactTime(s) {
+  if (!s) return -Infinity;
+  const m = s.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})(am|pm)/i);
+  if (!m) return -Infinity;
+  let [, y, mo, d, h, mi, ap] = m;
+  h = parseInt(h) % 12;
+  if (/pm/i.test(ap)) h += 12;
+  return ((+y * 12 + +mo) * 31 + +d) * 1440 + h * 60 + +mi;
+}
+
+// Column definitions per contact-modal table. `get` returns the raw cell value;
+// `type` drives the comparator. `#` is a non-sortable running index.
+function _contactColumns(rows) {
+  const cols = [
+    { key: 'phone',   label: 'Phone',       type: 'str',  align: 'left',
+      get: r => r.cn || '' },
+  ];
+  if (rows[0].attempts !== undefined) {
+    cols.push({ key: 'attempts', label: 'Attempts', type: 'num', align: 'center',
+      get: r => r.attempts });
+  }
+  cols.push({ key: 'missTime', label: 'Missed On', type: 'time', align: 'left',
+    get: r => r.missTime || '' });
+  if (rows[0].lastAttempt !== undefined) {
+    cols.push({ key: 'lastAttempt', label: 'Last Attempt', type: 'time', align: 'left',
+      get: r => r.lastAttempt || '' });
+  }
+  return cols;
+}
+
+function sortContactModal(key) {
+  if (_modalState.sortKey === key) {
+    _modalState.sortDir *= -1;           // same column -> flip direction
+  } else {
+    _modalState.sortKey = key;
+    _modalState.sortDir = 1;             // new column -> ascending
+  }
+  renderContactTable();
+}
+
+function renderContactTable() {
+  const { rows, sortKey, sortDir } = _modalState;
+  const body = document.getElementById('contact-modal-body');
+  if (!rows.length) {
+    body.innerHTML = '<div style="padding:20px;color:#6B7280;text-align:center">No contacts in this category</div>';
+    return;
+  }
+  const cols = _contactColumns(rows);
+
+  // Sort a copy so the original list order is preserved for re-sorts.
+  let ordered = rows.slice();
+  if (sortKey) {
+    const col = cols.find(c => c.key === sortKey);
+    if (col) {
+      const cmp = {
+        num:  (a, b) => (a - b),
+        str:  (a, b) => String(a).localeCompare(String(b)),
+        time: (a, b) => _parseContactTime(a) - _parseContactTime(b),
+      }[col.type];
+      ordered.sort((ra, rb) => sortDir * cmp(col.get(ra), col.get(rb)));
+    }
+  }
+
+  const arrow = key => sortKey === key ? (sortDir === 1 ? ' ▲' : ' ▼') : ' ⇅';
+  const thStyle = align => `padding:8px 12px;color:#6B7280;font-weight:600;cursor:pointer;user-select:none;text-align:${align};white-space:nowrap`;
+
+  body.innerHTML = `
     <table style="width:100%;border-collapse:collapse;font-size:13px;color:#111827">
       <thead>
-        <tr style="border-bottom:2px solid #E5E7EB;text-align:left;background:#F9FAFB">
-          <th style="padding:8px 12px;color:#6B7280;font-weight:600">#</th>
-          <th style="padding:8px 12px;color:#6B7280;font-weight:600">Phone</th>
-          ${rows[0].attempts !== undefined ? '<th style="padding:8px 12px;text-align:center;color:#6B7280;font-weight:600">Attempts</th>' : ''}
-          <th style="padding:8px 12px;color:#6B7280;font-weight:600">Missed On</th>
-          ${rows[0].lastAttempt ? '<th style="padding:8px 12px;color:#6B7280;font-weight:600">Last Attempt</th>' : ''}
+        <tr style="border-bottom:2px solid #E5E7EB;background:#F9FAFB">
+          <th style="padding:8px 12px;color:#6B7280;font-weight:600;text-align:left">#</th>
+          ${cols.map(c => `<th style="${thStyle(c.align)}" onclick="sortContactModal('${c.key}')" title="Sort by ${c.label}">${c.label}<span style="color:#9CA3AF;font-size:11px">${arrow(c.key)}</span></th>`).join('')}
         </tr>
       </thead>
       <tbody>
-        ${rows.map((r, i) => `
+        ${ordered.map((r, i) => `
           <tr style="border-bottom:1px solid #F3F4F6;background:${i%2===0?'#fff':'#FAFAFA'}">
             <td style="padding:8px 12px;color:#9CA3AF">${i+1}</td>
             <td style="padding:8px 12px;font-family:monospace;font-weight:600;color:#111827">${r.cn}</td>
@@ -1772,8 +1833,15 @@ function openContactModal(key) {
             ${r.lastAttempt !== undefined ? `<td style="padding:8px 12px;color:#6B7280">${r.lastAttempt || '—'}</td>` : ''}
           </tr>`).join('')}
       </tbody>
-    </table>` : '<div style="padding:20px;color:#6B7280;text-align:center">No contacts in this category</div>';
-  modal.style.display = 'flex';
+    </table>`;
+}
+
+function openContactModal(key) {
+  const { title, rows } = _actionLists[key] || { title: '', rows: [] };
+  _modalState = { rows, title, sortKey: null, sortDir: 1 };   // reset sort on open
+  document.getElementById('contact-modal-title').textContent = title + ' (' + rows.length + ')';
+  renderContactTable();
+  document.getElementById('contact-modal').style.display = 'flex';
 }
 
 function closeContactModal() {
