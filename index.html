@@ -492,18 +492,29 @@ function compute(recs) {
   Object.values(cbByNum).forEach(arr => arr.sort((a,b) => toMin(a.d,a.ti) - toMin(b.d,b.ti)));
   Object.values(missedByNum).forEach(arr => arr.sort((a,b) => toMin(a.d,a.ti) - toMin(b.d,b.ti)));
 
-  // Reached-by-inbound: a missed caller who later DIALS BACK IN and is answered
-  // (an inbound answered record after their first miss) has been reached, even
-  // though no outbound callback was logged. Count them as reconnected so they
-  // don't show as "never called back".
-  const reachedInboundAfterMiss = new Set();
-  Object.entries(missedByNum).forEach(([cn, misses]) => {
-    const firstMissT = toMin(misses[0].d, misses[0].ti);
-    const laterInboundAns = ansIB.some(r => r.cn === cn && toMin(r.d, r.ti) > firstMissT);
-    if (laterInboundAns) reachedInboundAfterMiss.add(cn);
+  // Reached = "latest event wins". For each missed number, find its LAST miss,
+  // then check whether ANY answered contact (inbound answered OR answered
+  // outbound callback) happened AFTER that last miss. This means a caller who
+  // was Missed -> Answered -> Missed again is NOT cleared: the final miss has no
+  // answer after it, so the number still needs attention. Answered-before-the-
+  // last-miss does not count.
+  const lastMissT = {};   // cn -> time (mins) of most recent miss
+  missIB.forEach(r => {
+    if (!r.cn) return;
+    const t = toMin(r.d, r.ti);
+    if (lastMissT[r.cn] === undefined || t > lastMissT[r.cn]) lastMissT[r.cn] = t;
   });
-  // A number is "reached" if it has an outbound callback OR a later inbound answer.
-  const wasReached = cn => !!cbByNum[cn] || reachedInboundAfterMiss.has(cn);
+  // All answered contacts for a number: inbound answered + callback answered.
+  const ansAfterMiss = new Set();
+  const _checkAns = r => {
+    if (!r.cn || r.st !== 'answered') return;
+    const lm = lastMissT[r.cn];
+    if (lm !== undefined && toMin(r.d, r.ti) > lm) ansAfterMiss.add(r.cn);
+  };
+  ansIB.forEach(_checkAns);
+  ansCB.forEach(_checkAns);
+  // A number is "reached" only if it was answered AFTER its most recent miss.
+  const wasReached = cn => ansAfterMiss.has(cn);
 
   const uniqueMissed = Object.keys(missedByNum).length;
   let reconnected = 0, connected = 0;
