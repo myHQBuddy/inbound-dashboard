@@ -1536,7 +1536,7 @@ function renderAction(m) {
 
   _actionLists = {
     stuck10:     { title: '10+ Attempts, Not Connected', rows: stuck10List },
-    zeroAttempt: { title: '0 Callbacks Made', rows: zeroAttemptList.map(r => ({ ...r, attempts: undefined, lastAttempt: undefined })) },
+    zeroAttempt: { title: 'Missed & Never Reached', rows: zeroAttemptList.map(r => ({ ...r, attempts: undefined, lastAttempt: undefined })) },
     lowAttempt:  { title: '< 3 Attempts, Not Connected', rows: lowAttemptList },
   };
 
