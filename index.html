@@ -492,38 +492,6 @@ function compute(recs) {
   Object.values(cbByNum).forEach(arr => arr.sort((a,b) => toMin(a.d,a.ti) - toMin(b.d,b.ti)));
   Object.values(missedByNum).forEach(arr => arr.sort((a,b) => toMin(a.d,a.ti) - toMin(b.d,b.ti)));
 
-  // Reached = "latest event wins". For each missed number, find its LAST miss,
-  // then check whether ANY answered contact (inbound answered OR answered
-  // outbound callback) happened AFTER that last miss. This means a caller who
-  // was Missed -> Answered -> Missed again is NOT cleared: the final miss has no
-  // answer after it, so the number still needs attention. Answered-before-the-
-  // last-miss does not count.
-  // Most recent miss per number, across ALL data (so a re-miss outside the filter
-  // window is still recognised as the latest event). Only numbers that are missed
-  // within the filtered view get listed (below), but the "last miss" time itself
-  // is the true latest one.
-  const lastMissT = {};   // cn -> time (mins) of most recent miss
-  ALL.forEach(r => {
-    if (!r.cn || r.dr !== 'inbound' || r.st === 'answered') return;
-    const t = toMin(r.d, r.ti);
-    if (lastMissT[r.cn] === undefined || t > lastMissT[r.cn]) lastMissT[r.cn] = t;
-  });
-  // A number is "reached" if it was answered (inbound OR callback) AFTER its most
-  // recent miss. Crucially this checks answers across the FULL dataset (ALL), not
-  // just the filtered window — otherwise a call missed yesterday but answered
-  // today would be wrongly counted as never-reached whenever the date filter
-  // excludes today. The set of missed numbers still comes from the filtered view
-  // (lastMissT above); only the "were they later reached?" lookup spans all data.
-  const ansAfterMiss = new Set();
-  ALL.forEach(r => {
-    if (!r.cn || r.st !== 'answered') return;
-    if (r.dr !== 'inbound' && r.dr !== 'callback') return;
-    const lm = lastMissT[r.cn];
-    if (lm !== undefined && toMin(r.d, r.ti) > lm) ansAfterMiss.add(r.cn);
-  });
-  // A number is "reached" only if it was answered AFTER its most recent miss.
-  const wasReached = cn => ansAfterMiss.has(cn);
-
   const uniqueMissed = Object.keys(missedByNum).length;
   let reconnected = 0, connected = 0;
   const ttcBuckets = {'<1hr':0,'1-4hr':0,'4-24hr':0,'1-2d':0,'2d+':0,'never':0};
@@ -599,7 +567,7 @@ function compute(recs) {
   // Action: missed on latest date with no callback
   const latestDate = DATA_MAX;
   const todayMissed = missIB.filter(r => r.d === latestDate);
-  const todayMissNoCb = todayMissed.filter(r => !wasReached(r.cn));
+  const todayMissNoCb = todayMissed.filter(r => !cbByNum[r.cn]);
 
   // Attempted not reached
   const attemptedNotReached = Object.entries(missedByNum)
@@ -611,9 +579,9 @@ function compute(recs) {
     })
     .sort((a,b) => b.attempts - a.attempts);
 
-  // Never reached: no outbound callback AND no later inbound answered call.
+  // Never called back
   const neverCalledBack = Object.entries(missedByNum)
-    .filter(([cn]) => !wasReached(cn))
+    .filter(([cn]) => !cbByNum[cn])
     .map(([cn, misses]) => ({ cn, missTime: misses[0].d + ' ' + fmtTime(misses[0].ti), missRow: misses[0] }))
     .sort((a,b) => a.missTime < b.missTime ? 1 : -1);
 
@@ -1555,7 +1523,7 @@ function renderAction(m) {
 
   _actionLists = {
     stuck10:     { title: '10+ Attempts, Not Connected', rows: stuck10List },
-    zeroAttempt: { title: 'Missed & Never Reached', rows: zeroAttemptList.map(r => ({ ...r, attempts: undefined, lastAttempt: undefined })) },
+    zeroAttempt: { title: '0 Callbacks Made', rows: zeroAttemptList.map(r => ({ ...r, attempts: undefined, lastAttempt: undefined })) },
     lowAttempt:  { title: '< 3 Attempts, Not Connected', rows: lowAttemptList },
   };
 
@@ -1568,8 +1536,8 @@ function renderAction(m) {
     </div>
     <div class="kpi ${zeroAttemptList.length > 20 ? 'amber' : ''}" style="cursor:pointer" onclick="openContactModal('zeroAttempt')">
       <div class="kpi-val">${fmtN(zeroAttemptList.length)}</div>
-      <div class="kpi-lbl">Missed &amp; Never Reached</div>
-      <div class="kpi-sub">No callback and no inbound return — click to view</div>
+      <div class="kpi-lbl">0 Callbacks Made</div>
+      <div class="kpi-sub">Missed calls never attempted — click to view</div>
     </div>
     <div class="kpi ${lowAttemptList.length > 0 ? 'green' : ''}" style="cursor:pointer" onclick="openContactModal('lowAttempt')">
       <div class="kpi-val">${fmtN(lowAttemptList.length)}</div>
