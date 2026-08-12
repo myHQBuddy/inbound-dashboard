@@ -115,18 +115,23 @@ def summarise(records):
 
 
 def send_email(subject, body):
+    # Best-effort: never crash the job on an SMTP/auth failure.
     user = os.environ.get("GMAIL_USER", "").strip()
     pw = os.environ.get("GMAIL_APP_PASSWORD", "").strip()
     if not user or not pw:
-        sys.exit("ERROR: GMAIL_USER / GMAIL_APP_PASSWORD not set.")
-    msg = MIMEText(body, "plain", "utf-8")
-    msg["Subject"] = subject
-    msg["From"] = user
-    msg["To"] = RECIPIENT
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
-        s.login(user, pw)
-        s.sendmail(user, [RECIPIENT], msg.as_string())
-    print(f"Daily insights sent to {RECIPIENT}.")
+        print("WARNING: GMAIL_USER / GMAIL_APP_PASSWORD not set — skipping email.")
+        return
+    try:
+        msg = MIMEText(body, "plain", "utf-8")
+        msg["Subject"] = subject
+        msg["From"] = user
+        msg["To"] = RECIPIENT
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
+            s.login(user, pw)
+            s.sendmail(user, [RECIPIENT], msg.as_string())
+        print(f"Daily insights sent to {RECIPIENT}.")
+    except Exception as e:
+        print(f"WARNING: could not send daily insights email ({e!r}) — continuing.")
 
 
 def main():

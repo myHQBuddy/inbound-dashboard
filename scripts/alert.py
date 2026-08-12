@@ -108,18 +108,26 @@ def check(records, generated_at):
 
 
 def send_email(subject, body):
+    # Email delivery is best-effort. A broken Gmail App Password (or any SMTP
+    # error) must NOT crash this step, because the refresh workflow runs the
+    # Pages deploy AFTER this — a failure here would skip the deploy and leave
+    # the live dashboard stale. So we log and return on any failure instead.
     user = os.environ.get("GMAIL_USER", "").strip()
     pw = os.environ.get("GMAIL_APP_PASSWORD", "").strip()
     if not user or not pw:
-        sys.exit("ERROR: GMAIL_USER / GMAIL_APP_PASSWORD not set.")
-    msg = MIMEText(body, "plain", "utf-8")
-    msg["Subject"] = subject
-    msg["From"] = user
-    msg["To"] = RECIPIENT
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
-        s.login(user, pw)
-        s.sendmail(user, [RECIPIENT], msg.as_string())
-    print(f"Alert email sent to {RECIPIENT}.")
+        print("WARNING: GMAIL_USER / GMAIL_APP_PASSWORD not set — skipping alert email.")
+        return
+    try:
+        msg = MIMEText(body, "plain", "utf-8")
+        msg["Subject"] = subject
+        msg["From"] = user
+        msg["To"] = RECIPIENT
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
+            s.login(user, pw)
+            s.sendmail(user, [RECIPIENT], msg.as_string())
+        print(f"Alert email sent to {RECIPIENT}.")
+    except Exception as e:
+        print(f"WARNING: could not send alert email ({e!r}) — continuing without failing the job.")
 
 
 def main():
