@@ -492,6 +492,21 @@ function compute(recs) {
   Object.values(cbByNum).forEach(arr => arr.sort((a,b) => toMin(a.d,a.ti) - toMin(b.d,b.ti)));
   Object.values(missedByNum).forEach(arr => arr.sort((a,b) => toMin(a.d,a.ti) - toMin(b.d,b.ti)));
 
+  // "Ever connected" for the Action-tab attempt lists: a number counts as reached
+  // if it has ANY answered contact (answered callback OR answered inbound),
+  // checked across the FULL dataset (ALL) — not just the filtered window. This
+  // stops disposed/answered numbers from appearing as "Not Connected" when the
+  // reconnect was an inbound answer, or when the answered callback falls just
+  // outside the active date filter. (Voicemail is not a real connect.)
+  const connectedNums = new Set();
+  ALL.forEach(r => {
+    if (!r.cn || r.st !== 'answered') return;
+    if (r.dr !== 'inbound' && r.dr !== 'callback') return;
+    if (r.ct === 'Voice Mail') return;
+    connectedNums.add(r.cn);
+  });
+  const everConnected = cn => connectedNums.has(cn);
+
   const uniqueMissed = Object.keys(missedByNum).length;
   let reconnected = 0, connected = 0;
   const ttcBuckets = {'<1hr':0,'1-4hr':0,'4-24hr':0,'1-2d':0,'2d+':0,'never':0};
@@ -569,9 +584,10 @@ function compute(recs) {
   const todayMissed = missIB.filter(r => r.d === latestDate);
   const todayMissNoCb = todayMissed.filter(r => !cbByNum[r.cn]);
 
-  // Attempted not reached
+  // Attempted not reached: had a callback attempt, but was never actually
+  // connected — via callback OR inbound answer, across all data (everConnected).
   const attemptedNotReached = Object.entries(missedByNum)
-    .filter(([cn]) => cbByNum[cn] && !cbByNum[cn].some(c => c.st === 'answered'))
+    .filter(([cn]) => cbByNum[cn] && !everConnected(cn))
     .map(([cn, misses]) => {
       const cbs = cbByNum[cn];
       const lastCb = cbs[cbs.length-1];
