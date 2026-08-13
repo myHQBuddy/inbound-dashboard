@@ -1549,11 +1549,13 @@ function renderAction(m) {
   const zeroAttemptList = neverCalledBack;
   const lowAttemptList = attemptedNotReached.filter(u => u.attempts < 3);
 
-  _actionLists = {
+  // Merge (don't replace) so the Volume-tab clickable lists set in renderVolume
+  // (volAgentMissed / volQueueMissed) are preserved alongside these Action lists.
+  Object.assign(_actionLists, {
     stuck10:     { title: '10+ Attempts, Not Connected', rows: stuck10List },
     zeroAttempt: { title: '0 Callbacks Made', rows: zeroAttemptList.map(r => ({ ...r, attempts: undefined, lastAttempt: undefined })) },
     lowAttempt:  { title: '< 3 Attempts, Not Connected', rows: lowAttemptList },
-  };
+  });
 
   const acEl = document.getElementById('action-counts');
   if (acEl) acEl.innerHTML = `
