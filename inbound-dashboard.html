@@ -653,11 +653,23 @@ function renderVolume(m) {
   const ahMiss = m.missIB.filter(r => r.mt === 'Queue Missed - After Hours');
   const ar = pct(ans, ib);
 
+  // Build clickable contact lists for the Agent/Queue missed cards (sorted by time).
+  const _missRows = arr => arr
+    .filter(r => r.cn)
+    .map(r => ({ cn: r.cn, missTime: r.d + ' ' + fmtTime(r.ti) }))
+    .sort((a,b) => a.missTime < b.missTime ? 1 : -1);
+  _actionLists.volAgentMissed = { title: 'Agent Missed', rows: _missRows(agMiss) };
+  _actionLists.volQueueMissed = { title: 'Queue Missed — Within Hours', rows: _missRows(qMiss) };
+
+  // Clickable KPI card (same look as kpiCard, with pointer + onclick).
+  const kpiCardClick = (lbl, val, sub, cls, key) =>
+    `<div class="kpi ${cls}" style="cursor:pointer" onclick="openContactModal('${key}')"><div class="kpi-val">${val}</div><div class="kpi-lbl">${lbl}</div>${sub?`<div class="kpi-sub">${sub} · click to view</div>`:''}</div>`;
+
   document.getElementById('vol-kpis').innerHTML =
     kpiCard('Total Inbound',  fmtN(ib),           `avg ${fmtN(Math.round(m.avgDaily))}/day`, '') +
     kpiCard('Answer Rate',    ar+'%',              `${fmtN(ans)} answered`, ar >= 70 ? 'green' : ar >= 55 ? '' : 'red') +
-    kpiCard('Agent Missed',   fmtN(agMiss.length), `${pct(agMiss.length,ib)}% — rung, not picked up`, agMiss.length ? 'red' : 'green') +
-    kpiCard('Queue Missed',   fmtN(qMiss.length),  `${pct(qMiss.length,ib)}% — dropped in queue`, qMiss.length ? 'red' : 'green') +
+    kpiCardClick('Agent Missed',   fmtN(agMiss.length), `${pct(agMiss.length,ib)}% — rung, not picked up`, agMiss.length ? 'red' : 'green', 'volAgentMissed') +
+    kpiCardClick('Queue Missed',   fmtN(qMiss.length),  `${pct(qMiss.length,ib)}% — dropped in queue`, qMiss.length ? 'red' : 'green', 'volQueueMissed') +
     kpiCard('After-Hrs Missed', fmtN(ahMiss.length), `${pct(ahMiss.length,ib)}% of inbound`, '');
 
   // Daily stacked chart: answered / agent missed / queue missed / after-hours missed
