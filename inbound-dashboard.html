@@ -492,20 +492,28 @@ function compute(recs) {
   Object.values(cbByNum).forEach(arr => arr.sort((a,b) => toMin(a.d,a.ti) - toMin(b.d,b.ti)));
   Object.values(missedByNum).forEach(arr => arr.sort((a,b) => toMin(a.d,a.ti) - toMin(b.d,b.ti)));
 
-  // "Ever connected" for the Action-tab attempt lists: a number counts as reached
-  // if it has ANY answered contact (answered callback OR answered inbound),
-  // checked across the FULL dataset (ALL) — not just the filtered window. This
-  // stops disposed/answered numbers from appearing as "Not Connected" when the
-  // reconnect was an inbound answer, or when the answered callback falls just
-  // outside the active date filter. (Voicemail is not a real connect.)
-  const connectedNums = new Set();
+  // "Reached after last miss" — the shared definition of a resolved caller, used
+  // by both the Action-tab attempt lists and the Callback Funnel. A number counts
+  // as reached ONLY if an answered contact (inbound OR callback, non-voicemail)
+  // happened AFTER its most recent miss. Checked across the FULL dataset (ALL) so
+  // it's not trapped in the date filter. This correctly keeps "answered earlier,
+  // then missed again" callers as still-unresolved (latest event wins), while
+  // clearing callers genuinely reached (incl. via an inbound answer).
+  const _lastMissAll = {};   // cn -> time of most recent miss (across ALL)
+  ALL.forEach(r => {
+    if (!r.cn || r.dr !== 'inbound' || r.st === 'answered') return;
+    const t = toMin(r.d, r.ti);
+    if (_lastMissAll[r.cn] === undefined || t > _lastMissAll[r.cn]) _lastMissAll[r.cn] = t;
+  });
+  const reachedNums = new Set();
   ALL.forEach(r => {
     if (!r.cn || r.st !== 'answered') return;
     if (r.dr !== 'inbound' && r.dr !== 'callback') return;
     if (r.ct === 'Voice Mail') return;
-    connectedNums.add(r.cn);
+    const lm = _lastMissAll[r.cn];
+    if (lm !== undefined && toMin(r.d, r.ti) > lm) reachedNums.add(r.cn);
   });
-  const everConnected = cn => connectedNums.has(cn);
+  const everConnected = cn => reachedNums.has(cn);   // now = reached-after-last-miss
 
   const uniqueMissed = Object.keys(missedByNum).length;
   let reconnected = 0, connected = 0;
@@ -519,7 +527,9 @@ function compute(recs) {
     const cbs = cbByNum[cn] || [];
     if (!cbs.length) { ttcBuckets['never']++; return; }
     reconnected++;
-    const isConn = cbs.some(c => c.st === 'answered' && c.ct !== 'Voice Mail');
+    // Reached-aware: connected if reached after the last miss (inbound OR callback),
+    // not merely if a callback picked up. Keeps answered-then-remissed as unreached.
+    const isConn = everConnected(cn);
     if (isConn) connected++;
 
     // TTC
@@ -532,8 +542,12 @@ function compute(recs) {
     else if (deltaHr < 48) ttcBuckets['1-2d']++;
     else                   ttcBuckets['2d+']++;
 
-    // Attempt analysis — stop at first connection so caller doesn't bleed into next buckets
-    const connIdx = cbs.findIndex(c => c.st === 'answered' && c.ct !== 'Voice Mail');
+    // Attempt analysis — stop at first connection so caller doesn't bleed into next buckets.
+    // connIdx = the callback attempt that connected. If the caller was reached but NOT via a
+    // callback (i.e. an inbound answer), there's no callback index — mark them connected right
+    // after their last callback so they exit the funnel instead of showing as "not attempted again".
+    const cbConnIdx = cbs.findIndex(c => c.st === 'answered' && c.ct !== 'Voice Mail');
+    const connIdx = cbConnIdx >= 0 ? cbConnIdx : (isConn ? cbs.length - 1 : -1);
     const maxAttempt = connIdx >= 0 ? connIdx + 1 : cbs.length; // stop after connecting
     for (let i = 0; i < Math.min(maxAttempt, 4); i++) {
       const key = i + 1;
