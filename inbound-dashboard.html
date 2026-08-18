@@ -543,11 +543,14 @@ function compute(recs) {
     else                   ttcBuckets['2d+']++;
 
     // Attempt analysis — stop at first connection so caller doesn't bleed into next buckets.
-    // connIdx = the callback attempt that connected. If the caller was reached but NOT via a
-    // callback (i.e. an inbound answer), there's no callback index — mark them connected right
-    // after their last callback so they exit the funnel instead of showing as "not attempted again".
+    // A caller only counts as "connected" here if they were genuinely reached AFTER their last
+    // miss (isConn). If they connected on a callback but were later re-missed, isConn is false,
+    // so they are NOT credited as connected — they stay in the funnel as unresolved. This keeps
+    // the funnel fully consistent with the Action-tab "Not Connected" lists.
+    //   connIdx = the callback attempt that connected (if reached via a callback), else the last
+    //   callback (if reached via inbound), else -1 (not reached / re-missed after).
     const cbConnIdx = cbs.findIndex(c => c.st === 'answered' && c.ct !== 'Voice Mail');
-    const connIdx = cbConnIdx >= 0 ? cbConnIdx : (isConn ? cbs.length - 1 : -1);
+    const connIdx = !isConn ? -1 : (cbConnIdx >= 0 ? cbConnIdx : cbs.length - 1);
     const maxAttempt = connIdx >= 0 ? connIdx + 1 : cbs.length; // stop after connecting
     for (let i = 0; i < Math.min(maxAttempt, 4); i++) {
       const key = i + 1;
