@@ -213,7 +213,21 @@ body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--
     <div class="insight-row" id="hourly-insights"></div>
     <div class="card">
       <div class="card-title">Answer Rate Heatmap — by Day & Hour</div>
-      <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:12px">Green = high answer rate · Red = low · Grey = no calls · Numbers show answer rate %</div>
+      <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span>Answer rate:</span>
+        <span style="display:flex;align-items:center;gap:0">
+          <span style="width:22px;height:12px;background:#DC2626;display:inline-block"></span>
+          <span style="width:22px;height:12px;background:#F97316;display:inline-block"></span>
+          <span style="width:22px;height:12px;background:#FBBF24;display:inline-block"></span>
+          <span style="width:22px;height:12px;background:#BBF7D0;display:inline-block"></span>
+          <span style="width:22px;height:12px;background:#4ADE80;display:inline-block"></span>
+          <span style="width:22px;height:12px;background:#16A34A;display:inline-block"></span>
+          <span style="width:22px;height:12px;background:#15803D;display:inline-block"></span>
+        </span>
+        <span>&lt;35% &rarr; 90%+</span>
+        <span style="color:var(--border)">·</span>
+        <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#F1F5F9;display:inline-block;border:1px solid var(--border)"></span>no calls</span>
+      </div>
       <div class="hm-wrap" id="hm-container"></div>
     </div>
     <div class="card">
@@ -1112,23 +1126,30 @@ function renderHourly(m) {
   // Heatmap
   const hm = m.hmData;
   const maxTotal = Math.max(...m.DAYS.flatMap(d => m.HOURS.map(h => hm[d]?.[h]?.total || 0)));
+  // Diverging red→amber→green scale with more steps in the high range (where most
+  // answer rates land) so the greens no longer mesh together. Deep cells get white
+  // text for contrast. Returns {bg, fg}.
   function cellColor(ans, total) {
-    if (!total) return '#F1F5F9';
+    if (!total) return { bg: '#F1F5F9', fg: '#94A3B8' };
     const r = ans / total;
-    if (r >= 0.80) return '#BBF7D0';
-    if (r >= 0.65) return '#86EFAC';
-    if (r >= 0.50) return '#FDE68A';
-    if (r >= 0.35) return '#FCA5A5';
-    return '#F87171';
+    // low band — red → orange → amber
+    if (r < 0.35) return { bg: '#DC2626', fg: '#fff' };
+    if (r < 0.50) return { bg: '#F97316', fg: '#fff' };
+    if (r < 0.60) return { bg: '#FBBF24', fg: '#7c2d12' };
+    // high band — 4 distinct greens from light to deep so 60–95% spreads out
+    if (r < 0.70) return { bg: '#BBF7D0', fg: '#14532d' };   // pale mint
+    if (r < 0.80) return { bg: '#4ADE80', fg: '#14532d' };   // light green
+    if (r < 0.90) return { bg: '#16A34A', fg: '#fff' };      // core green
+    return { bg: '#15803D', fg: '#fff' };                    // deep green (90%+)
   }
   let hmHtml = `<table class="hm-table"><thead><tr><th></th>${m.HOURS.map(h => `<th>${fmtHr(h)}</th>`).join('')}</tr></thead><tbody>`;
   m.DAYS.forEach(d => {
     hmHtml += `<tr><td class="hm-row-lbl">${d}</td>`;
     m.HOURS.forEach(h => {
       const cell = hm[d]?.[h] || {ans:0,total:0};
-      const bg = cellColor(cell.ans, cell.total);
+      const c = cellColor(cell.ans, cell.total);
       const txt = cell.total ? pct(cell.ans, cell.total)+'%' : '';
-      hmHtml += `<td style="background:${bg}" title="${d} ${fmtHr(h)}: ${cell.ans}/${cell.total} answered">${txt}</td>`;
+      hmHtml += `<td style="background:${c.bg};color:${c.fg}" title="${d} ${fmtHr(h)}: ${cell.ans}/${cell.total} answered">${txt}</td>`;
     });
     hmHtml += '</tr>';
   });
