@@ -617,12 +617,22 @@ function compute(recs) {
 
   // Attempted not reached: had a callback attempt, but was never actually
   // connected — via callback OR inbound answer, across all data (everConnected).
+  // "attempts" counts only callbacks made AFTER the caller's most recent real
+  // connection (answered, non-voicemail callback). If they connected earlier and
+  // were then re-missed, only the fresh chase counts — not lifetime attempts.
   const attemptedNotReached = Object.entries(missedByNum)
     .filter(([cn]) => cbByNum[cn] && !everConnected(cn))
     .map(([cn, misses]) => {
       const cbs = cbByNum[cn];
-      const lastCb = cbs[cbs.length-1];
-      return { cn, missTime: misses[0].d + ' ' + fmtTime(misses[0].ti), attempts: cbs.length, lastAttempt: lastCb.d + ' ' + fmtTime(lastCb.ti), missRow: misses[0] };
+      // index of the last real callback connection; attempts after it are the
+      // current unresolved episode. -1 (never connected) counts all callbacks.
+      let lastConnIdx = -1;
+      for (let i = 0; i < cbs.length; i++) {
+        if (cbs[i].st === 'answered' && cbs[i].ct !== 'Voice Mail') lastConnIdx = i;
+      }
+      const episode = cbs.slice(lastConnIdx + 1);
+      const lastCb = episode[episode.length-1] || cbs[cbs.length-1];
+      return { cn, missTime: misses[0].d + ' ' + fmtTime(misses[0].ti), attempts: episode.length, lastAttempt: lastCb.d + ' ' + fmtTime(lastCb.ti), missRow: misses[0] };
     })
     .sort((a,b) => b.attempts - a.attempts);
 
