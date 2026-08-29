@@ -49,6 +49,7 @@ body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--
 .kpi-row{display:grid;gap:12px;margin-bottom:20px}
 .kpi-row.cols-4{grid-template-columns:repeat(4,1fr)}
 .kpi-row.cols-5{grid-template-columns:repeat(5,1fr)}
+.kpi-row.cols-6{grid-template-columns:repeat(6,1fr)}
 .kpi-row.cols-3{grid-template-columns:repeat(3,1fr)}
 .kpi{background:var(--surface);border-radius:var(--radius);padding:16px 18px;border:1px solid var(--border)}
 .kpi-val{font-size:26px;font-weight:700;color:var(--brand);line-height:1.1}
@@ -183,7 +184,7 @@ body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--
 
   <!-- ═══ TAB: VOLUME ═══ -->
   <div class="tab-panel active" id="tab-volume">
-    <div class="kpi-row cols-5" id="vol-kpis"></div>
+    <div class="kpi-row cols-6" id="vol-kpis"></div>
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
         <div class="card-title" style="margin-bottom:0">Daily Call Volume — Answered / Agent Missed / Queue Missed / AOH</div>
@@ -693,6 +694,10 @@ function renderVolume(m) {
   const qMiss  = m.missIB.filter(r => r.mt === 'Queue Missed - Within Hours');
   const ahMiss = m.missIB.filter(r => r.mt === 'Queue Missed - After Hours');
   const ar = pct(ans, ib);
+  // Office-hours answer rate (9am–6pm, hours 9–18) — the TL incentive metric.
+  const ibOff  = m.ib.filter(r => r.h >= 9 && r.h <= 18);
+  const ansOff = ibOff.filter(r => r.st === 'answered').length;
+  const arOff  = pct(ansOff, ibOff.length);
 
   // Build clickable contact lists for the Agent/Queue missed cards (sorted by time).
   const _missRows = arr => arr
@@ -708,7 +713,8 @@ function renderVolume(m) {
 
   document.getElementById('vol-kpis').innerHTML =
     kpiCard('Total Inbound',  fmtN(ib),           `avg ${fmtN(Math.round(m.avgDaily))}/day`, '') +
-    kpiCard('Answer Rate',    ar+'%',              `${fmtN(ans)} answered`, ar >= 70 ? 'green' : ar >= 55 ? '' : 'red') +
+    kpiCard('Answer Rate',    ar+'%',              `${fmtN(ans)} answered · all hours`, ar >= 70 ? 'green' : ar >= 55 ? '' : 'red') +
+    kpiCard('Answer Rate · 9am–6pm', arOff+'%',   `${fmtN(ansOff)} of ${fmtN(ibOff.length)} · office hours`, arOff >= 92 ? 'green' : arOff >= 90 ? 'amber' : 'red') +
     kpiCardClick('Agent Missed',   fmtN(agMiss.length), `${pct(agMiss.length,ib)}% — rung, not picked up`, agMiss.length ? 'red' : 'green', 'volAgentMissed') +
     kpiCardClick('Queue Missed',   fmtN(qMiss.length),  `${pct(qMiss.length,ib)}% — dropped in queue`, qMiss.length ? 'red' : 'green', 'volQueueMissed') +
     kpiCard('After-Hrs Missed', fmtN(ahMiss.length), `${pct(ahMiss.length,ib)}% of inbound`, '');
