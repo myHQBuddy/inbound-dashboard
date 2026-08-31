@@ -616,25 +616,23 @@ function compute(recs) {
   const todayMissed = missIB.filter(r => r.d === latestDate);
   const todayMissNoCb = todayMissed.filter(r => !cbByNum[r.cn]);
 
-  // Attempted not reached: had a callback attempt, but was never actually
-  // connected — via callback OR inbound answer, across all data (everConnected).
-  // "attempts" counts only callbacks made AFTER the caller's most recent real
-  // connection (answered, non-voicemail callback). If they connected earlier and
-  // were then re-missed, only the fresh chase counts — not lifetime attempts.
+  // Attempted not reached: had a callback attempt for the CURRENT unresolved
+  // episode, but was never reached (everConnected = answered after the last miss).
+  // "attempts" counts callbacks made AFTER the caller's most recent miss — the
+  // fresh chase — so a number that connected earlier then got re-missed shows the
+  // attempts since that re-miss, not lifetime. A number is only listed here if it
+  // has ≥1 such attempt (otherwise it belongs in "0 callbacks made", not here).
   const attemptedNotReached = Object.entries(missedByNum)
     .filter(([cn]) => cbByNum[cn] && !everConnected(cn))
     .map(([cn, misses]) => {
       const cbs = cbByNum[cn];
-      // index of the last real callback connection; attempts after it are the
-      // current unresolved episode. -1 (never connected) counts all callbacks.
-      let lastConnIdx = -1;
-      for (let i = 0; i < cbs.length; i++) {
-        if (cbs[i].st === 'answered' && cbs[i].ct !== 'Voice Mail') lastConnIdx = i;
-      }
-      const episode = cbs.slice(lastConnIdx + 1);
+      const lastMissT = toMin(misses[misses.length-1].d, misses[misses.length-1].ti);
+      // callbacks that occur after the caller's most recent miss = current chase
+      const episode = cbs.filter(c => toMin(c.d, c.ti) > lastMissT);
       const lastCb = episode[episode.length-1] || cbs[cbs.length-1];
       return { cn, missTime: misses[0].d + ' ' + fmtTime(misses[0].ti), attempts: episode.length, lastAttempt: lastCb.d + ' ' + fmtTime(lastCb.ti), missRow: misses[0] };
     })
+    .filter(x => x.attempts > 0)   // no callback in the current episode → not "attempted"
     .sort((a,b) => b.attempts - a.attempts);
 
   // Never called back
