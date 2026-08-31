@@ -68,6 +68,8 @@ body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--
 .tr-delta{font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;text-align:right;white-space:nowrap}
 .tr-delta.up{color:var(--green)} .tr-delta.down{color:var(--red)} .tr-delta.flat{color:var(--muted)}
 .tr-delta .note{font-weight:400;color:var(--muted)}
+.tr-tbl .avgcol{background:var(--brand-soft);font-weight:600}
+.tr-tbl .dcell{text-align:right;white-space:nowrap}
 .tr-good.up{color:var(--green)} .tr-good.down{color:var(--red)}
 .tr-bad.up{color:var(--red)} .tr-bad.down{color:var(--green)}
 .tr-legend{display:flex;flex-wrap:wrap;gap:14px;margin:10px 0 18px;font-size:11px;color:var(--muted)}
@@ -382,12 +384,6 @@ body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--
           <select id="tr-b" class="tr-sel"></select>
         </div>
       </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Trend — recent weeks</div>
-      <div id="tr-trend-toggles" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
-      <div class="chart-wrap tall"><canvas id="tr-trend-chart"></canvas></div>
     </div>
 
     <div class="kpi-row cols-4" id="tr-headline" style="margin-bottom:16px"></div>
@@ -2260,17 +2256,17 @@ function renderTrends(){
   };
   const row = (label, av, bv, opts={}) => {
     const {dir='good', isPct=false, suffix=''} = opts;
-    const max = Math.max(av, bv, 1);
+    const avg = Math.round((av + bv) / 2 * 10) / 10;
     return `<tr>
       <td class="metric">${label}</td>
       <td class="num">${fmtN(av)}${suffix}</td>
       <td class="num">${fmtN(bv)}${suffix}</td>
-      <td class="barcell"><div class="tr-mini"><i style="width:${Math.round(av/max*100)}%"></i></div></td>
-      <td>${delta(av,bv,dir,isPct)}</td>
+      <td class="num avgcol">${fmtN(avg)}${suffix}</td>
+      <td class="dcell">${delta(av,bv,dir,isPct)}</td>
     </tr>`;
   };
   const grp = (title, rows) => `<div class="card tr-grp"><div class="tr-grp-title">${title}</div>
-    <table class="tr-tbl"><thead><tr><th>Metric</th><th class="num">A · ${A.label}</th><th class="num">B · ${B.label}</th><th></th><th class="num">Change</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    <div class="scrollx"><table class="tr-tbl"><thead><tr><th>Metric</th><th class="num">A · ${A.label}</th><th class="num">B · ${B.label}</th><th class="num avgcol">Average</th><th class="num">Change (A vs B)</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 
   // headline KPIs
   const kpi = (lbl, av, bv, dir, isPct, suffix='') => {
@@ -2310,51 +2306,8 @@ function renderTrends(){
       row('OD', a.OD, b.OD, {dir:'good'}),
       row('New leads', a.newLeads, b.newLeads, {dir:'good'}),
     ].join(''));
-
-  buildTrendChart(mode);
 }
 
-// Multi-period trend line: last ~10 units of the current mode.
-let TR_HIDDEN = new Set();
-function buildTrendChart(mode){
-  let units = [];
-  if (mode==='month'){ units = dataMonths().slice(0,8).reverse().map(m=>({label:monthLabel(m), ...resolvePeriod('month',m)})); }
-  else if (mode==='day'){ units = dataDays().slice(0,14).reverse().map(d=>({label:fmtDay(d), from:d, to:d})); }
-  else { // week (default) and roll7 both show weeks for context
-    units = dataWeeks().slice(0,10).reverse().map(w=>({label:`W${w.week}`, from:w.from, to:w.to})); }
-  const stats = units.map(u=>periodStats(u.from,u.to));
-  const labels = units.map(u=>u.label);
-  const SERIES = [
-    {label:'Answered', key:'ans', color:'#16A34A'},
-    {label:'Queue Missed', key:'qmW', color:'#F59E0B'},
-    {label:'After-Hrs Missed', key:'aoh', color:'#94A3B8'},
-    {label:'Leads', key:'leads', color:'#1E22AA'},
-    {label:'Answer Rate %', key:'ar', color:'#7C3AED', axis:'y1'},
-  ];
-  const ds = SERIES.map(s => ({
-    label:s.label, data:stats.map(x=>x[s.key]), borderColor:s.color, backgroundColor:s.color+'22',
-    borderWidth:2.4, pointRadius:2.5, pointHoverRadius:6, tension:0.3, fill:false,
-    yAxisID:s.axis||'y', hidden:TR_HIDDEN.has(s.label), datalabels:{display:false},
-  }));
-  const chart = makeChart('tr-trend-chart', {
-    type:'line', data:{labels, datasets:ds}, plugins:[ChartDataLabels],
-    options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{display:false}, datalabels:{display:false} },
-      scales:{ y:{beginAtZero:true, position:'left'},
-               y1:{beginAtZero:true, max:100, position:'right', grid:{drawOnChartArea:false}, ticks:{callback:v=>v+'%'}} } }
-  });
-  // toggle buttons
-  const wrap = document.getElementById('tr-trend-toggles'); if(!wrap||!chart) return;
-  wrap.innerHTML='';
-  SERIES.forEach((s,i)=>{
-    const btn=document.createElement('button'); const off=TR_HIDDEN.has(s.label);
-    btn.className='tog-btn'+(off?' off':''); btn.style.borderColor=s.color; btn.style.color=s.color;
-    btn.innerHTML=`<span class="tog-ck">${off?'✗':'✓'}</span>${s.label}`;
-    btn.onclick=()=>{ const now=!TR_HIDDEN.has(s.label); if(now)TR_HIDDEN.add(s.label);else TR_HIDDEN.delete(s.label);
-      chart.getDatasetMeta(i).hidden=now; btn.classList.toggle('off',now); btn.querySelector('.tog-ck').textContent=now?'✗':'✓'; chart.update(); };
-    wrap.appendChild(btn);
-  });
-}
 
 // ── Auto analysis: insight-first, week-on-week hero + month secondary ──────────
 // Week runs WEDNESDAY → TUESDAY (the weekly review is on Wednesday), so "this
