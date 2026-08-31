@@ -70,6 +70,14 @@ body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--
 .tr-delta .note{font-weight:400;color:var(--muted)}
 .tr-good.up{color:var(--green)} .tr-good.down{color:var(--red)}
 .tr-bad.up{color:var(--red)} .tr-bad.down{color:var(--green)}
+.tr-legend{display:flex;flex-wrap:wrap;gap:14px;margin:10px 0 18px;font-size:11px;color:var(--muted)}
+.tr-legend b{color:var(--ink);font-weight:600}
+.scrollx{overflow-x:auto}
+.tr-tbl.auto td.sub{color:var(--muted)}
+.tr-tbl.auto td.modiv,.tr-tbl.auto th.modiv{border-left:2px solid var(--border)}
+.tr-tbl.auto td.dcell{text-align:right;white-space:nowrap}
+.tr-tbl.auto th,.tr-tbl.auto td{padding:8px 12px}
+.tr-tbl.auto .metric{white-space:nowrap}
 .kpi-row.cols-3{grid-template-columns:repeat(3,1fr)}
 .kpi{background:var(--surface);border-radius:var(--radius);padding:16px 18px;border:1px solid var(--border)}
 .kpi-val{font-size:26px;font-weight:700;color:var(--brand);line-height:1.1}
@@ -324,6 +332,15 @@ body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--
 
   <!-- ═══ TAB: TREND ANALYSIS ═══ -->
   <div class="tab-panel" id="tab-trends">
+
+    <!-- Auto analysis: this vs last week + this vs last month, per metric -->
+    <div id="tr-auto-head" style="margin-bottom:6px"></div>
+    <div id="tr-auto"></div>
+
+    <div style="border-top:1px solid var(--border);margin:28px 0 20px"></div>
+    <div class="sec-title" style="margin-bottom:2px">🔍 Custom comparison</div>
+    <div class="sec-desc">Compare any two periods — pick an exact week, month, day (Mon-vs-Mon), or rolling window.</div>
+
     <div class="card">
       <div class="card-title">Compare two periods</div>
       <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:14px">Pick how to compare, then choose Period A and Period B. Works across weeks, months, single days (benchmark Monday vs Monday), or rolling 7-day windows. All figures exclude known spam/robodialer floods.</div>
@@ -2322,9 +2339,106 @@ function buildTrendChart(mode){
 }
 
 // wire up controls
+// ── Auto analysis: This wk vs Last wk  +  This mo vs Last mo, per metric ───────
+function renderAutoAnalysis(){
+  const head = document.getElementById('tr-auto-head');
+  const body = document.getElementById('tr-auto');
+  if (!head || !body) return;
+
+  // completed week/month boundaries relative to DATA_MAX
+  const maxDt = new Date(DATA_MAX + 'T00:00:00');
+  const dow = (maxDt.getDay() + 6) % 7;               // 0=Mon
+  const curMon = new Date(maxDt); curMon.setDate(maxDt.getDate() - dow);
+  const f = d => d.toISOString().slice(0,10);
+  const thisWkEnd = new Date(curMon); thisWkEnd.setDate(curMon.getDate() - 1);   // last Sun
+  const thisWkStart = new Date(thisWkEnd); thisWkStart.setDate(thisWkEnd.getDate() - 6);
+  const lastWkEnd = new Date(thisWkStart); lastWkEnd.setDate(thisWkStart.getDate() - 1);
+  const lastWkStart = new Date(lastWkEnd); lastWkStart.setDate(lastWkEnd.getDate() - 6);
+  // months: last complete month = most recent month whose last day <= DATA_MAX
+  const mEnd = new Date(maxDt.getFullYear(), maxDt.getMonth()+1, 0);   // end of current month
+  let thisMoRef;
+  if (f(mEnd) <= DATA_MAX) thisMoRef = new Date(maxDt.getFullYear(), maxDt.getMonth(), 1);        // current month complete
+  else thisMoRef = new Date(maxDt.getFullYear(), maxDt.getMonth()-1, 1);                           // previous month
+  const lastMoRef = new Date(thisMoRef.getFullYear(), thisMoRef.getMonth()-1, 1);
+  const moRange = ref => ({ from: f(new Date(ref.getFullYear(), ref.getMonth(), 1)),
+                            to:   f(new Date(ref.getFullYear(), ref.getMonth()+1, 0)),
+                            lbl:  MONTH_NM[ref.getMonth()] });
+  const tW = periodStats(f(thisWkStart), f(thisWkEnd));
+  const lW = periodStats(f(lastWkStart), f(lastWkEnd));
+  const tMr = moRange(thisMoRef), lMr = moRange(lastMoRef);
+  const tM = periodStats(tMr.from, tMr.to), lM = periodStats(lMr.from, lMr.to);
+  const isoW = dt => isoWeek(dt);
+
+  head.innerHTML = `
+    <div class="sec-title" style="margin-bottom:2px">📊 Weekly &amp; Monthly Analysis</div>
+    <div class="sec-desc">Every metric, week-on-week and month-on-month. Completed periods only — no partial current week/month. Green = moved the good way.</div>
+    <div class="tr-legend">
+      <span><b>This wk</b> W${isoW(thisWkStart)} · ${f(thisWkStart).slice(5).replace('-','/')}–${f(thisWkEnd).slice(5).replace('-','/')}</span>
+      <span><b>Last wk</b> W${isoW(lastWkStart)} · ${f(lastWkStart).slice(5).replace('-','/')}–${f(lastWkEnd).slice(5).replace('-','/')}</span>
+      <span><b>This mo</b> ${tMr.lbl}</span><span><b>Last mo</b> ${lMr.lbl}</span>
+    </div>`;
+
+  // delta chip (reused logic)
+  const chip = (av, bv, dir, isPct) => {
+    if (bv===0 && av===0) return `<span class="tr-delta flat">—</span>`;
+    const diff = av-bv, up = diff>0, flat = diff===0;
+    const cls = flat?'flat':(dir==='good'?(up?'up':'down'):(up?'down':'up'));
+    const arrow = flat?'':(up?'▲':'▼');
+    const shown = isPct ? `${diff>0?'+':''}${diff}pt` : `${diff>0?'+':''}${bv?Math.round(diff/bv*100):100}%`;
+    return `<span class="tr-delta ${cls}">${arrow}${shown}</span>`;
+  };
+  const mrow = (label, key, opts={}) => {
+    const {dir='good', isPct=false, sfx=''} = opts;
+    return `<tr>
+      <td class="metric">${label}</td>
+      <td class="num">${fmtN(tW[key])}${sfx}</td><td class="num sub">${fmtN(lW[key])}${sfx}</td><td class="dcell">${chip(tW[key],lW[key],dir,isPct)}</td>
+      <td class="num modiv">${fmtN(tM[key])}${sfx}</td><td class="num sub">${fmtN(lM[key])}${sfx}</td><td class="dcell">${chip(tM[key],lM[key],dir,isPct)}</td>
+    </tr>`;
+  };
+  const sect = (title, rows) => `<div class="card tr-grp">
+    <div class="tr-grp-title">${title}</div>
+    <div class="scrollx"><table class="tr-tbl auto">
+      <thead><tr>
+        <th>Metric</th>
+        <th class="num">This wk</th><th class="num">Last wk</th><th class="num">WoW</th>
+        <th class="num modiv">This mo</th><th class="num">Last mo</th><th class="num">MoM</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div></div>`;
+
+  body.innerHTML =
+    sect('📊 Volume &amp; Answer Rate', [
+      mrow('Total inbound','ibTotal'),
+      mrow('Answered','ans'),
+      mrow('Answer rate — all hours','ar',{isPct:true,sfx:'%'}),
+      mrow('Answer rate — 9am–6pm','arOff',{isPct:true,sfx:'%'}),
+      mrow('Calls / day','perDay'),
+    ].join('')) +
+    sect('📉 Missed Breakdown', [
+      mrow('Queue missed (within hrs)','qmW',{dir:'bad'}),
+      mrow('Agent missed','agM',{dir:'bad'}),
+      mrow('After-hours missed','aoh',{dir:'bad'}),
+    ].join('')) +
+    sect('📞 Callbacks &amp; Reconnection', [
+      mrow('Unique missed callers','uniqueMissed',{dir:'bad'}),
+      mrow('Reconnection rate','reconRate',{dir:'good',isPct:true,sfx:'%'}),
+      mrow('Within-1hr first callback','within1hr',{dir:'good',isPct:true,sfx:'%'}),
+      mrow('0 callbacks made (backlog)','zeroCb',{dir:'bad'}),
+      mrow('&lt;3 attempts, not reached','lowAtt',{dir:'bad'}),
+    ].join('')) +
+    sect('🎯 Leads', [
+      mrow('Total leads disposed','leads'),
+      mrow('AM leads','AM'),
+      mrow('VO leads','VO'),
+      mrow('OD leads','OD'),
+      mrow('New leads','newLeads'),
+    ].join(''));
+}
+
 (function initTrends(){
   const modeSel=document.getElementById('tr-mode');
   if(!modeSel) return;
+  renderAutoAnalysis();
   populateTrendPickers(modeSel.value);
   modeSel.addEventListener('change', ()=>{ populateTrendPickers(modeSel.value); renderTrends(); });
   document.getElementById('tr-a').addEventListener('change', renderTrends);
