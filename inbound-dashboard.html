@@ -2128,13 +2128,10 @@ function periodStats(from, to) {
     }
   });
 
-  // leads (answered w/ product) + LQ
+  // leads (answered w/ product)
   const leads = recs.filter(r => r.st === 'answered' && ['AM','VO','OD'].includes(r.pr));
   const byProd = p => leads.filter(r => r.pr === p).length;
   const newLeads = leads.filter(r => r.ct === 'New').length;
-  const lq = recs.filter(r => r.dr === 'callback' && r.cp === 'Lead Qualification');
-  const lqAns = lq.filter(r => r.st === 'answered').length;
-  const lqComp = lq.filter(r => r.st === 'answered' && r.ct === 'Completion').length;
 
   return {
     days,
@@ -2144,7 +2141,6 @@ function periodStats(from, to) {
     uniqueMissed: missNums.length, reconRate: pct(reachedCnt, missNums.length),
     within1hr: pct(within1, reconn), zeroCb, lowAtt,
     leads: leads.length, AM: byProd('AM'), VO: byProd('VO'), OD: byProd('OD'), newLeads,
-    lqDials: lq.length, lqConn: pct(lqAns, lq.length), lqComp,
   };
 }
 
@@ -2180,18 +2176,32 @@ function resolvePeriod(mode, val){
   if (mode === 'roll7'){ const end=new Date(val+'T00:00:00'); const start=new Date(end); start.setDate(end.getDate()-6); const f=d=>d.toISOString().slice(0,10); return {from:f(start), to:val, label:`${f(start).slice(5).replace('-','/')}–${val.slice(5).replace('-','/')}`}; }
 }
 
-// Populate A/B dropdowns for a mode; default A=most recent, B=previous.
+// Populate A/B dropdowns for a mode. You can pick ANY period from these lists —
+// every week/month/day in the data is an option. Defaults land on the most recent
+// COMPLETE period vs the one before it (so a partial current week/month doesn't
+// skew the opening comparison); change either dropdown freely.
 function populateTrendPickers(mode){
   const selA=document.getElementById('tr-a'), selB=document.getElementById('tr-b');
-  let opts=[];
-  if (mode==='week'){ opts = dataWeeks().map(w=>({v:w.from, t:`W${w.week} (${w.from.slice(5).replace('-','/')}–${w.to.slice(5).replace('-','/')})`})); }
-  else if (mode==='month'){ opts = dataMonths().map(m=>({v:m, t:monthLabel(m)})); }
+  let opts=[], defA=0, defB=1;
+  if (mode==='week'){
+    const wks = dataWeeks();  // most-recent first
+    opts = wks.map(w=>({v:w.from, t:`W${w.week}  ·  ${w.from.slice(5).replace('-','/')}–${w.to.slice(5).replace('-','/')}`}));
+    // most recent complete week = first whose end date <= DATA_MAX and end < today
+    const iComplete = wks.findIndex(w => w.to < DATA_MAX);   // a week fully in the past
+    if (iComplete >= 0){ defA = iComplete; defB = iComplete + 1; }
+  }
+  else if (mode==='month'){
+    const ms = dataMonths();
+    opts = ms.map(m=>({v:m, t:monthLabel(m)}));
+    const iComplete = ms.findIndex(m => m < DATA_MAX.slice(0,7));  // a month fully in the past
+    if (iComplete >= 0){ defA = iComplete; defB = iComplete + 1; }
+  }
   else if (mode==='day'){ opts = dataDays().map(d=>({v:d, t:fmtDay(d)+' '+d.slice(0,4)})); }
   else if (mode==='roll7'){ opts = dataDays().map(d=>({v:d, t:'7d ending '+fmtDay(d)})); }
   const html = opts.map(o=>`<option value="${o.v}">${o.t}</option>`).join('');
   selA.innerHTML = html; selB.innerHTML = html;
-  if (opts[0]) selA.value = opts[0].v;
-  if (opts[1]) selB.value = opts[1].v; else if (opts[0]) selB.value = opts[0].v;
+  if (opts[defA]) selA.value = opts[defA].v; else if (opts[0]) selA.value = opts[0].v;
+  if (opts[defB]) selB.value = opts[defB].v; else if (opts[opts.length-1]) selB.value = opts[opts.length-1].v;
 }
 
 // ── Render the comparison ─────────────────────────────────────────────────────
@@ -2264,11 +2274,6 @@ function renderTrends(){
       row('VO', a.VO, b.VO, {dir:'good'}),
       row('OD', a.OD, b.OD, {dir:'good'}),
       row('New leads', a.newLeads, b.newLeads, {dir:'good'}),
-    ].join('')) +
-    grp('☎️ Lead Qualification (outbound)', [
-      row('Dials placed', a.lqDials, b.lqDials, {dir:'good'}),
-      row('Connect rate', a.lqConn, b.lqConn, {dir:'good', isPct:true, suffix:'%'}),
-      row('Completed qualifications', a.lqComp, b.lqComp, {dir:'good'}),
     ].join(''));
 
   buildTrendChart(mode);
