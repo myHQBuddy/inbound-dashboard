@@ -50,6 +50,26 @@ body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--
 .kpi-row.cols-4{grid-template-columns:repeat(4,1fr)}
 .kpi-row.cols-5{grid-template-columns:repeat(5,1fr)}
 .kpi-row.cols-6{grid-template-columns:repeat(6,1fr)}
+
+/* TREND ANALYSIS */
+.tr-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:5px}
+.tr-sel{font-family:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer;min-width:150px}
+.tr-grp{margin-bottom:16px}
+.tr-grp-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--brand);margin:0 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.tr-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tr-tbl th{text-align:left;font-weight:600;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:7px 12px;border-bottom:2px solid var(--border)}
+.tr-tbl td{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.tr-tbl tr:last-child td{border-bottom:none}
+.tr-tbl .metric{font-weight:500;color:var(--ink)}
+.tr-tbl .num{text-align:right;font-variant-numeric:tabular-nums;font-family:ui-monospace,Menlo,monospace}
+.tr-tbl .barcell{width:120px}
+.tr-mini{height:7px;border-radius:4px;background:#EEF0FA;overflow:hidden;position:relative}
+.tr-mini>i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--brand)}
+.tr-delta{font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;text-align:right;white-space:nowrap}
+.tr-delta.up{color:var(--green)} .tr-delta.down{color:var(--red)} .tr-delta.flat{color:var(--muted)}
+.tr-delta .note{font-weight:400;color:var(--muted)}
+.tr-good.up{color:var(--green)} .tr-good.down{color:var(--red)}
+.tr-bad.up{color:var(--red)} .tr-bad.down{color:var(--green)}
 .kpi-row.cols-3{grid-template-columns:repeat(3,1fr)}
 .kpi{background:var(--surface);border-radius:var(--radius);padding:16px 18px;border:1px solid var(--border)}
 .kpi-val{font-size:26px;font-weight:700;color:var(--brand);line-height:1.1}
@@ -177,6 +197,7 @@ body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--
   <button class="tab" data-tab="callbacks">📞 Callbacks</button>
   <button class="tab" data-tab="leads">🎯 Leads</button>
   <button class="tab" data-tab="action">⚡ Action</button>
+  <button class="tab" data-tab="trends">📈 Trend Analysis</button>
 </div>
 
 <!-- MAIN -->
@@ -299,6 +320,44 @@ body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--
       <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:12px">Pickup rate per outbound caller ID (DID). A DID well below the average may be flagged as spam by carriers. Only DIDs with ≥30 calls shown.</div>
       <div id="did-health"></div>
     </div>
+  </div>
+
+  <!-- ═══ TAB: TREND ANALYSIS ═══ -->
+  <div class="tab-panel" id="tab-trends">
+    <div class="card">
+      <div class="card-title">Compare two periods</div>
+      <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:14px">Pick how to compare, then choose Period A and Period B. Works across weeks, months, single days (benchmark Monday vs Monday), or rolling 7-day windows. All figures exclude known spam/robodialer floods.</div>
+      <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end">
+        <div>
+          <div class="tr-lbl">Mode</div>
+          <select id="tr-mode" class="tr-sel">
+            <option value="week">Week vs Week</option>
+            <option value="month">Month vs Month</option>
+            <option value="day">Day vs Day</option>
+            <option value="roll7">Rolling 7d vs prior 7d</option>
+          </select>
+        </div>
+        <div>
+          <div class="tr-lbl">Period A</div>
+          <select id="tr-a" class="tr-sel"></select>
+        </div>
+        <div style="font-size:20px;color:var(--muted);padding-bottom:4px">vs</div>
+        <div>
+          <div class="tr-lbl">Period B</div>
+          <select id="tr-b" class="tr-sel"></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Trend — recent weeks</div>
+      <div id="tr-trend-toggles" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+      <div class="chart-wrap tall"><canvas id="tr-trend-chart"></canvas></div>
+    </div>
+
+    <div class="kpi-row cols-4" id="tr-headline" style="margin-bottom:16px"></div>
+
+    <div id="tr-summary"></div>
   </div>
 
 </div><!-- /page-wrap -->
@@ -2008,6 +2067,265 @@ function openContactModal(key) {
 function closeContactModal() {
   document.getElementById('contact-modal').style.display = 'none';
 }
+
+// ── TREND ANALYSIS ────────────────────────────────────────────────────────────
+// Self-contained: own period pickers, independent of the top date filter.
+const TR_FLOOD = new Set(['+918031451096']);   // known robodialer/spam, excluded
+
+// reached-after-last-miss + callback map, across ALL data (matches dashboard defs)
+const TR_lastMiss = {}, TR_reached = new Set(), TR_cbAll = {};
+(function(){
+  ALL.forEach(r => {
+    if (!r.cn) return;
+    if (r.dr === 'inbound' && r.st !== 'answered') {
+      const t = toMin(r.d, r.ti);
+      if (TR_lastMiss[r.cn] === undefined || t > TR_lastMiss[r.cn]) TR_lastMiss[r.cn] = t;
+    }
+    if (r.dr === 'callback') (TR_cbAll[r.cn] = TR_cbAll[r.cn] || []).push(r);
+  });
+  ALL.forEach(r => {
+    if (!r.cn || r.st !== 'answered') return;
+    if (r.dr !== 'inbound' && r.dr !== 'callback') return;
+    if (r.ct === 'Voice Mail') return;
+    const lm = TR_lastMiss[r.cn];
+    if (lm !== undefined && toMin(r.d, r.ti) > lm) TR_reached.add(r.cn);
+  });
+})();
+
+// All metrics for a [from,to] window (inclusive, yyyy-mm-dd strings).
+function periodStats(from, to) {
+  const inRange = d => d >= from && d <= to;
+  const recs = ALL.filter(r => inRange(r.d) && !TR_FLOOD.has(r.cn));
+  const ib   = recs.filter(r => r.dr === 'inbound');
+  const cb   = recs.filter(r => r.dr === 'callback');
+  const ans  = ib.filter(r => r.st === 'answered').length;
+  const ibOff = ib.filter(r => r.h >= 9 && r.h <= 18);
+  const ansOff = ibOff.filter(r => r.st === 'answered').length;
+  const qmW = ib.filter(r => r.mt === 'Queue Missed - Within Hours').length;
+  const agM = ib.filter(r => r.mt === 'Agent Missed').length;
+  const aoh = ib.filter(r => r.mt === 'Queue Missed - After Hours').length;
+  const days = new Set(ib.map(r => r.d)).size || 1;
+
+  // reconnection (unique missed in window, reached-after-last-miss across all data)
+  const missNums = [...new Set(ib.filter(r => r.st !== 'answered' && r.cn).map(r => r.cn))];
+  const reachedCnt = missNums.filter(cn => TR_reached.has(cn)).length;
+  // callbacks within window keyed by num, for TTC + backlogs
+  const cbWin = {}; cb.forEach(r => { if (r.cn) (cbWin[r.cn] = cbWin[r.cn]||[]).push(r); });
+  const missWin = {}; ib.filter(r => r.st !== 'answered' && r.cn).forEach(r => { (missWin[r.cn] = missWin[r.cn]||[]).push(r); });
+  let within1 = 0, reconn = 0, zeroCb = 0, lowAtt = 0;
+  Object.entries(missWin).forEach(([cn, ms]) => {
+    ms.sort((a,b)=>toMin(a.d,a.ti)-toMin(b.d,b.ti));
+    const cbs = (cbWin[cn]||[]).slice().sort((a,b)=>toMin(a.d,a.ti)-toMin(b.d,b.ti));
+    if (!cbs.length) { zeroCb++; return; }
+    reconn++;
+    const delta = (toMin(cbs[0].d,cbs[0].ti) - toMin(ms[0].d,ms[0].ti))/60;
+    if (delta < 1) within1++;
+    // <3 attempts (after last miss), not reached
+    if (!TR_reached.has(cn)) {
+      const lm = toMin(ms[ms.length-1].d, ms[ms.length-1].ti);
+      const ep = cbs.filter(c => toMin(c.d,c.ti) > lm).length;
+      if (ep > 0 && ep < 3) lowAtt++;
+    }
+  });
+
+  // leads (answered w/ product) + LQ
+  const leads = recs.filter(r => r.st === 'answered' && ['AM','VO','OD'].includes(r.pr));
+  const byProd = p => leads.filter(r => r.pr === p).length;
+  const newLeads = leads.filter(r => r.ct === 'New').length;
+  const lq = recs.filter(r => r.dr === 'callback' && r.cp === 'Lead Qualification');
+  const lqAns = lq.filter(r => r.st === 'answered').length;
+  const lqComp = lq.filter(r => r.st === 'answered' && r.ct === 'Completion').length;
+
+  return {
+    days,
+    ibTotal: ib.length, ans, ar: pct(ans, ib.length),
+    arOff: pct(ansOff, ibOff.length), perDay: Math.round(ib.length/days),
+    qmW, agM, aoh,
+    uniqueMissed: missNums.length, reconRate: pct(reachedCnt, missNums.length),
+    within1hr: pct(within1, reconn), zeroCb, lowAtt,
+    leads: leads.length, AM: byProd('AM'), VO: byProd('VO'), OD: byProd('OD'), newLeads,
+    lqDials: lq.length, lqConn: pct(lqAns, lq.length), lqComp,
+  };
+}
+
+// ── ISO week helpers ──────────────────────────────────────────────────────────
+function isoWeek(dt){ const d=new Date(Date.UTC(dt.getFullYear(),dt.getMonth(),dt.getDate())); const day=(d.getUTCDay()+6)%7; d.setUTCDate(d.getUTCDate()-day+3); const first=new Date(Date.UTC(d.getUTCFullYear(),0,4)); return 1+Math.round(((d-first)/86400000-3+((first.getUTCDay()+6)%7))/7); }
+function weekRange(dateStr){ const dt=new Date(dateStr+'T00:00:00'); const day=(dt.getDay()+6)%7; const mon=new Date(dt); mon.setDate(dt.getDate()-day); const sun=new Date(mon); sun.setDate(mon.getDate()+6); const f=d=>d.toISOString().slice(0,10); return {from:f(mon), to:f(sun), week:isoWeek(mon)}; }
+const _iso = s => s;
+
+// Build the list of weeks present in the data (most recent first).
+function dataWeeks(){
+  const seen = {};
+  ALL.forEach(r => { if(!r.d) return; const w=weekRange(r.d); seen[w.from]=w; });
+  return Object.values(seen).sort((a,b)=>a.from<b.from?1:-1);
+}
+function dataMonths(){
+  const s = new Set(); ALL.forEach(r=>{ if(r.d) s.add(r.d.slice(0,7)); });
+  return [...s].sort().reverse();
+}
+function dataDays(){
+  const s = new Set(); ALL.forEach(r=>{ if(r.d) s.add(r.d); });
+  return [...s].sort().reverse();
+}
+const MONTH_NM = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DOW_NM = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function fmtDay(d){ const dt=new Date(d+'T00:00:00'); return `${DOW_NM[dt.getDay()]} ${d.slice(8)}/${d.slice(5,7)}`; }
+function monthLabel(m){ const [y,mo]=m.split('-'); return `${MONTH_NM[+mo-1]} ${y}`; }
+
+// Resolve a picker value to {from,to,label} per mode.
+function resolvePeriod(mode, val){
+  if (mode === 'week'){ const w=weekRange(val); return {from:w.from, to:w.to, label:`W${w.week} · ${w.from.slice(5).replace('-','/')}–${w.to.slice(5).replace('-','/')}`}; }
+  if (mode === 'month'){ const [y,mo]=val.split('-'); const from=`${val}-01`; const last=new Date(y, +mo, 0).getDate(); return {from, to:`${val}-${String(last).padStart(2,'0')}`, label:monthLabel(val)}; }
+  if (mode === 'day'){ return {from:val, to:val, label:fmtDay(val)}; }
+  if (mode === 'roll7'){ const end=new Date(val+'T00:00:00'); const start=new Date(end); start.setDate(end.getDate()-6); const f=d=>d.toISOString().slice(0,10); return {from:f(start), to:val, label:`${f(start).slice(5).replace('-','/')}–${val.slice(5).replace('-','/')}`}; }
+}
+
+// Populate A/B dropdowns for a mode; default A=most recent, B=previous.
+function populateTrendPickers(mode){
+  const selA=document.getElementById('tr-a'), selB=document.getElementById('tr-b');
+  let opts=[];
+  if (mode==='week'){ opts = dataWeeks().map(w=>({v:w.from, t:`W${w.week} (${w.from.slice(5).replace('-','/')}–${w.to.slice(5).replace('-','/')})`})); }
+  else if (mode==='month'){ opts = dataMonths().map(m=>({v:m, t:monthLabel(m)})); }
+  else if (mode==='day'){ opts = dataDays().map(d=>({v:d, t:fmtDay(d)+' '+d.slice(0,4)})); }
+  else if (mode==='roll7'){ opts = dataDays().map(d=>({v:d, t:'7d ending '+fmtDay(d)})); }
+  const html = opts.map(o=>`<option value="${o.v}">${o.t}</option>`).join('');
+  selA.innerHTML = html; selB.innerHTML = html;
+  if (opts[0]) selA.value = opts[0].v;
+  if (opts[1]) selB.value = opts[1].v; else if (opts[0]) selB.value = opts[0].v;
+}
+
+// ── Render the comparison ─────────────────────────────────────────────────────
+function renderTrends(){
+  const mode = document.getElementById('tr-mode').value;
+  const A = resolvePeriod(mode, document.getElementById('tr-a').value);
+  const B = resolvePeriod(mode, document.getElementById('tr-b').value);
+  if (!A || !B) return;
+  const a = periodStats(A.from, A.to), b = periodStats(B.from, B.to);
+
+  // delta helper: dir 'good'|'bad' says which direction is positive
+  const delta = (av, bv, dir, isPct) => {
+    if (bv === 0 && av === 0) return `<span class="tr-delta flat">—</span>`;
+    const diff = av - bv;
+    const pctChg = bv ? Math.round(diff/bv*100) : 100;
+    const up = diff > 0, flat = diff === 0;
+    const cls = flat ? 'flat' : (dir==='good' ? (up?'up':'down') : (up?'down':'up'));
+    const arrow = flat ? '' : (up?'▲':'▼');
+    const shown = isPct ? `${diff>0?'+':''}${diff} pts` : `${diff>0?'+':''}${pctChg}%`;
+    return `<span class="tr-delta ${cls}">${arrow} ${shown}</span>`;
+  };
+  const row = (label, av, bv, opts={}) => {
+    const {dir='good', isPct=false, suffix=''} = opts;
+    const max = Math.max(av, bv, 1);
+    return `<tr>
+      <td class="metric">${label}</td>
+      <td class="num">${fmtN(av)}${suffix}</td>
+      <td class="num">${fmtN(bv)}${suffix}</td>
+      <td class="barcell"><div class="tr-mini"><i style="width:${Math.round(av/max*100)}%"></i></div></td>
+      <td>${delta(av,bv,dir,isPct)}</td>
+    </tr>`;
+  };
+  const grp = (title, rows) => `<div class="card tr-grp"><div class="tr-grp-title">${title}</div>
+    <table class="tr-tbl"><thead><tr><th>Metric</th><th class="num">A · ${A.label}</th><th class="num">B · ${B.label}</th><th></th><th class="num">Change</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+
+  // headline KPIs
+  const kpi = (lbl, av, bv, dir, isPct, suffix='') => {
+    const d = delta(av,bv,dir,isPct);
+    return `<div class="kpi"><div class="kpi-val">${fmtN(av)}${suffix}</div><div class="kpi-lbl">${lbl}</div><div class="kpi-sub">B: ${fmtN(bv)}${suffix} · ${d}</div></div>`;
+  };
+  document.getElementById('tr-headline').innerHTML =
+    kpi('Inbound calls', a.ibTotal, b.ibTotal, 'good', false) +
+    kpi('Answer rate (9–6)', a.arOff, b.arOff, 'good', true, '%') +
+    kpi('Leads disposed', a.leads, b.leads, 'good', false) +
+    kpi('Reconnection', a.reconRate, b.reconRate, 'good', true, '%');
+
+  document.getElementById('tr-summary').innerHTML =
+    grp('📊 Volume &amp; Answer Rate', [
+      row('Total inbound', a.ibTotal, b.ibTotal, {dir:'good'}),
+      row('Answered', a.ans, b.ans, {dir:'good'}),
+      row('Answer rate — all hours', a.ar, b.ar, {dir:'good', isPct:true, suffix:'%'}),
+      row('Answer rate — 9am–6pm', a.arOff, b.arOff, {dir:'good', isPct:true, suffix:'%'}),
+      row('Calls / day', a.perDay, b.perDay, {dir:'good'}),
+    ].join('')) +
+    grp('📉 Missed breakdown', [
+      row('Queue missed (within hrs)', a.qmW, b.qmW, {dir:'bad'}),
+      row('Agent missed', a.agM, b.agM, {dir:'bad'}),
+      row('After-hours missed', a.aoh, b.aoh, {dir:'bad'}),
+    ].join('')) +
+    grp('📞 Callbacks &amp; reconnection', [
+      row('Unique missed callers', a.uniqueMissed, b.uniqueMissed, {dir:'bad'}),
+      row('Reconnection rate', a.reconRate, b.reconRate, {dir:'good', isPct:true, suffix:'%'}),
+      row('Within-1hr first callback', a.within1hr, b.within1hr, {dir:'good', isPct:true, suffix:'%'}),
+      row('0 callbacks made (backlog)', a.zeroCb, b.zeroCb, {dir:'bad'}),
+      row('&lt;3 attempts, not reached', a.lowAtt, b.lowAtt, {dir:'bad'}),
+    ].join('')) +
+    grp('🎯 Leads', [
+      row('Total leads disposed', a.leads, b.leads, {dir:'good'}),
+      row('AM', a.AM, b.AM, {dir:'good'}),
+      row('VO', a.VO, b.VO, {dir:'good'}),
+      row('OD', a.OD, b.OD, {dir:'good'}),
+      row('New leads', a.newLeads, b.newLeads, {dir:'good'}),
+    ].join('')) +
+    grp('☎️ Lead Qualification (outbound)', [
+      row('Dials placed', a.lqDials, b.lqDials, {dir:'good'}),
+      row('Connect rate', a.lqConn, b.lqConn, {dir:'good', isPct:true, suffix:'%'}),
+      row('Completed qualifications', a.lqComp, b.lqComp, {dir:'good'}),
+    ].join(''));
+
+  buildTrendChart(mode);
+}
+
+// Multi-period trend line: last ~10 units of the current mode.
+let TR_HIDDEN = new Set();
+function buildTrendChart(mode){
+  let units = [];
+  if (mode==='month'){ units = dataMonths().slice(0,8).reverse().map(m=>({label:monthLabel(m), ...resolvePeriod('month',m)})); }
+  else if (mode==='day'){ units = dataDays().slice(0,14).reverse().map(d=>({label:fmtDay(d), from:d, to:d})); }
+  else { // week (default) and roll7 both show weeks for context
+    units = dataWeeks().slice(0,10).reverse().map(w=>({label:`W${w.week}`, from:w.from, to:w.to})); }
+  const stats = units.map(u=>periodStats(u.from,u.to));
+  const labels = units.map(u=>u.label);
+  const SERIES = [
+    {label:'Answered', key:'ans', color:'#16A34A'},
+    {label:'Queue Missed', key:'qmW', color:'#F59E0B'},
+    {label:'After-Hrs Missed', key:'aoh', color:'#94A3B8'},
+    {label:'Leads', key:'leads', color:'#1E22AA'},
+    {label:'Answer Rate %', key:'ar', color:'#7C3AED', axis:'y1'},
+  ];
+  const ds = SERIES.map(s => ({
+    label:s.label, data:stats.map(x=>x[s.key]), borderColor:s.color, backgroundColor:s.color+'22',
+    borderWidth:2.4, pointRadius:2.5, pointHoverRadius:6, tension:0.3, fill:false,
+    yAxisID:s.axis||'y', hidden:TR_HIDDEN.has(s.label), datalabels:{display:false},
+  }));
+  const chart = makeChart('tr-trend-chart', {
+    type:'line', data:{labels, datasets:ds}, plugins:[ChartDataLabels],
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, datalabels:{display:false} },
+      scales:{ y:{beginAtZero:true, position:'left'},
+               y1:{beginAtZero:true, max:100, position:'right', grid:{drawOnChartArea:false}, ticks:{callback:v=>v+'%'}} } }
+  });
+  // toggle buttons
+  const wrap = document.getElementById('tr-trend-toggles'); if(!wrap||!chart) return;
+  wrap.innerHTML='';
+  SERIES.forEach((s,i)=>{
+    const btn=document.createElement('button'); const off=TR_HIDDEN.has(s.label);
+    btn.className='tog-btn'+(off?' off':''); btn.style.borderColor=s.color; btn.style.color=s.color;
+    btn.innerHTML=`<span class="tog-ck">${off?'✗':'✓'}</span>${s.label}`;
+    btn.onclick=()=>{ const now=!TR_HIDDEN.has(s.label); if(now)TR_HIDDEN.add(s.label);else TR_HIDDEN.delete(s.label);
+      chart.getDatasetMeta(i).hidden=now; btn.classList.toggle('off',now); btn.querySelector('.tog-ck').textContent=now?'✗':'✓'; chart.update(); };
+    wrap.appendChild(btn);
+  });
+}
+
+// wire up controls
+(function initTrends(){
+  const modeSel=document.getElementById('tr-mode');
+  if(!modeSel) return;
+  populateTrendPickers(modeSel.value);
+  modeSel.addEventListener('change', ()=>{ populateTrendPickers(modeSel.value); renderTrends(); });
+  document.getElementById('tr-a').addEventListener('change', renderTrends);
+  document.getElementById('tr-b').addEventListener('change', renderTrends);
+  renderTrends();
+})();
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 renderAll();
