@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Inbound Call Centre — myHQ</title>
+<title>Inbound Call Centre â€” myHQ</title>
 <script src="inbound-dashboard-data.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
@@ -51,53 +51,43 @@ body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--
 .kpi-row.cols-5{grid-template-columns:repeat(5,1fr)}
 .kpi-row.cols-6{grid-template-columns:repeat(6,1fr)}
 
-/* TREND ANALYSIS */
-.tr-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:5px}
-.tr-sel{font-family:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer;min-width:150px}
-.tr-grp{margin-bottom:16px}
-.tr-grp-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--brand);margin:0 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
-.tr-tbl{width:100%;border-collapse:collapse;font-size:13px}
-.tr-tbl th{text-align:left;font-weight:600;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:7px 12px;border-bottom:2px solid var(--border)}
-.tr-tbl td{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
-.tr-tbl tr:last-child td{border-bottom:none}
-.tr-tbl .metric{font-weight:500;color:var(--ink)}
-.tr-tbl .num{text-align:right;font-variant-numeric:tabular-nums;font-family:ui-monospace,Menlo,monospace}
-.tr-tbl .barcell{width:120px}
-.tr-mini{height:7px;border-radius:4px;background:#EEF0FA;overflow:hidden;position:relative}
-.tr-mini>i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--brand)}
-.tr-delta{font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;text-align:right;white-space:nowrap}
-.tr-delta.up{color:var(--green)} .tr-delta.down{color:var(--red)} .tr-delta.flat{color:var(--muted)}
-.tr-delta .note{font-weight:400;color:var(--muted)}
-.tr-tbl .avgcol{background:var(--brand-soft);font-weight:600}
-.tr-tbl .dcell{text-align:right;white-space:nowrap}
-.tr-good.up{color:var(--green)} .tr-good.down{color:var(--red)}
-.tr-bad.up{color:var(--red)} .tr-bad.down{color:var(--green)}
-.tr-legend{display:flex;flex-wrap:wrap;gap:14px;margin:10px 0 18px;font-size:11px;color:var(--muted)}
-.tr-legend b{color:var(--ink);font-weight:600}
+/* â”€â”€ TREND ANALYSIS Â· presentation view â”€â”€ */
+.trx{max-width:1180px;margin:0 auto}
 .scrollx{overflow-x:auto}
-.tr-tbl.auto td.sub{color:var(--muted)}
-.tr-tbl.auto td.modiv,.tr-tbl.auto th.modiv{border-left:2px solid var(--border)}
-.tr-tbl.auto td.dcell{text-align:right;white-space:nowrap}
-.tr-tbl.auto th,.tr-tbl.auto td{padding:8px 12px}
-.tr-tbl.auto .metric{white-space:nowrap}
+.trx-head{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap;margin:4px 2px 22px;padding-bottom:18px;border-bottom:2px solid var(--brand)}
+.trx-eyebrow{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--brand)}
+.trx-h1{font-size:30px;font-weight:800;letter-spacing:-.02em;color:var(--ink);margin:6px 0 4px;line-height:1.05}
+.trx-dates{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.trx-pick{display:flex;flex-direction:column;gap:5px}
+.trx-pick-lbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.trx-sel{font-family:inherit;font-size:14px;font-weight:600;padding:9px 12px;border:1.5px solid var(--brand);border-radius:10px;background:var(--surface);color:var(--ink);cursor:pointer;min-width:210px}
 
-/* hero section cards (insight-first) */
-.trhero{padding:0;overflow:hidden}
-.trhero-top{display:flex;flex-wrap:wrap;gap:18px;align-items:center;padding:18px 20px}
-.trhero-lead{flex:1;min-width:220px}
-.trhero-title{font-size:12px;font-weight:700;color:var(--brand);letter-spacing:.02em}
-.trhero-metric{font-size:12px;color:var(--muted);margin-top:6px;text-transform:uppercase;letter-spacing:.05em}
-.trhero-val{font-size:34px;font-weight:800;color:var(--ink);line-height:1.05;margin-top:2px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
-.trhero-chg{font-size:15px;font-weight:700}
-.trhero-chg.up{color:var(--green)} .trhero-chg.down{color:var(--red)} .trhero-chg.flat{color:var(--muted)}
-.trhero-sub{font-size:12px;color:var(--muted);margin-top:6px}
-.trhero-insight{flex:1;min-width:220px;font-size:14px;font-weight:500;line-height:1.45;padding:14px 16px;border-radius:10px;background:var(--bg);border-left:4px solid var(--border)}
-.trhero-insight.up{border-left-color:var(--green);background:var(--green-bg)}
-.trhero-insight.down{border-left-color:var(--red);background:var(--red-bg)}
-.trhero-insight.flat{border-left-color:var(--muted)}
-.trhero-toggle{width:100%;text-align:left;background:var(--bg);border:none;border-top:1px solid var(--border);padding:10px 20px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit}
-.trhero-toggle:hover{color:var(--ink)}
-.trhero-detail{padding:4px 8px 12px}
+/* headline KPI cards */
+.trx-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+@media(max-width:820px){.trx-kpis{grid-template-columns:repeat(2,1fr)}}
+.trx-kpi{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 22px;box-shadow:0 1px 2px rgba(26,29,53,.04),0 10px 26px rgba(26,29,53,.06);position:relative;overflow:hidden}
+.trx-kpi::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:var(--accent,var(--brand))}
+.trx-kpi-lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.trx-kpi-val{font-size:40px;font-weight:800;letter-spacing:-.02em;color:var(--ink);line-height:1;margin:10px 0 8px}
+.trx-kpi-val small{font-size:.5em;font-weight:600;color:var(--muted)}
+.trx-badge{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:700;padding:4px 10px;border-radius:999px}
+.trx-badge.up{color:var(--green);background:var(--green-bg)} .trx-badge.down{color:var(--red);background:var(--red-bg)} .trx-badge.flat{color:var(--muted);background:var(--bg)}
+.trx-kpi-prev{font-size:11px;color:var(--muted);margin-top:8px;font-variant-numeric:tabular-nums}
+
+/* cards + detail table */
+.trx-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px;margin-bottom:16px;box-shadow:0 1px 2px rgba(26,29,53,.04),0 10px 26px rgba(26,29,53,.05)}
+.trx-card-h{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.trx-toggles{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.trx-detail-grp{margin-bottom:16px}
+.trx-tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.trx-tbl th{text-align:left;font-weight:600;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:8px 14px;background:var(--bg)}
+.trx-tbl th.num,.trx-tbl td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:ui-monospace,Menlo,monospace}
+.trx-tbl td{padding:9px 14px;border-bottom:1px solid var(--border)}
+.trx-tbl tr:last-child td{border-bottom:none}
+.trx-tbl .metric{font-weight:500;color:var(--ink)}
+.trx-tbl .sub{color:var(--muted)}
+.trx-chg{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-weight:700;white-space:nowrap}
+.trx-chg.up{color:var(--green)} .trx-chg.down{color:var(--red)} .trx-chg.flat{color:var(--muted)}
 .kpi-row.cols-3{grid-template-columns:repeat(3,1fr)}
 .kpi{background:var(--surface);border-radius:var(--radius);padding:16px 18px;border:1px solid var(--border)}
 .kpi-val{font-size:26px;font-weight:700;color:var(--brand);line-height:1.1}
@@ -213,37 +203,37 @@ body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--
     </div>
     <span class="date-sep">|</span>
     <input class="date-input" type="date" id="df-from">
-    <span class="date-sep">→</span>
+    <span class="date-sep">â†’</span>
     <input class="date-input" type="date" id="df-to">
   </div>
 </div>
 
 <!-- TABBAR -->
 <div class="tabbar">
-  <button class="tab active" data-tab="volume">📊 Volume</button>
-  <button class="tab" data-tab="hourly">🕐 Hourly Pattern</button>
-  <button class="tab" data-tab="callbacks">📞 Callbacks</button>
-  <button class="tab" data-tab="leads">🎯 Leads</button>
-  <button class="tab" data-tab="action">⚡ Action</button>
-  <button class="tab" data-tab="trends">📈 Trend Analysis</button>
+  <button class="tab active" data-tab="volume">ðŸ“Š Volume</button>
+  <button class="tab" data-tab="hourly">ðŸ• Hourly Pattern</button>
+  <button class="tab" data-tab="callbacks">ðŸ“ž Callbacks</button>
+  <button class="tab" data-tab="leads">ðŸŽ¯ Leads</button>
+  <button class="tab" data-tab="action">âš¡ Action</button>
+  <button class="tab" data-tab="trends">ðŸ“ˆ Trend Analysis</button>
 </div>
 
 <!-- MAIN -->
 <div class="page-wrap">
 
-  <!-- ═══ TAB: VOLUME ═══ -->
+  <!-- â•â•â• TAB: VOLUME â•â•â• -->
   <div class="tab-panel active" id="tab-volume">
     <div class="kpi-row cols-6" id="vol-kpis"></div>
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-        <div class="card-title" style="margin-bottom:0">Daily Call Volume — Answered / Agent Missed / Queue Missed / AOH</div>
+        <div class="card-title" style="margin-bottom:0">Daily Call Volume â€” Answered / Agent Missed / Queue Missed / AOH</div>
         <div id="bar-toggles" style="display:flex;gap:6px;flex-wrap:wrap"></div>
       </div>
       <div class="chart-wrap tall"><canvas id="daily-chart"></canvas></div>
     </div>
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-        <div class="card-title" style="margin-bottom:0">Daily Averages — Day by Day Trend</div>
+        <div class="card-title" style="margin-bottom:0">Daily Averages â€” Day by Day Trend</div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
         <div id="avg-toggles" style="display:flex;gap:6px;flex-wrap:wrap"></div>
         <div id="day-toggles" style="display:flex;gap:4px;flex-wrap:wrap"></div>
@@ -258,11 +248,11 @@ body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--
     </div>
   </div>
 
-  <!-- ═══ TAB: HOURLY ═══ -->
+  <!-- â•â•â• TAB: HOURLY â•â•â• -->
   <div class="tab-panel" id="tab-hourly">
     <div class="insight-row" id="hourly-insights"></div>
     <div class="card">
-      <div class="card-title">Answer Rate Heatmap — by Day & Hour</div>
+      <div class="card-title">Answer Rate Heatmap â€” by Day & Hour</div>
       <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <span>Answer rate:</span>
         <span style="display:flex;align-items:center;gap:0">
@@ -275,21 +265,21 @@ body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--
           <span style="width:22px;height:12px;background:#15803D;display:inline-block"></span>
         </span>
         <span>&lt;35% &rarr; 90%+</span>
-        <span style="color:var(--border)">·</span>
+        <span style="color:var(--border)">Â·</span>
         <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#F1F5F9;display:inline-block;border:1px solid var(--border)"></span>no calls</span>
       </div>
       <div class="hm-wrap" id="hm-container"></div>
     </div>
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-        <div class="card-title" style="margin-bottom:0">Average Volume by Hour — Answered / Agent Missed / Queue Missed / AOH</div>
+        <div class="card-title" style="margin-bottom:0">Average Volume by Hour â€” Answered / Agent Missed / Queue Missed / AOH</div>
         <div id="hourly-bar-toggles" style="display:flex;gap:6px;flex-wrap:wrap"></div>
       </div>
       <div class="chart-wrap tall"><canvas id="hourly-chart"></canvas></div>
     </div>
   </div>
 
-  <!-- ═══ TAB: CALLBACKS ═══ -->
+  <!-- â•â•â• TAB: CALLBACKS â•â•â• -->
   <div class="tab-panel" id="tab-callbacks">
     <div class="kpi-row cols-5" id="cb-kpis"></div>
     <div id="miss-type-breakdown"></div>
@@ -311,7 +301,7 @@ body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--
     </div>
   </div>
 
-  <!-- ═══ TAB: LEADS ═══ -->
+  <!-- â•â•â• TAB: LEADS â•â•â• -->
   <div class="tab-panel" id="tab-leads">
     <div class="kpi-row cols-5" id="leads-kpis"></div>
     <div class="card-row two">
@@ -325,18 +315,18 @@ body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--
       </div>
     </div>
     <div class="card">
-      <div class="card-title">Daily Averages — Day by Day Trend</div>
+      <div class="card-title">Daily Averages â€” Day by Day Trend</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px" id="leads-day-toggles"></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="leads-trend-toggles"></div>
       <div class="chart-wrap tall"><canvas id="leads-trend-chart"></canvas></div>
     </div>
   </div>
 
-  <!-- ═══ TAB: ACTION ═══ -->
+  <!-- â•â•â• TAB: ACTION â•â•â• -->
   <div class="tab-panel" id="tab-action">
     <div class="card" style="margin-bottom:16px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <div class="card-title" style="margin-bottom:0">🟢 Active Agents — 7-min Slots</div>
+        <div class="card-title" style="margin-bottom:0">ðŸŸ¢ Active Agents â€” 7-min Slots</div>
         <input type="date" id="agent-activity-date" style="margin-left:auto;font-size:13px;padding:4px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);cursor:pointer">
       </div>
       <div class="chart-wrap" style="height:200px"><canvas id="agent-activity-chart"></canvas></div>
@@ -344,58 +334,50 @@ body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--
     <div class="insight-row" id="action-insights" style="grid-template-columns:repeat(4,1fr)"></div>
     <div class="kpi-row cols-3" id="action-counts" style="margin-bottom:16px"></div>
     <div class="card">
-      <div class="card-title">📵 DID Health — Outbound Pickup Rate</div>
-      <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:12px">Pickup rate per outbound caller ID (DID). A DID well below the average may be flagged as spam by carriers. Only DIDs with ≥30 calls shown.</div>
+      <div class="card-title">ðŸ“µ DID Health â€” Outbound Pickup Rate</div>
+      <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:12px">Pickup rate per outbound caller ID (DID). A DID well below the average may be flagged as spam by carriers. Only DIDs with â‰¥30 calls shown.</div>
       <div id="did-health"></div>
     </div>
   </div>
 
-  <!-- ═══ TAB: TREND ANALYSIS ═══ -->
+  <!-- â•â•â• TAB: TREND ANALYSIS â•â•â• -->
   <div class="tab-panel" id="tab-trends">
+    <div class="trx">
 
-    <!-- Auto analysis: this vs last week + this vs last month, per metric -->
-    <div id="tr-auto-head" style="margin-bottom:6px"></div>
-    <div id="tr-auto"></div>
-
-    <div style="border-top:1px solid var(--border);margin:28px 0 20px"></div>
-    <div class="sec-title" style="margin-bottom:2px">🔍 Custom comparison</div>
-    <div class="sec-desc">Compare any two periods — pick an exact week, month, day (Mon-vs-Mon), or rolling window.</div>
-
-    <div class="card">
-      <div class="card-title">Compare two periods</div>
-      <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:14px">Pick how to compare, then choose Period A and Period B. Works across weeks, months, single days (benchmark Monday vs Monday), or rolling 7-day windows. All figures exclude known spam/robodialer floods.</div>
-      <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end">
+      <!-- Header: title + single week picker -->
+      <div class="trx-head">
         <div>
-          <div class="tr-lbl">Mode</div>
-          <select id="tr-mode" class="tr-sel">
-            <option value="week">Week vs Week</option>
-            <option value="month">Month vs Month</option>
-            <option value="day">Day vs Day</option>
-            <option value="roll7">Rolling 7d vs prior 7d</option>
-          </select>
+          <div class="trx-eyebrow">Weekly Performance Review</div>
+          <h2 class="trx-h1" id="trx-title">Week â€”</h2>
+          <div class="trx-dates" id="trx-dates"></div>
         </div>
-        <div>
-          <div class="tr-lbl">Period A</div>
-          <select id="tr-a" class="tr-sel"></select>
-        </div>
-        <div style="font-size:20px;color:var(--muted);padding-bottom:4px">vs</div>
-        <div>
-          <div class="tr-lbl">Period B</div>
-          <select id="tr-b" class="tr-sel"></select>
+        <div class="trx-pick">
+          <label class="trx-pick-lbl">Week</label>
+          <select id="trx-week" class="trx-sel"></select>
         </div>
       </div>
+
+      <!-- Headline KPI cards -->
+      <div class="trx-kpis" id="trx-kpis"></div>
+
+      <!-- Weekly trend chart -->
+      <div class="trx-card">
+        <div class="trx-card-h">Trend â€” last 8 weeks</div>
+        <div id="trx-trend-toggles" class="trx-toggles"></div>
+        <div class="chart-wrap tall"><canvas id="trx-chart"></canvas></div>
+      </div>
+
+      <!-- Supporting detail, grouped -->
+      <div id="trx-detail"></div>
+
     </div>
-
-    <div class="kpi-row cols-4" id="tr-headline" style="margin-bottom:16px"></div>
-
-    <div id="tr-summary"></div>
   </div>
 
 </div><!-- /page-wrap -->
 
 <script>
-// ── Helpers ──────────────────────────────────────────────────────────────────
-const fmtN = n => n == null ? '—' : n.toLocaleString('en-IN');
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const fmtN = n => n == null ? 'â€”' : n.toLocaleString('en-IN');
 const pct  = (a, b) => b ? Math.round(a / b * 100) : 0;
 const fmtS = s => {
   if (!s) return '0s';
@@ -422,7 +404,7 @@ const fmtTime = ti => {
   return (hr%12||12) + ':' + m + (hr<12?'am':'pm');
 };
 
-// ── Charts registry ───────────────────────────────────────────────────────────
+// â”€â”€ Charts registry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const CHARTS = {};
 let HIDDEN_DOW = new Set();
 let _avgM = null, _avgAllDays = null, _avgDailyAgMiss = {}, _avgDailyQMiss = {}, _avgDailyAhMiss = {};
@@ -442,7 +424,7 @@ function makeChart(id, cfg) {
   return CHARTS[id];
 }
 
-// ── Date filter ───────────────────────────────────────────────────────────────
+// â”€â”€ Date filter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let FILTER_FROM = null, FILTER_TO = null;
 const ALL = typeof INBOUND_RECORDS !== 'undefined' ? INBOUND_RECORDS : [];
 
@@ -452,7 +434,7 @@ const DATA_MIN = allDates[0] || '';
 const DATA_MAX = allDates[allDates.length - 1] || '';
 
 const LAST_UPDATED = (typeof GENERATED_AT !== 'undefined' && GENERATED_AT) ? GENERATED_AT : DATA_MAX;
-document.getElementById('tb-updated').textContent = LAST_UPDATED ? `· Last updated: ${LAST_UPDATED} IST` : '';
+document.getElementById('tb-updated').textContent = LAST_UPDATED ? `Â· Last updated: ${LAST_UPDATED} IST` : '';
 
 function setDateFilter(from, to) {
   FILTER_FROM = from; FILTER_TO = to;
@@ -512,7 +494,7 @@ document.querySelectorAll('.tab').forEach(t => {
   });
 });
 
-// ── Core computations ─────────────────────────────────────────────────────────
+// â”€â”€ Core computations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function compute(recs) {
   const ib    = recs.filter(r => r.dr === 'inbound');
   const cb    = recs.filter(r => r.dr === 'callback');
@@ -540,7 +522,7 @@ function compute(recs) {
     r.st === 'answered' ? daily[r.d].ans++ : daily[r.d].miss++;
   });
 
-  // Hourly: by hour and day (all 7 days, 9am–11pm)
+  // Hourly: by hour and day (all 7 days, 9amâ€“11pm)
   const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const HOURS = Array.from({length:15}, (_,i) => i+9); // 9..23
   const hmData = {};
@@ -597,7 +579,7 @@ function compute(recs) {
   Object.values(cbByNum).forEach(arr => arr.sort((a,b) => toMin(a.d,a.ti) - toMin(b.d,b.ti)));
   Object.values(missedByNum).forEach(arr => arr.sort((a,b) => toMin(a.d,a.ti) - toMin(b.d,b.ti)));
 
-  // "Reached after last miss" — the shared definition of a resolved caller, used
+  // "Reached after last miss" â€” the shared definition of a resolved caller, used
   // by both the Action-tab attempt lists and the Callback Funnel. A number counts
   // as reached ONLY if an answered contact (inbound OR callback, non-voicemail)
   // happened AFTER its most recent miss. Checked across the FULL dataset (ALL) so
@@ -647,10 +629,10 @@ function compute(recs) {
     else if (deltaHr < 48) ttcBuckets['1-2d']++;
     else                   ttcBuckets['2d+']++;
 
-    // Attempt analysis — stop at first connection so caller doesn't bleed into next buckets.
+    // Attempt analysis â€” stop at first connection so caller doesn't bleed into next buckets.
     // A caller only counts as "connected" here if they were genuinely reached AFTER their last
     // miss (isConn). If they connected on a callback but were later re-missed, isConn is false,
-    // so they are NOT credited as connected — they stay in the funnel as unresolved. This keeps
+    // so they are NOT credited as connected â€” they stay in the funnel as unresolved. This keeps
     // the funnel fully consistent with the Action-tab "Not Connected" lists.
     //   connIdx = the callback attempt that connected (if reached via a callback), else the last
     //   callback (if reached via inbound), else -1 (not reached / re-missed after).
@@ -669,7 +651,7 @@ function compute(recs) {
       if (connIdx >= 4) attemptConn['5+'].conn++;
     }
 
-    // Re-contact after connection — callers called again after first pick-up
+    // Re-contact after connection â€” callers called again after first pick-up
     if (connIdx >= 0 && cbs.length > connIdx + 1) {
       const afterCbs = cbs.slice(connIdx + 1);
       const reConnIdx = afterCbs.findIndex(c => c.st === 'answered' && c.ct !== 'Voice Mail');
@@ -687,7 +669,7 @@ function compute(recs) {
       }
     }
 
-    // Connection frequency — how many times did this caller connect?
+    // Connection frequency â€” how many times did this caller connect?
     const totalConns = cbs.filter(c => c.st === 'answered' && c.ct !== 'Voice Mail').length;
     if (totalConns > 0) {
       const fkey = totalConns >= 5 ? '5+' : String(totalConns);
@@ -708,10 +690,10 @@ function compute(recs) {
 
   // Attempted not reached: had a callback attempt for the CURRENT unresolved
   // episode, but was never reached (everConnected = answered after the last miss).
-  // "attempts" counts callbacks made AFTER the caller's most recent miss — the
-  // fresh chase — so a number that connected earlier then got re-missed shows the
+  // "attempts" counts callbacks made AFTER the caller's most recent miss â€” the
+  // fresh chase â€” so a number that connected earlier then got re-missed shows the
   // attempts since that re-miss, not lifetime. A number is only listed here if it
-  // has ≥1 such attempt (otherwise it belongs in "0 callbacks made", not here).
+  // has â‰¥1 such attempt (otherwise it belongs in "0 callbacks made", not here).
   const attemptedNotReached = Object.entries(missedByNum)
     .filter(([cn]) => cbByNum[cn] && !everConnected(cn))
     .map(([cn, misses]) => {
@@ -722,7 +704,7 @@ function compute(recs) {
       const lastCb = episode[episode.length-1] || cbs[cbs.length-1];
       return { cn, missTime: misses[0].d + ' ' + fmtTime(misses[0].ti), attempts: episode.length, lastAttempt: lastCb.d + ' ' + fmtTime(lastCb.ti), missRow: misses[0] };
     })
-    .filter(x => x.attempts > 0)   // no callback in the current episode → not "attempted"
+    .filter(x => x.attempts > 0)   // no callback in the current episode â†’ not "attempted"
     .sort((a,b) => b.attempts - a.attempts);
 
   // Never called back
@@ -762,7 +744,7 @@ function compute(recs) {
   };
 }
 
-// ── Render all ────────────────────────────────────────────────────────────────
+// â”€â”€ Render all â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function renderAll() {
   const recs = filtered();
   const m = compute(recs);
@@ -775,14 +757,14 @@ function renderAll() {
   renderMissedByCampaign(recs);
 }
 
-// ── VOLUME ────────────────────────────────────────────────────────────────────
+// â”€â”€ VOLUME â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function renderVolume(m) {
   const ib = m.ib.length, ans = m.ansIB.length, miss = m.missIB.length;
   const agMiss = m.missIB.filter(r => r.mt === 'Agent Missed');
   const qMiss  = m.missIB.filter(r => r.mt === 'Queue Missed - Within Hours');
   const ahMiss = m.missIB.filter(r => r.mt === 'Queue Missed - After Hours');
   const ar = pct(ans, ib);
-  // Office-hours answer rate (9am–6pm, hours 9–18) — the TL incentive metric.
+  // Office-hours answer rate (9amâ€“6pm, hours 9â€“18) â€” the TL incentive metric.
   const ibOff  = m.ib.filter(r => r.h >= 9 && r.h <= 18);
   const ansOff = ibOff.filter(r => r.st === 'answered').length;
   const arOff  = pct(ansOff, ibOff.length);
@@ -793,18 +775,18 @@ function renderVolume(m) {
     .map(r => ({ cn: r.cn, missTime: r.d + ' ' + fmtTime(r.ti) }))
     .sort((a,b) => a.missTime < b.missTime ? 1 : -1);
   _actionLists.volAgentMissed = { title: 'Agent Missed', rows: _missRows(agMiss) };
-  _actionLists.volQueueMissed = { title: 'Queue Missed — Within Hours', rows: _missRows(qMiss) };
+  _actionLists.volQueueMissed = { title: 'Queue Missed â€” Within Hours', rows: _missRows(qMiss) };
 
   // Clickable KPI card (same look as kpiCard, with pointer + onclick).
   const kpiCardClick = (lbl, val, sub, cls, key) =>
-    `<div class="kpi ${cls}" style="cursor:pointer" onclick="openContactModal('${key}')"><div class="kpi-val">${val}</div><div class="kpi-lbl">${lbl}</div>${sub?`<div class="kpi-sub">${sub} · click to view</div>`:''}</div>`;
+    `<div class="kpi ${cls}" style="cursor:pointer" onclick="openContactModal('${key}')"><div class="kpi-val">${val}</div><div class="kpi-lbl">${lbl}</div>${sub?`<div class="kpi-sub">${sub} Â· click to view</div>`:''}</div>`;
 
   document.getElementById('vol-kpis').innerHTML =
     kpiCard('Total Inbound',  fmtN(ib),           `avg ${fmtN(Math.round(m.avgDaily))}/day`, '') +
-    kpiCard('Answer Rate',    ar+'%',              `${fmtN(ans)} answered · all hours`, ar >= 70 ? 'green' : ar >= 55 ? '' : 'red') +
-    kpiCard('Answer Rate · 9am–6pm', arOff+'%',   `${fmtN(ansOff)} of ${fmtN(ibOff.length)} · office hours`, arOff >= 92 ? 'green' : arOff >= 90 ? 'amber' : 'red') +
-    kpiCardClick('Agent Missed',   fmtN(agMiss.length), `${pct(agMiss.length,ib)}% — rung, not picked up`, agMiss.length ? 'red' : 'green', 'volAgentMissed') +
-    kpiCardClick('Queue Missed',   fmtN(qMiss.length),  `${pct(qMiss.length,ib)}% — dropped in queue`, qMiss.length ? 'red' : 'green', 'volQueueMissed') +
+    kpiCard('Answer Rate',    ar+'%',              `${fmtN(ans)} answered Â· all hours`, ar >= 70 ? 'green' : ar >= 55 ? '' : 'red') +
+    kpiCard('Answer Rate Â· 9amâ€“6pm', arOff+'%',   `${fmtN(ansOff)} of ${fmtN(ibOff.length)} Â· office hours`, arOff >= 92 ? 'green' : arOff >= 90 ? 'amber' : 'red') +
+    kpiCardClick('Agent Missed',   fmtN(agMiss.length), `${pct(agMiss.length,ib)}% â€” rung, not picked up`, agMiss.length ? 'red' : 'green', 'volAgentMissed') +
+    kpiCardClick('Queue Missed',   fmtN(qMiss.length),  `${pct(qMiss.length,ib)}% â€” dropped in queue`, qMiss.length ? 'red' : 'green', 'volQueueMissed') +
     kpiCard('After-Hrs Missed', fmtN(ahMiss.length), `${pct(ahMiss.length,ib)}% of inbound`, '');
 
   // Daily stacked chart: answered / agent missed / queue missed / after-hours missed
@@ -824,10 +806,10 @@ function renderVolume(m) {
   });
   const totals    = days.map(d => (m.daily[d].ans||0)+(dailyAgMiss[d]||0)+(dailyQMiss[d]||0)+(dailyAhMiss[d]||0));
 
-  // ── Bar chart — stacked + total label + toggle buttons ────────────────────
+  // â”€â”€ Bar chart â€” stacked + total label + toggle buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const avgOf = arr => Math.round(arr.reduce((s,v)=>s+v,0)/(arr.length||1));
 
-  // Sum of the VISIBLE value-series at column i — so inner % labels and the top
+  // Sum of the VISIBLE value-series at column i â€” so inner % labels and the top
   // total both reflect exactly what's shown when series are toggled off.
   const visTotal = (chart, i) => {
     let sum = 0;
@@ -840,7 +822,7 @@ function renderVolume(m) {
 
   const ansPerDay = days.map(d => m.daily[d].ans || 0);
   const BAR_DS = [
-    // Green — show answer rate % inside segment
+    // Green â€” show answer rate % inside segment
     { label:'Answered', data:ansPerDay, color:'#16A34A',
       datalabels:{
         display:(ctx) => ansPerDay[ctx.dataIndex] >= 20,
@@ -849,9 +831,9 @@ function renderVolume(m) {
         formatter:(v,ctx) => { const t=visTotal(ctx.chart,ctx.dataIndex); return t?Math.round(v/t*100)+'%':null; },
       }
     },
-    // Red — no label
+    // Red â€” no label
     { label:'Agent Missed', data:days.map(d=>dailyAgMiss[d]||0), color:'#EF4444', datalabels:{display:false} },
-    // Orange — show queue missed % inside segment
+    // Orange â€” show queue missed % inside segment
     { label:'Queue Missed', data:days.map(d=>dailyQMiss[d]||0), color:'#F59E0B',
       datalabels:{
         display:(ctx) => (dailyQMiss[days[ctx.dataIndex]]||0) >= 20,
@@ -860,7 +842,7 @@ function renderVolume(m) {
         formatter:(v,ctx) => { const t=visTotal(ctx.chart,ctx.dataIndex); return t?Math.round(v/t*100)+'%':null; },
       }
     },
-    // Grey (top) — % inside segment + total count above bar
+    // Grey (top) â€” % inside segment + total count above bar
     { label:'AOH Missed', data:days.map(d=>dailyAhMiss[d]||0), color:'#94A3B8',
       datalabels:{
         display:true,
@@ -927,13 +909,13 @@ function renderVolume(m) {
       const hidden0 = VOL_HIDDEN.has(label);
       btn.className = 'tog-btn' + (hidden0 ? ' off' : '');
       btn.style.borderColor = color; btn.style.color = color;
-      btn.innerHTML = `<span class="tog-ck">${hidden0 ? '✗' : '✓'}</span>${label}`;
+      btn.innerHTML = `<span class="tog-ck">${hidden0 ? 'âœ—' : 'âœ“'}</span>${label}`;
       btn.onclick = () => {
         const nowHidden = !VOL_HIDDEN.has(label);
         if (nowHidden) VOL_HIDDEN.add(label); else VOL_HIDDEN.delete(label);
         barChart.getDatasetMeta(i).hidden = nowHidden;
         btn.classList.toggle('off', nowHidden);
-        btn.querySelector('.tog-ck').textContent = nowHidden ? '✗' : '✓';
+        btn.querySelector('.tog-ck').textContent = nowHidden ? 'âœ—' : 'âœ“';
         barChart.update();
       };
       barTogWrap.appendChild(btn);
@@ -964,13 +946,13 @@ function renderVolume(m) {
       const hidden = HIDDEN_DOW.has(dow);
       btn.className = 'tog-btn' + (hidden ? ' off' : '');
       btn.style.borderColor = color; btn.style.color = color;
-      btn.innerHTML = `<span class="tog-ck">${hidden ? '✗' : '✓'}</span>${dow}`;
+      btn.innerHTML = `<span class="tog-ck">${hidden ? 'âœ—' : 'âœ“'}</span>${dow}`;
       btn.onclick = () => {
         if (HIDDEN_DOW.has(dow)) HIDDEN_DOW.delete(dow);
         else HIDDEN_DOW.add(dow);
         const isHidden = HIDDEN_DOW.has(dow);
         btn.classList.toggle('off', isHidden);
-        btn.querySelector('.tog-ck').textContent = isHidden ? '✗' : '✓';
+        btn.querySelector('.tog-ck').textContent = isHidden ? 'âœ—' : 'âœ“';
         buildAvgChart();
       };
       dayTogWrap.appendChild(btn);
@@ -1082,7 +1064,7 @@ function buildAvgChart() {
     avgChart.update();
   }
 
-  // Metric toggle buttons — rebuilt each time so they reference the fresh chart
+  // Metric toggle buttons â€” rebuilt each time so they reference the fresh chart
   const togWrap = document.getElementById('avg-toggles');
   if (togWrap && avgChart) {
     togWrap.innerHTML = '';
@@ -1091,14 +1073,14 @@ function buildAvgChart() {
       const hidden0 = AVG_HIDDEN.has(label);
       btn.className = 'tog-btn' + (hidden0 ? ' off' : '');
       btn.style.borderColor = color; btn.style.color = color;
-      btn.innerHTML = `<span class="tog-ck">${hidden0 ? '✗' : '✓'}</span>${label}`;
+      btn.innerHTML = `<span class="tog-ck">${hidden0 ? 'âœ—' : 'âœ“'}</span>${label}`;
       btn.onclick = () => {
         const nowHidden = !AVG_HIDDEN.has(label);
         if (nowHidden) AVG_HIDDEN.add(label); else AVG_HIDDEN.delete(label);
         avgChart.getDatasetMeta(i).hidden = nowHidden;
         avgChart.getDatasetMeta(i + METRICS.length).hidden = nowHidden;
         btn.classList.toggle('off', nowHidden);
-        btn.querySelector('.tog-ck').textContent = nowHidden ? '✗' : '✓';
+        btn.querySelector('.tog-ck').textContent = nowHidden ? 'âœ—' : 'âœ“';
         avgChart.update();
       };
       togWrap.appendChild(btn);
@@ -1197,7 +1179,7 @@ function buildLeadsTrendChart() {
     trendChart.update();
   }
 
-  // Product toggle buttons — rebuild each time to reference fresh chart
+  // Product toggle buttons â€” rebuild each time to reference fresh chart
   const tTogWrap = document.getElementById('leads-trend-toggles');
   if (tTogWrap && trendChart) {
     tTogWrap.innerHTML = '';
@@ -1206,14 +1188,14 @@ function buildLeadsTrendChart() {
       const hidden0 = LEADS_HIDDEN_PROD.has(p);
       btn.className = 'tog-btn' + (hidden0 ? ' off' : '');
       btn.style.borderColor = PROD_COLORS[p]; btn.style.color = PROD_COLORS[p];
-      btn.innerHTML = `<span class="tog-ck">${hidden0 ? '✗' : '✓'}</span>${p}`;
+      btn.innerHTML = `<span class="tog-ck">${hidden0 ? 'âœ—' : 'âœ“'}</span>${p}`;
       btn.onclick = () => {
         const nowHidden = !LEADS_HIDDEN_PROD.has(p);
         if (nowHidden) LEADS_HIDDEN_PROD.add(p); else LEADS_HIDDEN_PROD.delete(p);
         trendChart.getDatasetMeta(i).hidden = nowHidden;
         trendChart.getDatasetMeta(i + PRODUCTS.length).hidden = nowHidden;
         btn.classList.toggle('off', nowHidden);
-        btn.querySelector('.tog-ck').textContent = nowHidden ? '✗' : '✓';
+        btn.querySelector('.tog-ck').textContent = nowHidden ? 'âœ—' : 'âœ“';
         trendChart.update();
       };
       tTogWrap.appendChild(btn);
@@ -1225,7 +1207,7 @@ function kpiCard(lbl, val, sub, cls) {
   return `<div class="kpi ${cls}"><div class="kpi-val">${val}</div><div class="kpi-lbl">${lbl}</div>${sub?`<div class="kpi-sub">${sub}</div>`:''}</div>`;
 }
 
-// ── HOURLY ────────────────────────────────────────────────────────────────────
+// â”€â”€ HOURLY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function renderHourly(m) {
   const { peakHr, lowestArHr, bestCbHr, fmtHr, HOURS, hourlyAns, hourlyMiss, hourlyAgMiss, hourlyQMiss, hourlyAhMiss, hourlyTotal, cbHourAns, cbHourTotal } = m;
 
@@ -1235,24 +1217,24 @@ function renderHourly(m) {
   const within1hrPct = m.ttcBuckets['<1hr'] ? Math.round(m.ttcBuckets['<1hr'] / Math.max(m.reconnected,1) * 100) : 0;
 
   document.getElementById('hourly-insights').innerHTML = `
-    <div class="insight-card peak"><div class="ic-title">📈 Peak Volume Hour</div><div class="ic-val">${fmtHr(peakHr)}</div><div class="ic-desc">${fmtN(peakVol)} total calls — highest inbound hour</div></div>
-    <div class="insight-card danger"><div class="ic-title">⚠️ Danger Zone</div><div class="ic-val">${fmtHr(lowestArHr)} — ${dangerAr}% AR</div><div class="ic-desc">Lowest answer rate — needs more agent coverage</div></div>
-    <div class="insight-card best"><div class="ic-title">📞 Best Callback Window</div><div class="ic-val">${fmtHr(bestCbHr)} — ${bestCbAr}% connect</div><div class="ic-desc">Highest callback answer rate — prioritize this slot</div></div>`;
+    <div class="insight-card peak"><div class="ic-title">ðŸ“ˆ Peak Volume Hour</div><div class="ic-val">${fmtHr(peakHr)}</div><div class="ic-desc">${fmtN(peakVol)} total calls â€” highest inbound hour</div></div>
+    <div class="insight-card danger"><div class="ic-title">âš ï¸ Danger Zone</div><div class="ic-val">${fmtHr(lowestArHr)} â€” ${dangerAr}% AR</div><div class="ic-desc">Lowest answer rate â€” needs more agent coverage</div></div>
+    <div class="insight-card best"><div class="ic-title">ðŸ“ž Best Callback Window</div><div class="ic-val">${fmtHr(bestCbHr)} â€” ${bestCbAr}% connect</div><div class="ic-desc">Highest callback answer rate â€” prioritize this slot</div></div>`;
 
   // Heatmap
   const hm = m.hmData;
   const maxTotal = Math.max(...m.DAYS.flatMap(d => m.HOURS.map(h => hm[d]?.[h]?.total || 0)));
-  // Diverging red→amber→green scale with more steps in the high range (where most
+  // Diverging redâ†’amberâ†’green scale with more steps in the high range (where most
   // answer rates land) so the greens no longer mesh together. Deep cells get white
   // text for contrast. Returns {bg, fg}.
   function cellColor(ans, total) {
     if (!total) return { bg: '#F1F5F9', fg: '#94A3B8' };
     const r = ans / total;
-    // low band — red → orange → amber
+    // low band â€” red â†’ orange â†’ amber
     if (r < 0.35) return { bg: '#DC2626', fg: '#fff' };
     if (r < 0.50) return { bg: '#F97316', fg: '#fff' };
     if (r < 0.60) return { bg: '#FBBF24', fg: '#7c2d12' };
-    // high band — 4 distinct greens from light to deep so 60–95% spreads out
+    // high band â€” 4 distinct greens from light to deep so 60â€“95% spreads out
     if (r < 0.70) return { bg: '#BBF7D0', fg: '#14532d' };   // pale mint
     if (r < 0.80) return { bg: '#4ADE80', fg: '#14532d' };   // light green
     if (r < 0.90) return { bg: '#16A34A', fg: '#fff' };      // core green
@@ -1272,7 +1254,7 @@ function renderHourly(m) {
   hmHtml += '</tbody></table>';
   document.getElementById('hm-container').innerHTML = hmHtml;
 
-  // Hourly avg chart — same style as Daily Call Volume
+  // Hourly avg chart â€” same style as Daily Call Volume
   const numDays = m.numDays || 1;
   const rnd = v => Math.round(v / numDays * 10) / 10;
   const hrLabels = HOURS.map(fmtHr);
@@ -1368,13 +1350,13 @@ function renderHourly(m) {
       const hidden0 = HOUR_HIDDEN.has(label);
       btn.className = 'tog-btn' + (hidden0 ? ' off' : '');
       btn.style.borderColor = color; btn.style.color = color;
-      btn.innerHTML = `<span class="tog-ck">${hidden0 ? '✗' : '✓'}</span>${label}`;
+      btn.innerHTML = `<span class="tog-ck">${hidden0 ? 'âœ—' : 'âœ“'}</span>${label}`;
       btn.onclick = () => {
         const nowHidden = !HOUR_HIDDEN.has(label);
         if (nowHidden) HOUR_HIDDEN.add(label); else HOUR_HIDDEN.delete(label);
         hourlyChart.getDatasetMeta(i).hidden = nowHidden;
         btn.classList.toggle('off', nowHidden);
-        btn.querySelector('.tog-ck').textContent = nowHidden ? '✗' : '✓';
+        btn.querySelector('.tog-ck').textContent = nowHidden ? 'âœ—' : 'âœ“';
         hourlyChart.update();
       };
       hrTogWrap.appendChild(btn);
@@ -1382,7 +1364,7 @@ function renderHourly(m) {
   }
 }
 
-// ── CALLBACKS ─────────────────────────────────────────────────────────────────
+// â”€â”€ CALLBACKS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function renderCallbacks(m) {
   const { uniqueMissed, reconnected, connected, ttcBuckets, attemptConn, reContactConn, connFreq, unreachable, missTypeCount } = m;
   const neverAtt = uniqueMissed - reconnected;
@@ -1420,21 +1402,21 @@ function renderCallbacks(m) {
         <div class="funnel-lbl">Unique Missed</div>
         <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:100%;background:#94A3B8"></div></div>
       </div>
-      <div class="funnel-arrow">→</div>
+      <div class="funnel-arrow">â†’</div>
       <div class="funnel-stage">
         <div class="funnel-val">${fmtN(reconnected)}</div>
         <div class="funnel-lbl">Callback Attempted</div>
         <div class="funnel-pct">${reconPct}% of missed</div>
         <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:${reconPct}%;background:#3B82F6"></div></div>
       </div>
-      <div class="funnel-arrow">→</div>
+      <div class="funnel-arrow">â†’</div>
       <div class="funnel-stage">
         <div class="funnel-val">${fmtN(connected)}</div>
         <div class="funnel-lbl">Connected</div>
-        <div class="funnel-pct">${connPct}% of missed · ${pct(connected,reconnected)}% of attempted</div>
+        <div class="funnel-pct">${connPct}% of missed Â· ${pct(connected,reconnected)}% of attempted</div>
         <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:${connPct}%;background:#16A34A"></div></div>
       </div>
-      <div class="funnel-arrow">→</div>
+      <div class="funnel-arrow">â†’</div>
       <div class="funnel-stage">
         <div class="funnel-val" style="color:var(--red)">${fmtN(neverAtt)}</div>
         <div class="funnel-lbl">Never Called Back</div>
@@ -1448,7 +1430,7 @@ function renderCallbacks(m) {
   if (attFunnelKeys.length) {
     let afHtml = `
       <div style="margin-bottom:4px">
-        <div style="font-size:12px;font-weight:700;color:var(--ink)">Callback Funnel — Did they pick up?</div>
+        <div style="font-size:12px;font-weight:700;color:var(--ink)">Callback Funnel â€” Did they pick up?</div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px">Each row = unique callers who received that callback attempt. Green = connected on that call.</div>
       </div>
       <div style="display:flex;gap:12px;margin-bottom:12px;font-size:11px;color:var(--muted)">
@@ -1474,14 +1456,14 @@ function renderCallbacks(m) {
               </div>
             </div>
             <div style="width:180px;flex-shrink:0;font-size:11px;color:var(--muted)">
-              <strong style="color:var(--green)">${connPct2}%</strong> connected · ${fmtN(total)} unique callers
+              <strong style="color:var(--green)">${connPct2}%</strong> connected Â· ${fmtN(total)} unique callers
             </div>
           </div>
           ${idx < attFunnelKeys.length-1 ? `
           <div style="display:flex;align-items:center;gap:10px;margin:2px 0">
             <div style="width:72px;flex-shrink:0"></div>
             <div style="flex:1;padding-left:8px;font-size:10px;color:var(--muted)">
-              out of ${fmtN(notConn)} who didn't pick up &nbsp;↓ ${fmtN(nextTotal)} got another call · ${dropOff > 0 ? `${fmtN(dropOff)} not attempted again` : 'all attempted again'}
+              out of ${fmtN(notConn)} who didn't pick up &nbsp;â†“ ${fmtN(nextTotal)} got another call Â· ${dropOff > 0 ? `${fmtN(dropOff)} not attempted again` : 'all attempted again'}
             </div>
           </div>` : ''}`;
     });
@@ -1489,7 +1471,7 @@ function renderCallbacks(m) {
     document.getElementById('attempt-funnel').innerHTML = afHtml;
   }
 
-  // Connection frequency chart — how many clients connected 1x, 2x, 3x...
+  // Connection frequency chart â€” how many clients connected 1x, 2x, 3x...
   const cfKeys = ['1','2','3','4','5+'].filter(k => connFreq[k]);
   if (cfKeys.length) {
     const maxCf = Math.max(...cfKeys.map(k => connFreq[k]));
@@ -1497,7 +1479,7 @@ function renderCallbacks(m) {
     let rcHtml = `
       <div style="margin-bottom:4px">
         <div style="font-size:12px;font-weight:700;color:var(--ink)">How Many Times Did a Client Connect?</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">Of ${fmtN(totalConnected)} clients who connected at least once — how many were reached again on a 2nd, 3rd, or 4th call.</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Of ${fmtN(totalConnected)} clients who connected at least once â€” how many were reached again on a 2nd, 3rd, or 4th call.</div>
       </div>`;
     const labels = {'1':'Connected once','2':'Connected twice','3':'Connected 3 times','4':'Connected 4 times','5+':'Connected 5+ times'};
     const colors = {'1':'#16A34A','2':'#1E22AA','3':'#F97316','4':'#DC2626','5+':'#7C3AED'};
@@ -1521,7 +1503,7 @@ function renderCallbacks(m) {
   }
 
   // TTC chart
-  const ttcLabels = ['<1 hr','1–4 hr','4–24 hr','1–2 days','2+ days','Never'];
+  const ttcLabels = ['<1 hr','1â€“4 hr','4â€“24 hr','1â€“2 days','2+ days','Never'];
   const ttcVals = [ttcBuckets['<1hr'], ttcBuckets['1-4hr'], ttcBuckets['4-24hr'], ttcBuckets['1-2d'], ttcBuckets['2d+'], ttcBuckets['never']];
   const ttcColors = ['#16A34A','#86EFAC','#FDE68A','#FDBA74','#F87171','#94A3B8'];
   const ttcTotal = ttcVals.reduce((s,v)=>s+v, 0);
@@ -1566,9 +1548,9 @@ function renderCallbacks(m) {
 }
 
 
-// ── LEADS ─────────────────────────────────────────────────────────────────────
+// â”€â”€ LEADS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function renderLeads(recs) {
-  // Answered inbound (direct) + answered callbacks (missed call handling) — both can carry disposition
+  // Answered inbound (direct) + answered callbacks (missed call handling) â€” both can carry disposition
   const ans = recs.filter(r => r.st === 'answered' && (r.dr === 'inbound' || r.dr === 'callback'));
   const PRODUCTS = ['AM','VO','OD'];
   const PROD_COLORS = { AM:'#1E22AA', VO:'#16A34A', OD:'#F59E0B' };
@@ -1591,12 +1573,12 @@ function renderLeads(recs) {
   // KPIs
   document.getElementById('leads-kpis').innerHTML =
     kpiCard('Total Disposed', fmtN(totalDisposed), `${pct(totalDisposed,ans.length)}% of answered`, '') +
-    kpiCard('AM Leads', fmtN(byProd.AM.total), `New: ${byProd.AM.New} · Existing: ${byProd.AM.Existing}`, 'green') +
-    kpiCard('VO Leads', fmtN(byProd.VO.total), `New: ${byProd.VO.New} · Existing: ${byProd.VO.Existing}`, '') +
-    kpiCard('OD Leads', fmtN(byProd.OD.total), `New: ${byProd.OD.New} · Existing: ${byProd.OD.Existing}`, 'amber') +
+    kpiCard('AM Leads', fmtN(byProd.AM.total), `New: ${byProd.AM.New} Â· Existing: ${byProd.AM.Existing}`, 'green') +
+    kpiCard('VO Leads', fmtN(byProd.VO.total), `New: ${byProd.VO.New} Â· Existing: ${byProd.VO.Existing}`, '') +
+    kpiCard('OD Leads', fmtN(byProd.OD.total), `New: ${byProd.OD.New} Â· Existing: ${byProd.OD.Existing}`, 'amber') +
     kpiCard('Undisposed', fmtN(undisposed.length), `${pct(undisposed.length,ansInbound.length)}% of inbound answered`, undisposed.length > ansInbound.length*0.2 ? 'red' : '');
 
-  // Product donut chart — with count + % labels inside slices
+  // Product donut chart â€” with count + % labels inside slices
   makeChart('leads-product-chart', {
     type:'doughnut',
     data:{
@@ -1622,7 +1604,7 @@ function renderLeads(recs) {
     }
   });
 
-  // New vs Existing grouped bar — with count + % of product total labels
+  // New vs Existing grouped bar â€” with count + % of product total labels
   makeChart('leads-type-chart', {
     type:'bar',
     data:{
@@ -1670,13 +1652,13 @@ function renderLeads(recs) {
       const hidden = LEADS_HIDDEN_DOW.has(dow);
       btn.className = 'tog-btn' + (hidden ? ' off' : '');
       btn.style.borderColor = color; btn.style.color = color;
-      btn.innerHTML = `<span class="tog-ck">${hidden ? '✗' : '✓'}</span>${dow}`;
+      btn.innerHTML = `<span class="tog-ck">${hidden ? 'âœ—' : 'âœ“'}</span>${dow}`;
       btn.onclick = () => {
         if (LEADS_HIDDEN_DOW.has(dow)) LEADS_HIDDEN_DOW.delete(dow);
         else LEADS_HIDDEN_DOW.add(dow);
         const isHidden = LEADS_HIDDEN_DOW.has(dow);
         btn.classList.toggle('off', isHidden);
-        btn.querySelector('.tog-ck').textContent = isHidden ? '✗' : '✓';
+        btn.querySelector('.tog-ck').textContent = isHidden ? 'âœ—' : 'âœ“';
         buildLeadsTrendChart();
       };
       dayTogWrap.appendChild(btn);
@@ -1685,14 +1667,14 @@ function renderLeads(recs) {
 
 }
 
-// ── ACTION ────────────────────────────────────────────────────────────────────
+// â”€â”€ ACTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function renderAction(m) {
   const { todayMissNoCb, attemptedNotReached, neverCalledBack, bestCbHr, fmtHr, ttcBuckets, reconnected } = m;
   const within1hr = ttcBuckets['<1hr'];
   const within1hrPct = reconnected ? Math.round(within1hr/reconnected*100) : 0;
   const afterHrsMissed = m.missIB.filter(r => r.ah === 1 || r.ah === '1').length;
 
-  // ── Active Agents — 7-min slot chart ────────────────────────────────────────
+  // â”€â”€ Active Agents â€” 7-min slot chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Follows the top date filter: shows the latest day within the current range
   // (for Today/Yesterday that's the single selected day). The picker still lets
   // you override to any specific day manually.
@@ -1708,7 +1690,7 @@ function renderAction(m) {
   }
   buildAgentActivityChart(rangeLatest);
 
-  // 3 count cards — store contact lists for modal
+  // 3 count cards â€” store contact lists for modal
   const stuck10List = attemptedNotReached.filter(u => u.attempts >= 10);
   const zeroAttemptList = neverCalledBack;
   const lowAttemptList = attemptedNotReached.filter(u => u.attempts < 3);
@@ -1726,17 +1708,17 @@ function renderAction(m) {
     <div class="kpi red" style="cursor:pointer" onclick="openContactModal('stuck10')">
       <div class="kpi-val">${fmtN(stuck10List.length)}</div>
       <div class="kpi-lbl">10+ Attempts, Not Connected</div>
-      <div class="kpi-sub">Likely unreachable — click to view</div>
+      <div class="kpi-sub">Likely unreachable â€” click to view</div>
     </div>
     <div class="kpi ${zeroAttemptList.length > 20 ? 'amber' : ''}" style="cursor:pointer" onclick="openContactModal('zeroAttempt')">
       <div class="kpi-val">${fmtN(zeroAttemptList.length)}</div>
       <div class="kpi-lbl">0 Callbacks Made</div>
-      <div class="kpi-sub">Missed calls never attempted — click to view</div>
+      <div class="kpi-sub">Missed calls never attempted â€” click to view</div>
     </div>
     <div class="kpi ${lowAttemptList.length > 0 ? 'green' : ''}" style="cursor:pointer" onclick="openContactModal('lowAttempt')">
       <div class="kpi-val">${fmtN(lowAttemptList.length)}</div>
       <div class="kpi-lbl">&lt; 3 Attempts, Not Connected</div>
-      <div class="kpi-sub">Fresh leads — click to view</div>
+      <div class="kpi-sub">Fresh leads â€” click to view</div>
     </div>`;
 
   // Avg inbound calls per unique client number
@@ -1776,17 +1758,17 @@ function renderAction(m) {
 
   document.getElementById('action-insights').style.gridTemplateColumns = 'repeat(4,1fr)';
   document.getElementById('action-insights').innerHTML = `
-    <div class="insight-card best"><div class="ic-title">📞 Best Callback Time</div><div class="ic-val">${fmtHr(bestCbHr)}</div><div class="ic-desc">Highest customer answer rate for callbacks</div></div>
-    <div class="insight-card peak"><div class="ic-title">⚡ Same-Hour Callbacks</div><div class="ic-val">${within1hrPct}%</div><div class="ic-desc">of reached callers connected within 1 hour — prioritize speed</div></div>
-    <div class="insight-card ${afterHrsMissed > 50 ? 'danger' : 'info'}"><div class="ic-title">🌙 After-Hours Missed</div><div class="ic-val">${fmtN(afterHrsMissed)}</div><div class="ic-desc">missed after 8pm — schedule morning callbacks</div></div>
-    <div class="insight-card info"><div class="ic-title">📊 Callback Answer Rate</div><div class="ic-val">${cbAr}%</div><div class="ic-desc">${fmtN(m.ansCB.length)} of ${fmtN(m.cb.length)} callbacks answered</div></div>
-    <div class="insight-card ${reconnectRate >= 60 ? 'best' : reconnectRate >= 40 ? 'peak' : 'danger'}"><div class="ic-title">🔄 Reconnect Rate</div><div class="ic-val">${reconnectRate}%</div><div class="ic-desc">${fmtN(m.connected)} of ${fmtN(m.uniqueMissed)} missed callers eventually reached</div></div>
-    <div class="insight-card info"><div class="ic-title">📲 Avg Attempts / Missed #</div><div class="ic-val">${avgAttemptsAll}</div><div class="ic-desc">${fmtN(uniqueAttempted)} numbers · ${fmtN(totalCbToMissed)} attempts</div></div>
-    <div class="insight-card peak"><div class="ic-title">✅ Avg Calls to Connect</div><div class="ic-val">${avgToConnect}</div><div class="ic-desc">avg callbacks before reaching a connected caller</div></div>
-    <div class="insight-card info"><div class="ic-title">📱 Client Calls (Inbound) Avg</div><div class="ic-val">${avgInboundPerCaller}</div><div class="ic-desc">avg times a client dials myHQ · ${fmtN(inboundCounts.length)} unique numbers</div></div>`;
+    <div class="insight-card best"><div class="ic-title">ðŸ“ž Best Callback Time</div><div class="ic-val">${fmtHr(bestCbHr)}</div><div class="ic-desc">Highest customer answer rate for callbacks</div></div>
+    <div class="insight-card peak"><div class="ic-title">âš¡ Same-Hour Callbacks</div><div class="ic-val">${within1hrPct}%</div><div class="ic-desc">of reached callers connected within 1 hour â€” prioritize speed</div></div>
+    <div class="insight-card ${afterHrsMissed > 50 ? 'danger' : 'info'}"><div class="ic-title">ðŸŒ™ After-Hours Missed</div><div class="ic-val">${fmtN(afterHrsMissed)}</div><div class="ic-desc">missed after 8pm â€” schedule morning callbacks</div></div>
+    <div class="insight-card info"><div class="ic-title">ðŸ“Š Callback Answer Rate</div><div class="ic-val">${cbAr}%</div><div class="ic-desc">${fmtN(m.ansCB.length)} of ${fmtN(m.cb.length)} callbacks answered</div></div>
+    <div class="insight-card ${reconnectRate >= 60 ? 'best' : reconnectRate >= 40 ? 'peak' : 'danger'}"><div class="ic-title">ðŸ”„ Reconnect Rate</div><div class="ic-val">${reconnectRate}%</div><div class="ic-desc">${fmtN(m.connected)} of ${fmtN(m.uniqueMissed)} missed callers eventually reached</div></div>
+    <div class="insight-card info"><div class="ic-title">ðŸ“² Avg Attempts / Missed #</div><div class="ic-val">${avgAttemptsAll}</div><div class="ic-desc">${fmtN(uniqueAttempted)} numbers Â· ${fmtN(totalCbToMissed)} attempts</div></div>
+    <div class="insight-card peak"><div class="ic-title">âœ… Avg Calls to Connect</div><div class="ic-val">${avgToConnect}</div><div class="ic-desc">avg callbacks before reaching a connected caller</div></div>
+    <div class="insight-card info"><div class="ic-title">ðŸ“± Client Calls (Inbound) Avg</div><div class="ic-val">${avgInboundPerCaller}</div><div class="ic-desc">avg times a client dials myHQ Â· ${fmtN(inboundCounts.length)} unique numbers</div></div>`;
 }
 
-// ── DID HEALTH (outbound pickup rate per caller ID) ─────────────────────────
+// â”€â”€ DID HEALTH (outbound pickup rate per caller ID) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function renderDidHealth(recs) {
   const el = document.getElementById('did-health');
   if (!el) return;
@@ -1809,7 +1791,7 @@ function renderDidHealth(recs) {
     .sort((a, b) => a.pct - b.pct); // worst first
 
   if (!rows.length) {
-    el.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:13px">No outbound calls in this range (need ≥30 calls per DID).</div>';
+    el.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:13px">No outbound calls in this range (need â‰¥30 calls per DID).</div>';
     return;
   }
 
@@ -1817,12 +1799,12 @@ function renderDidHealth(recs) {
   const maxPct = Math.max(...rows.map(r => r.pct), 1);
   // Spam-risk = pickup notably below the average (>=10 points under)
   const flag = p => {
-    if (p <= avgPct - 10) return { cls: 'pill-red', txt: '⚠ Spam risk' };
+    if (p <= avgPct - 10) return { cls: 'pill-red', txt: 'âš  Spam risk' };
     if (p < avgPct)       return { cls: 'pill-amber', txt: 'Below avg' };
     return { cls: 'pill-green', txt: 'Healthy' };
   };
 
-  let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">Overall outbound pickup: <strong style="color:var(--ink)">${avgPct}%</strong> · ${fmtN(allAns)}/${fmtN(allTot)} answered · ${rows.length} DIDs</div>`;
+  let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">Overall outbound pickup: <strong style="color:var(--ink)">${avgPct}%</strong> Â· ${fmtN(allAns)}/${fmtN(allTot)} answered Â· ${rows.length} DIDs</div>`;
   html += `<table class="tbl" style="table-layout:fixed"><thead><tr>
       <th>DID (caller ID)</th>
       <th style="width:90px;text-align:center">Calls</th>
@@ -1850,7 +1832,7 @@ function renderDidHealth(recs) {
   el.innerHTML = html;
 }
 
-// ── QUEUE MISSED BY CAMPAIGN ─────────────────────────────────────────────────
+// â”€â”€ QUEUE MISSED BY CAMPAIGN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function renderMissedByCampaign(recs) {
   const el = document.getElementById('missed-by-campaign');
   if (!el) return;
@@ -1904,16 +1886,16 @@ function renderMissedByCampaign(recs) {
 }
 
 function buildAgentActivityChart(date) {
-  // Uses ALL data (not the global date filter) — this chart has its own date
+  // Uses ALL data (not the global date filter) â€” this chart has its own date
   // picker and is independent of the Today/Yesterday/7D filter.
   // Only the actual inbound team counts. TATA tags some outbound-campaign calls
   // as call_type=inbound, so filtering by direction alone pulls in outreach
-  // agents — an explicit whitelist is the reliable fix.
+  // agents â€” an explicit whitelist is the reliable fix.
   const INBOUND_TEAM = ['Nakul verma', 'Sushmita pathak', 'Gagan Preet', 'Lakshay sharma'];
   const dayAns = ALL.filter(r => r.d === date && r.st === 'answered' && r.dr === 'inbound'
     && INBOUND_TEAM.includes(r.ag));
 
-  // Build 7-min buckets 9:00 → 21:00
+  // Build 7-min buckets 9:00 â†’ 21:00
   const SLOT_MIN = 7;
   const S_START = Math.floor(9 * 60 / SLOT_MIN);
   const S_END   = Math.floor(21 * 60 / SLOT_MIN);
@@ -1977,7 +1959,7 @@ function buildAgentActivityChart(date) {
               const names = slotAgentNames[items.dataIndex];
               if (!count) return '0 agents';
               return [`${count} agent${count !== 1 ? 's' : ''}:`,
-                      ...names.split(', ').map(n => '  • ' + n)];
+                      ...names.split(', ').map(n => '  â€¢ ' + n)];
             }
           }
         }
@@ -1990,7 +1972,7 @@ function buildAgentActivityChart(date) {
   });
 }
 
-// ── Contact Modal ─────────────────────────────────────────────────────────────
+// â”€â”€ Contact Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let _actionLists = {};
 let _modalState = { rows: [], title: '', sortKey: null, sortDir: 1 };
 
@@ -2058,7 +2040,7 @@ function renderContactTable() {
     }
   }
 
-  const arrow = key => sortKey === key ? (sortDir === 1 ? ' ▲' : ' ▼') : ' ⇅';
+  const arrow = key => sortKey === key ? (sortDir === 1 ? ' â–²' : ' â–¼') : ' â‡…';
   const thStyle = align => `padding:8px 12px;color:#6B7280;font-weight:600;cursor:pointer;user-select:none;text-align:${align};white-space:nowrap`;
 
   body.innerHTML = `
@@ -2076,7 +2058,7 @@ function renderContactTable() {
             <td style="padding:8px 12px;font-family:monospace;font-weight:600;color:#111827">${r.cn}</td>
             ${r.attempts !== undefined ? `<td style="padding:8px 12px;text-align:center;font-weight:700;color:${r.attempts >= 10 ? '#DC2626' : r.attempts < 3 ? '#16A34A' : '#F97316'}">${r.attempts}</td>` : ''}
             <td style="padding:8px 12px;color:#6B7280">${r.missTime}</td>
-            ${r.lastAttempt !== undefined ? `<td style="padding:8px 12px;color:#6B7280">${r.lastAttempt || '—'}</td>` : ''}
+            ${r.lastAttempt !== undefined ? `<td style="padding:8px 12px;color:#6B7280">${r.lastAttempt || 'â€”'}</td>` : ''}
           </tr>`).join('')}
       </tbody>
     </table>`;
@@ -2099,7 +2081,7 @@ function closeContactModal() {
   document.getElementById('contact-modal').style.display = 'none';
 }
 
-// ── TREND ANALYSIS ────────────────────────────────────────────────────────────
+// â”€â”€ TREND ANALYSIS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Self-contained: own period pickers, independent of the top date filter.
 const TR_FLOOD = new Set(['+918031451096']);   // known robodialer/spam, excluded
 
@@ -2175,280 +2157,165 @@ function periodStats(from, to) {
   };
 }
 
-// ── ISO week helpers ──────────────────────────────────────────────────────────
+// â”€â”€ ISO calendar-week helpers (Monâ€“Sun) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const MONTH_NM = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function isoWeek(dt){ const d=new Date(Date.UTC(dt.getFullYear(),dt.getMonth(),dt.getDate())); const day=(d.getUTCDay()+6)%7; d.setUTCDate(d.getUTCDate()-day+3); const first=new Date(Date.UTC(d.getUTCFullYear(),0,4)); return 1+Math.round(((d-first)/86400000-3+((first.getUTCDay()+6)%7))/7); }
-function weekRange(dateStr){ const dt=new Date(dateStr+'T00:00:00'); const day=(dt.getDay()+6)%7; const mon=new Date(dt); mon.setDate(dt.getDate()-day); const sun=new Date(mon); sun.setDate(mon.getDate()+6); const f=d=>d.toISOString().slice(0,10); return {from:f(mon), to:f(sun), week:isoWeek(mon)}; }
-const _iso = s => s;
-
-// Build the list of weeks present in the data (most recent first).
+function weekRange(dateStr){ const dt=new Date(dateStr+'T00:00:00'); const day=(dt.getDay()+6)%7; const mon=new Date(dt); mon.setDate(dt.getDate()-day); const sun=new Date(mon); sun.setDate(mon.getDate()+6); const f=d=>d.toISOString().slice(0,10); return {from:f(mon), to:f(sun), week:isoWeek(mon), mon, sun}; }
+// distinct weeks in the data, most recent first, one entry per Monday
 function dataWeeks(){
   const seen = {};
   ALL.forEach(r => { if(!r.d) return; const w=weekRange(r.d); seen[w.from]=w; });
   return Object.values(seen).sort((a,b)=>a.from<b.from?1:-1);
 }
-function dataMonths(){
-  const s = new Set(); ALL.forEach(r=>{ if(r.d) s.add(r.d.slice(0,7)); });
-  return [...s].sort().reverse();
-}
-function dataDays(){
-  const s = new Set(); ALL.forEach(r=>{ if(r.d) s.add(r.d); });
-  return [...s].sort().reverse();
-}
-const MONTH_NM = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const DOW_NM = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-function fmtDay(d){ const dt=new Date(d+'T00:00:00'); return `${DOW_NM[dt.getDay()]} ${d.slice(8)}/${d.slice(5,7)}`; }
-function monthLabel(m){ const [y,mo]=m.split('-'); return `${MONTH_NM[+mo-1]} ${y}`; }
+const _dm = d => { const [y,mo,da]=d.split('-'); return `${da} ${MONTH_NM[+mo-1]}`; };  // "24 Aug"
 
-// Resolve a picker value to {from,to,label} per mode.
-function resolvePeriod(mode, val){
-  if (mode === 'week'){ const w=weekRange(val); return {from:w.from, to:w.to, label:`W${w.week} · ${w.from.slice(5).replace('-','/')}–${w.to.slice(5).replace('-','/')}`}; }
-  if (mode === 'month'){ const [y,mo]=val.split('-'); const from=`${val}-01`; const last=new Date(y, +mo, 0).getDate(); return {from, to:`${val}-${String(last).padStart(2,'0')}`, label:monthLabel(val)}; }
-  if (mode === 'day'){ return {from:val, to:val, label:fmtDay(val)}; }
-  if (mode === 'roll7'){ const end=new Date(val+'T00:00:00'); const start=new Date(end); start.setDate(end.getDate()-6); const f=d=>d.toISOString().slice(0,10); return {from:f(start), to:val, label:`${f(start).slice(5).replace('-','/')}–${val.slice(5).replace('-','/')}`}; }
-}
+// â”€â”€ Presentation view: pick a calendar week, auto-compare to the week before â”€â”€
+let TRX_CHART_HIDDEN = new Set();
 
-// Populate A/B dropdowns for a mode. You can pick ANY period from these lists —
-// every week/month/day in the data is an option. Defaults land on the most recent
-// COMPLETE period vs the one before it (so a partial current week/month doesn't
-// skew the opening comparison); change either dropdown freely.
-function populateTrendPickers(mode){
-  const selA=document.getElementById('tr-a'), selB=document.getElementById('tr-b');
-  let opts=[], defA=0, defB=1;
-  if (mode==='week'){
-    const wks = dataWeeks();  // most-recent first
-    opts = wks.map(w=>({v:w.from, t:`W${w.week}  ·  ${w.from.slice(5).replace('-','/')}–${w.to.slice(5).replace('-','/')}`}));
-    // most recent complete week = first whose end date <= DATA_MAX and end < today
-    const iComplete = wks.findIndex(w => w.to < DATA_MAX);   // a week fully in the past
-    if (iComplete >= 0){ defA = iComplete; defB = iComplete + 1; }
-  }
-  else if (mode==='month'){
-    const ms = dataMonths();
-    opts = ms.map(m=>({v:m, t:monthLabel(m)}));
-    const iComplete = ms.findIndex(m => m < DATA_MAX.slice(0,7));  // a month fully in the past
-    if (iComplete >= 0){ defA = iComplete; defB = iComplete + 1; }
-  }
-  else if (mode==='day'){ opts = dataDays().map(d=>({v:d, t:fmtDay(d)+' '+d.slice(0,4)})); }
-  else if (mode==='roll7'){ opts = dataDays().map(d=>({v:d, t:'7d ending '+fmtDay(d)})); }
-  const html = opts.map(o=>`<option value="${o.v}">${o.t}</option>`).join('');
-  selA.innerHTML = html; selB.innerHTML = html;
-  if (opts[defA]) selA.value = opts[defA].v; else if (opts[0]) selA.value = opts[0].v;
-  if (opts[defB]) selB.value = opts[defB].v; else if (opts[opts.length-1]) selB.value = opts[opts.length-1].v;
-}
+function renderTrx(){
+  const sel = document.getElementById('trx-week');
+  if (!sel) return;
+  const thisMon = sel.value;                       // Monday of chosen week
+  const wr = weekRange(thisMon);
+  const prevMonDt = new Date(wr.mon); prevMonDt.setDate(wr.mon.getDate()-7);
+  const pr = weekRange(prevMonDt.toISOString().slice(0,10));
+  const a = periodStats(wr.from, wr.to);           // chosen week
+  const b = periodStats(pr.from, pr.to);           // week before
 
-// ── Render the comparison ─────────────────────────────────────────────────────
-function renderTrends(){
-  const mode = document.getElementById('tr-mode').value;
-  const A = resolvePeriod(mode, document.getElementById('tr-a').value);
-  const B = resolvePeriod(mode, document.getElementById('tr-b').value);
-  if (!A || !B) return;
-  const a = periodStats(A.from, A.to), b = periodStats(B.from, B.to);
+  // header
+  document.getElementById('trx-title').textContent = `Week ${wr.week}`;
+  document.getElementById('trx-dates').innerHTML =
+    `${_dm(wr.from)} â€“ ${_dm(wr.to)} ${wr.to.slice(0,4)} &nbsp;Â·&nbsp; vs Week ${pr.week} (${_dm(pr.from)}â€“${_dm(pr.to)})`;
 
-  // delta helper: dir 'good'|'bad' says which direction is positive
-  const delta = (av, bv, dir, isPct) => {
-    if (bv === 0 && av === 0) return `<span class="tr-delta flat">—</span>`;
-    const diff = av - bv;
-    const pctChg = bv ? Math.round(diff/bv*100) : 100;
-    const up = diff > 0, flat = diff === 0;
-    const cls = flat ? 'flat' : (dir==='good' ? (up?'up':'down') : (up?'down':'up'));
-    const arrow = flat ? '' : (up?'▲':'▼');
-    const shown = isPct ? `${diff>0?'+':''}${diff} pts` : `${diff>0?'+':''}${pctChg}%`;
-    return `<span class="tr-delta ${cls}">${arrow} ${shown}</span>`;
-  };
-  const row = (label, av, bv, opts={}) => {
-    const {dir='good', isPct=false, suffix=''} = opts;
-    const avg = Math.round((av + bv) / 2 * 10) / 10;
-    return `<tr>
-      <td class="metric">${label}</td>
-      <td class="num">${fmtN(av)}${suffix}</td>
-      <td class="num">${fmtN(bv)}${suffix}</td>
-      <td class="num avgcol">${fmtN(avg)}${suffix}</td>
-      <td class="dcell">${delta(av,bv,dir,isPct)}</td>
-    </tr>`;
-  };
-  const grp = (title, rows) => `<div class="card tr-grp"><div class="tr-grp-title">${title}</div>
-    <div class="scrollx"><table class="tr-tbl"><thead><tr><th>Metric</th><th class="num">A · ${A.label}</th><th class="num">B · ${B.label}</th><th class="num avgcol">Average</th><th class="num">Change (A vs B)</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
-
-  // headline KPIs
-  const kpi = (lbl, av, bv, dir, isPct, suffix='') => {
-    const d = delta(av,bv,dir,isPct);
-    return `<div class="kpi"><div class="kpi-val">${fmtN(av)}${suffix}</div><div class="kpi-lbl">${lbl}</div><div class="kpi-sub">B: ${fmtN(bv)}${suffix} · ${d}</div></div>`;
-  };
-  document.getElementById('tr-headline').innerHTML =
-    kpi('Inbound calls', a.ibTotal, b.ibTotal, 'good', false) +
-    kpi('Answer rate (9–6)', a.arOff, b.arOff, 'good', true, '%') +
-    kpi('Leads disposed', a.leads, b.leads, 'good', false) +
-    kpi('Reconnection', a.reconRate, b.reconRate, 'good', true, '%');
-
-  document.getElementById('tr-summary').innerHTML =
-    grp('📊 Volume &amp; Answer Rate', [
-      row('Total inbound', a.ibTotal, b.ibTotal, {dir:'good'}),
-      row('Answered', a.ans, b.ans, {dir:'good'}),
-      row('Answer rate — all hours', a.ar, b.ar, {dir:'good', isPct:true, suffix:'%'}),
-      row('Answer rate — 9am–6pm', a.arOff, b.arOff, {dir:'good', isPct:true, suffix:'%'}),
-      row('Calls / day', a.perDay, b.perDay, {dir:'good'}),
-    ].join('')) +
-    grp('📉 Missed breakdown', [
-      row('Queue missed (within hrs)', a.qmW, b.qmW, {dir:'bad'}),
-      row('Agent missed', a.agM, b.agM, {dir:'bad'}),
-      row('After-hours missed', a.aoh, b.aoh, {dir:'bad'}),
-    ].join('')) +
-    grp('📞 Callbacks &amp; reconnection', [
-      row('Unique missed callers', a.uniqueMissed, b.uniqueMissed, {dir:'bad'}),
-      row('Reconnection rate', a.reconRate, b.reconRate, {dir:'good', isPct:true, suffix:'%'}),
-      row('Within-1hr first callback', a.within1hr, b.within1hr, {dir:'good', isPct:true, suffix:'%'}),
-      row('0 callbacks made (backlog)', a.zeroCb, b.zeroCb, {dir:'bad'}),
-      row('&lt;3 attempts, not reached', a.lowAtt, b.lowAtt, {dir:'bad'}),
-    ].join('')) +
-    grp('🎯 Leads', [
-      row('Total leads disposed', a.leads, b.leads, {dir:'good'}),
-      row('AM', a.AM, b.AM, {dir:'good'}),
-      row('VO', a.VO, b.VO, {dir:'good'}),
-      row('OD', a.OD, b.OD, {dir:'good'}),
-      row('New leads', a.newLeads, b.newLeads, {dir:'good'}),
-    ].join(''));
-}
-
-
-// ── Auto analysis: insight-first, week-on-week hero + month secondary ──────────
-// Week runs WEDNESDAY → TUESDAY (the weekly review is on Wednesday), so "this
-// week" = the last completed Wed–Tue block.
-function renderAutoAnalysis(){
-  const head = document.getElementById('tr-auto-head');
-  const body = document.getElementById('tr-auto');
-  if (!head || !body) return;
-
-  const f = d => d.toISOString().slice(0,10);
-  const maxDt = new Date(DATA_MAX + 'T00:00:00');
-  // Days since the most recent Tuesday (Tue=2). The last completed Wed–Tue week
-  // ends on that Tuesday.
-  const gap = (maxDt.getDay() - 2 + 7) % 7;          // 0 if today is Tue
-  const thisWkEnd = new Date(maxDt); thisWkEnd.setDate(maxDt.getDate() - gap);   // a Tuesday
-  const thisWkStart = new Date(thisWkEnd); thisWkStart.setDate(thisWkEnd.getDate() - 6); // the Wednesday
-  const lastWkEnd = new Date(thisWkStart); lastWkEnd.setDate(thisWkStart.getDate() - 1);
-  const lastWkStart = new Date(lastWkEnd); lastWkStart.setDate(lastWkEnd.getDate() - 6);
-  // months: last complete month (or current if today is its last day)
-  const mEnd = new Date(maxDt.getFullYear(), maxDt.getMonth()+1, 0);
-  const thisMoRef = (f(mEnd) <= DATA_MAX) ? new Date(maxDt.getFullYear(), maxDt.getMonth(), 1)
-                                          : new Date(maxDt.getFullYear(), maxDt.getMonth()-1, 1);
-  const lastMoRef = new Date(thisMoRef.getFullYear(), thisMoRef.getMonth()-1, 1);
-  const moRange = ref => ({ from:f(new Date(ref.getFullYear(),ref.getMonth(),1)),
-                            to:f(new Date(ref.getFullYear(),ref.getMonth()+1,0)), lbl:MONTH_NM[ref.getMonth()] });
-  const tW = periodStats(f(thisWkStart), f(thisWkEnd));
-  const lW = periodStats(f(lastWkStart), f(lastWkEnd));
-  const tMr = moRange(thisMoRef), lMr = moRange(lastMoRef);
-  const tM = periodStats(tMr.from, tMr.to), lM = periodStats(lMr.from, lMr.to);
-  const dm = d => d.slice(5).replace('-','/');
-
-  head.innerHTML = `
-    <div class="sec-title" style="margin-bottom:2px">📊 Weekly Analysis</div>
-    <div class="sec-desc">Week runs <b>Wed → Tue</b>. This week ${dm(f(thisWkStart))}–${dm(f(thisWkEnd))} vs last week ${dm(f(lastWkStart))}–${dm(f(lastWkEnd))}. Month figures: ${tMr.lbl} vs ${lMr.lbl}. Big number = this week; arrow = change vs last week.</div>`;
-
-  // change: returns {pct, pts, cls, arrow, txt}
-  const chg = (av, bv, dir, isPct) => {
-    const diff = av-bv;
-    const flat = diff===0, up = diff>0;
+  // change badge / inline chip
+  const badge = (av, bv, dir, isPct) => {
+    const diff = av-bv, flat = diff===0, up = diff>0;
     const cls = flat?'flat':(dir==='good'?(up?'up':'down'):(up?'down':'up'));
-    const arrow = flat?'→':(up?'▲':'▼');
-    const txt = (bv===0&&av===0) ? '—' : (isPct ? `${diff>0?'+':''}${diff} pts` : `${diff>0?'+':''}${bv?Math.round(diff/bv*100):100}%`);
-    return {cls, arrow, txt, diff};
+    const arrow = flat?'â†’':(up?'â–²':'â–¼');
+    const txt = (bv===0&&av===0)?'â€”':(isPct?`${diff>0?'+':''}${diff} pts`:`${diff>0?'+':''}${bv?Math.round(diff/bv*100):100}%`);
+    return {cls, arrow, txt};
   };
-  const chip = (av,bv,dir,isPct) => { const c=chg(av,bv,dir,isPct); return `<span class="tr-delta ${c.cls}">${c.arrow}${c.txt.replace(' ','')}</span>`; };
+  const chip = (av,bv,dir,isPct)=>{ const c=badge(av,bv,dir,isPct); return `<span class="trx-chg ${c.cls}">${c.arrow} ${c.txt}</span>`; };
 
-  // one metric row inside the collapsed detail table
+  // headline KPI cards
+  const kpi = (lbl, av, bv, dir, isPct, sfx, accent) => {
+    const c = badge(av,bv,dir,isPct);
+    return `<div class="trx-kpi" style="--accent:${accent}">
+      <div class="trx-kpi-lbl">${lbl}</div>
+      <div class="trx-kpi-val">${fmtN(av)}${sfx?`<small>${sfx}</small>`:''}</div>
+      <span class="trx-badge ${c.cls}">${c.arrow} ${c.txt}</span>
+      <div class="trx-kpi-prev">vs ${fmtN(bv)}${sfx||''} last week</div>
+    </div>`;
+  };
+  document.getElementById('trx-kpis').innerHTML =
+    kpi('Answer rate Â· 9â€“6', a.arOff, b.arOff, 'good', true, '%', '#16A34A') +
+    kpi('Inbound calls', a.ibTotal, b.ibTotal, 'good', false, '', '#1E22AA') +
+    kpi('Leads disposed', a.leads, b.leads, 'good', false, '', '#7C3AED') +
+    kpi('Reconnection', a.reconRate, b.reconRate, 'good', true, '%', '#F59E0B');
+
+  // supporting detail â€” grouped tables
   const mrow = (label, key, opts={}) => {
     const {dir='good', isPct=false, sfx=''} = opts;
     return `<tr>
       <td class="metric">${label}</td>
-      <td class="num">${fmtN(tW[key])}${sfx}</td><td class="num sub">${fmtN(lW[key])}${sfx}</td><td class="dcell">${chip(tW[key],lW[key],dir,isPct)}</td>
-      <td class="num modiv">${fmtN(tM[key])}${sfx}</td><td class="num sub">${fmtN(lM[key])}${sfx}</td><td class="dcell">${chip(tM[key],lM[key],dir,isPct)}</td>
+      <td class="num">${fmtN(a[key])}${sfx}</td>
+      <td class="num sub">${fmtN(b[key])}${sfx}</td>
+      <td class="num">${chip(a[key],b[key],dir,isPct)}</td>
     </tr>`;
   };
+  const grp = (title, rows) => `<div class="trx-card">
+    <div class="trx-card-h">${title}</div>
+    <div class="scrollx"><table class="trx-tbl">
+      <thead><tr><th>Metric</th><th class="num">This week</th><th class="num">Last week</th><th class="num">Change</th></tr></thead>
+      <tbody>${rows}</tbody></table></div></div>`;
 
-  // A section = hero headline + one-line insight + collapsible detail table.
-  let _sid = 0;
-  const section = ({title, hero, insight, rows}) => {
-    const id = 'trsec'+(_sid++);
-    const wc = chg(hero.tw, hero.lw, hero.dir, hero.isPct);
-    const sfx = hero.sfx||'';
-    const moC = chg(tM[hero.key], lM[hero.key], hero.dir, hero.isPct);
-    return `<div class="card trhero">
-      <div class="trhero-top">
-        <div class="trhero-lead">
-          <div class="trhero-title">${title}</div>
-          <div class="trhero-metric">${hero.label}</div>
-          <div class="trhero-val">${fmtN(hero.tw)}${sfx}
-            <span class="trhero-chg ${wc.cls}">${wc.arrow} ${wc.txt}</span>
-          </div>
-          <div class="trhero-sub">vs ${fmtN(hero.lw)}${sfx} last week · month ${MONTH_NM[thisMoRef.getMonth()]} <span class="tr-delta ${moC.cls}">${moC.arrow}${moC.txt.replace(' ','')}</span></div>
-        </div>
-        <div class="trhero-insight ${wc.cls}">${insight(wc)}</div>
-      </div>
-      <button class="trhero-toggle" onclick="(function(b){var d=document.getElementById('${id}');var open=d.style.display!=='none'&&d.style.display!=='';d.style.display=open?'none':'block';b.textContent=open?'▾ Show all metrics':'▴ Hide metrics';})(this)">▾ Show all metrics</button>
-      <div id="${id}" class="trhero-detail" style="display:none">
-        <div class="scrollx"><table class="tr-tbl auto">
-          <thead><tr><th>Metric</th>
-            <th class="num">This wk</th><th class="num">Last wk</th><th class="num">WoW</th>
-            <th class="num modiv">${tMr.lbl}</th><th class="num">${lMr.lbl}</th><th class="num">MoM</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table></div>
-      </div>
-    </div>`;
-  };
+  document.getElementById('trx-detail').innerHTML =
+    grp('ðŸ“Š Volume & Answer Rate', [
+      mrow('Total inbound','ibTotal'),
+      mrow('Answered','ans'),
+      mrow('Answer rate â€” all hours','ar',{isPct:true,sfx:'%'}),
+      mrow('Answer rate â€” 9amâ€“6pm','arOff',{isPct:true,sfx:'%'}),
+      mrow('Calls per day','perDay'),
+    ].join('')) +
+    grp('ðŸ“‰ Missed Breakdown', [
+      mrow('Queue missed (within hrs)','qmW',{dir:'bad'}),
+      mrow('Agent missed','agM',{dir:'bad'}),
+      mrow('After-hours missed','aoh',{dir:'bad'}),
+    ].join('')) +
+    grp('ðŸ“ž Callbacks & Reconnection', [
+      mrow('Unique missed callers','uniqueMissed',{dir:'bad'}),
+      mrow('Reconnection rate','reconRate',{dir:'good',isPct:true,sfx:'%'}),
+      mrow('Within-1hr first callback','within1hr',{dir:'good',isPct:true,sfx:'%'}),
+      mrow('0 callbacks made (backlog)','zeroCb',{dir:'bad'}),
+      mrow('&lt;3 attempts, not reached','lowAtt',{dir:'bad'}),
+    ].join('')) +
+    grp('ðŸŽ¯ Leads', [
+      mrow('Total leads disposed','leads'),
+      mrow('AM leads','AM'),
+      mrow('VO leads','VO'),
+      mrow('OD leads','OD'),
+      mrow('New leads','newLeads'),
+    ].join(''));
 
-  const arOffTxt = c => c.diff===0 ? 'Office-hours answer rate held steady.' : `Office-hours answer rate ${c.diff>0?'improved':'dipped'} ${Math.abs(c.diff)} pts week-on-week.`;
-  const missTxt = c => c.diff===0 ? 'Queue-missed unchanged from last week.' : `Queue-missed ${c.diff>0?'rose':'fell'} ${Math.abs(chg(tW.qmW,lW.qmW,'bad').diff)} calls vs last week.`;
-  const reconTxt = c => c.diff===0 ? 'Reconnection rate flat.' : `Reconnection rate ${c.diff>0?'up':'down'} ${Math.abs(c.diff)} pts — ${c.diff>=0?'good follow-up':'follow-up slipped'}.`;
-  const leadTxt = c => c.diff===0 ? 'Leads flat week-on-week.' : `${c.diff>0?'+':''}${chg(tW.leads,lW.leads,'good').txt} leads vs last week.`;
-
-  body.innerHTML =
-    section({
-      title:'📊 Volume & Answer Rate',
-      hero:{label:'Answer rate · 9am–6pm', key:'arOff', tw:tW.arOff, lw:lW.arOff, dir:'good', isPct:true, sfx:'%'},
-      insight:arOffTxt,
-      rows:[ mrow('Total inbound','ibTotal'), mrow('Answered','ans'),
-             mrow('Answer rate — all hours','ar',{isPct:true,sfx:'%'}),
-             mrow('Answer rate — 9am–6pm','arOff',{isPct:true,sfx:'%'}),
-             mrow('Calls / day','perDay') ].join('')
-    }) +
-    section({
-      title:'📉 Missed Breakdown',
-      hero:{label:'Queue missed (within hrs)', key:'qmW', tw:tW.qmW, lw:lW.qmW, dir:'bad'},
-      insight:missTxt,
-      rows:[ mrow('Queue missed (within hrs)','qmW',{dir:'bad'}),
-             mrow('Agent missed','agM',{dir:'bad'}),
-             mrow('After-hours missed','aoh',{dir:'bad'}) ].join('')
-    }) +
-    section({
-      title:'📞 Callbacks & Reconnection',
-      hero:{label:'Reconnection rate', key:'reconRate', tw:tW.reconRate, lw:lW.reconRate, dir:'good', isPct:true, sfx:'%'},
-      insight:reconTxt,
-      rows:[ mrow('Unique missed callers','uniqueMissed',{dir:'bad'}),
-             mrow('Reconnection rate','reconRate',{dir:'good',isPct:true,sfx:'%'}),
-             mrow('Within-1hr first callback','within1hr',{dir:'good',isPct:true,sfx:'%'}),
-             mrow('0 callbacks made (backlog)','zeroCb',{dir:'bad'}),
-             mrow('&lt;3 attempts, not reached','lowAtt',{dir:'bad'}) ].join('')
-    }) +
-    section({
-      title:'🎯 Leads',
-      hero:{label:'Total leads disposed', key:'leads', tw:tW.leads, lw:lW.leads, dir:'good'},
-      insight:leadTxt,
-      rows:[ mrow('Total leads disposed','leads'), mrow('AM leads','AM'),
-             mrow('VO leads','VO'), mrow('OD leads','OD'), mrow('New leads','newLeads') ].join('')
-    });
+  buildTrxChart(thisMon);
 }
 
-(function initTrends(){
-  const modeSel=document.getElementById('tr-mode');
-  if(!modeSel) return;
-  renderAutoAnalysis();
-  populateTrendPickers(modeSel.value);
-  modeSel.addEventListener('change', ()=>{ populateTrendPickers(modeSel.value); renderTrends(); });
-  document.getElementById('tr-a').addEventListener('change', renderTrends);
-  document.getElementById('tr-b').addEventListener('change', renderTrends);
-  renderTrends();
+// last 8 complete weeks up to & including the chosen week
+function buildTrxChart(chosenMon){
+  const all = dataWeeks();                       // most recent first
+  const idx = all.findIndex(w => w.from === chosenMon);
+  const start = Math.max(0, idx);
+  const wks = all.slice(start, start+8).reverse();  // oldestâ†’newest, ending at chosen
+  const stats = wks.map(w => periodStats(w.from, w.to));
+  const labels = wks.map(w => 'W'+w.week);
+  const SERIES = [
+    {label:'Answered', key:'ans', color:'#16A34A'},
+    {label:'Queue Missed', key:'qmW', color:'#F59E0B'},
+    {label:'Leads', key:'leads', color:'#7C3AED'},
+    {label:'Answer Rate %', key:'arOff', color:'#1E22AA', axis:'y1'},
+  ];
+  const ds = SERIES.map(s => ({
+    label:s.label, data:stats.map(x=>x[s.key]), borderColor:s.color, backgroundColor:s.color+'20',
+    borderWidth:2.6, pointRadius:3, pointHoverRadius:6, tension:0.35, fill:false,
+    yAxisID:s.axis||'y', hidden:TRX_CHART_HIDDEN.has(s.label), datalabels:{display:false},
+  }));
+  const chart = makeChart('trx-chart', {
+    type:'line', data:{labels, datasets:ds}, plugins:[ChartDataLabels],
+    options:{ responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{ legend:{display:false}, datalabels:{display:false},
+        tooltip:{callbacks:{title:it=>'Week '+labels[it[0].dataIndex].slice(1)}} },
+      scales:{ y:{beginAtZero:true, position:'left', grid:{color:'rgba(0,0,0,.05)'}},
+               y1:{beginAtZero:true, max:100, position:'right', grid:{drawOnChartArea:false}, ticks:{callback:v=>v+'%'}} } }
+  });
+  const wrap = document.getElementById('trx-trend-toggles'); if(!wrap||!chart) return;
+  wrap.innerHTML='';
+  SERIES.forEach((s,i)=>{
+    const off = TRX_CHART_HIDDEN.has(s.label);
+    const btn = document.createElement('button');
+    btn.className='tog-btn'+(off?' off':''); btn.style.borderColor=s.color; btn.style.color=s.color;
+    btn.innerHTML=`<span class="tog-ck">${off?'âœ—':'âœ“'}</span>${s.label}`;
+    btn.onclick=()=>{ const now=!TRX_CHART_HIDDEN.has(s.label); if(now)TRX_CHART_HIDDEN.add(s.label);else TRX_CHART_HIDDEN.delete(s.label);
+      chart.getDatasetMeta(i).hidden=now; btn.classList.toggle('off',now); btn.querySelector('.tog-ck').textContent=now?'âœ—':'âœ“'; chart.update(); };
+    wrap.appendChild(btn);
+  });
+}
+
+(function initTrx(){
+  const sel = document.getElementById('trx-week');
+  if (!sel) return;
+  const wks = dataWeeks();  // most recent first
+  sel.innerHTML = wks.map(w =>
+    `<option value="${w.from}">Week ${w.week} Â· ${_dm(w.from)}â€“${_dm(w.to)}${w.to>=DATA_MAX?' (in progress)':''}</option>`
+  ).join('');
+  // default = most recent COMPLETE week (Sunday already passed)
+  const iComplete = wks.findIndex(w => w.to < DATA_MAX);
+  sel.value = wks[iComplete>=0?iComplete:0].from;
+  sel.addEventListener('change', renderTrx);
+  renderTrx();
 })();
 
-// ── Init ──────────────────────────────────────────────────────────────────────
+// â”€â”€ Init â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 renderAll();
 </script>
 
@@ -2457,7 +2324,7 @@ renderAll();
   <div style="background:#ffffff;color:#111827;border-radius:14px;width:min(700px,95vw);max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
     <div style="display:flex;align-items:center;padding:18px 20px;border-bottom:1px solid #E5E7EB">
       <div id="contact-modal-title" style="font-weight:700;font-size:15px;flex:1;color:#111827"></div>
-      <button onclick="closeContactModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6B7280;line-height:1">×</button>
+      <button onclick="closeContactModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6B7280;line-height:1">Ã—</button>
     </div>
     <div id="contact-modal-body" style="overflow-y:auto;flex:1"></div>
   </div>
