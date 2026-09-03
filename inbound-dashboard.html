@@ -1821,9 +1821,14 @@ function periodStats(from, to) {
 }
 
 // ── ISO calendar-week helpers (Mon–Sun) ──────────────────────────────────────
+// Timezone-safe: parse "YYYY-MM-DD" as a LOCAL date and format back from local
+// components — never via toISOString(), which shifts the day for UTC+X users
+// (e.g. IST) and was causing the week label / date range to be off by one day.
 const MONTH_NM = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function _pd(dateStr){ const [y,m,d]=dateStr.split('-').map(Number); return new Date(y, m-1, d); }   // local midnight
+function _fmtLocal(dt){ return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`; }
 function isoWeek(dt){ const d=new Date(Date.UTC(dt.getFullYear(),dt.getMonth(),dt.getDate())); const day=(d.getUTCDay()+6)%7; d.setUTCDate(d.getUTCDate()-day+3); const first=new Date(Date.UTC(d.getUTCFullYear(),0,4)); return 1+Math.round(((d-first)/86400000-3+((first.getUTCDay()+6)%7))/7); }
-function weekRange(dateStr){ const dt=new Date(dateStr+'T00:00:00'); const day=(dt.getDay()+6)%7; const mon=new Date(dt); mon.setDate(dt.getDate()-day); const sun=new Date(mon); sun.setDate(mon.getDate()+6); const f=d=>d.toISOString().slice(0,10); return {from:f(mon), to:f(sun), week:isoWeek(mon), mon, sun}; }
+function weekRange(dateStr){ const dt=_pd(dateStr); const day=(dt.getDay()+6)%7; const mon=new Date(dt); mon.setDate(dt.getDate()-day); const sun=new Date(mon); sun.setDate(mon.getDate()+6); return {from:_fmtLocal(mon), to:_fmtLocal(sun), week:isoWeek(mon), mon, sun}; }
 // distinct weeks in the data, most recent first, one entry per Monday
 function dataWeeks(){
   const seen = {};
@@ -1841,7 +1846,7 @@ function renderTrx(){
   const thisMon = sel.value;                       // Monday of chosen week
   const wr = weekRange(thisMon);
   const prevMonDt = new Date(wr.mon); prevMonDt.setDate(wr.mon.getDate()-7);
-  const pr = weekRange(prevMonDt.toISOString().slice(0,10));
+  const pr = weekRange(_fmtLocal(prevMonDt));
   const a = periodStats(wr.from, wr.to);           // chosen week
   const b = periodStats(pr.from, pr.to);           // week before
 
