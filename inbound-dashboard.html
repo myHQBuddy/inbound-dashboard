@@ -703,13 +703,13 @@ function renderVolume(m) {
       const hidden0 = VOL_HIDDEN.has(label);
       btn.className = 'tog-btn' + (hidden0 ? ' off' : '');
       btn.style.borderColor = color; btn.style.color = color;
-      btn.innerHTML = `<span class="tog-ck">${hidden0 ? '' : ''}</span>${label}`;
+      btn.innerHTML = `<span class="tog-ck">${hidden0 ? '✗' : '✓'}</span>${label}`;
       btn.onclick = () => {
         const nowHidden = !VOL_HIDDEN.has(label);
         if (nowHidden) VOL_HIDDEN.add(label); else VOL_HIDDEN.delete(label);
         barChart.getDatasetMeta(i).hidden = nowHidden;
         btn.classList.toggle('off', nowHidden);
-        btn.querySelector('.tog-ck').textContent = nowHidden ? '' : '';
+        btn.querySelector('.tog-ck').textContent = nowHidden ? '✗' : '✓';
         barChart.update();
       };
       barTogWrap.appendChild(btn);
@@ -740,13 +740,13 @@ function renderVolume(m) {
       const hidden = HIDDEN_DOW.has(dow);
       btn.className = 'tog-btn' + (hidden ? ' off' : '');
       btn.style.borderColor = color; btn.style.color = color;
-      btn.innerHTML = `<span class="tog-ck">${hidden ? '' : ''}</span>${dow}`;
+      btn.innerHTML = `<span class="tog-ck">${hidden ? '✗' : '✓'}</span>${dow}`;
       btn.onclick = () => {
         if (HIDDEN_DOW.has(dow)) HIDDEN_DOW.delete(dow);
         else HIDDEN_DOW.add(dow);
         const isHidden = HIDDEN_DOW.has(dow);
         btn.classList.toggle('off', isHidden);
-        btn.querySelector('.tog-ck').textContent = isHidden ? '' : '';
+        btn.querySelector('.tog-ck').textContent = isHidden ? '✗' : '✓';
         buildAvgChart();
       };
       dayTogWrap.appendChild(btn);
@@ -867,14 +867,14 @@ function buildAvgChart() {
       const hidden0 = AVG_HIDDEN.has(label);
       btn.className = 'tog-btn' + (hidden0 ? ' off' : '');
       btn.style.borderColor = color; btn.style.color = color;
-      btn.innerHTML = `<span class="tog-ck">${hidden0 ? '' : ''}</span>${label}`;
+      btn.innerHTML = `<span class="tog-ck">${hidden0 ? '✗' : '✓'}</span>${label}`;
       btn.onclick = () => {
         const nowHidden = !AVG_HIDDEN.has(label);
         if (nowHidden) AVG_HIDDEN.add(label); else AVG_HIDDEN.delete(label);
         avgChart.getDatasetMeta(i).hidden = nowHidden;
         avgChart.getDatasetMeta(i + METRICS.length).hidden = nowHidden;
         btn.classList.toggle('off', nowHidden);
-        btn.querySelector('.tog-ck').textContent = nowHidden ? '' : '';
+        btn.querySelector('.tog-ck').textContent = nowHidden ? '✗' : '✓';
         avgChart.update();
       };
       togWrap.appendChild(btn);
@@ -982,14 +982,14 @@ function buildLeadsTrendChart() {
       const hidden0 = LEADS_HIDDEN_PROD.has(p);
       btn.className = 'tog-btn' + (hidden0 ? ' off' : '');
       btn.style.borderColor = PROD_COLORS[p]; btn.style.color = PROD_COLORS[p];
-      btn.innerHTML = `<span class="tog-ck">${hidden0 ? '' : ''}</span>${p}`;
+      btn.innerHTML = `<span class="tog-ck">${hidden0 ? '✗' : '✓'}</span>${p}`;
       btn.onclick = () => {
         const nowHidden = !LEADS_HIDDEN_PROD.has(p);
         if (nowHidden) LEADS_HIDDEN_PROD.add(p); else LEADS_HIDDEN_PROD.delete(p);
         trendChart.getDatasetMeta(i).hidden = nowHidden;
         trendChart.getDatasetMeta(i + PRODUCTS.length).hidden = nowHidden;
         btn.classList.toggle('off', nowHidden);
-        btn.querySelector('.tog-ck').textContent = nowHidden ? '' : '';
+        btn.querySelector('.tog-ck').textContent = nowHidden ? '✗' : '✓';
         trendChart.update();
       };
       tTogWrap.appendChild(btn);
@@ -1142,13 +1142,13 @@ function renderHourly(m) {
       const hidden0 = HOUR_HIDDEN.has(label);
       btn.className = 'tog-btn' + (hidden0 ? ' off' : '');
       btn.style.borderColor = color; btn.style.color = color;
-      btn.innerHTML = `<span class="tog-ck">${hidden0 ? '' : ''}</span>${label}`;
+      btn.innerHTML = `<span class="tog-ck">${hidden0 ? '✗' : '✓'}</span>${label}`;
       btn.onclick = () => {
         const nowHidden = !HOUR_HIDDEN.has(label);
         if (nowHidden) HOUR_HIDDEN.add(label); else HOUR_HIDDEN.delete(label);
         hourlyChart.getDatasetMeta(i).hidden = nowHidden;
         btn.classList.toggle('off', nowHidden);
-        btn.querySelector('.tog-ck').textContent = nowHidden ? '' : '';
+        btn.querySelector('.tog-ck').textContent = nowHidden ? '✗' : '✓';
         hourlyChart.update();
       };
       hrTogWrap.appendChild(btn);
@@ -1378,13 +1378,13 @@ function renderLeads(recs) {
       const hidden = LEADS_HIDDEN_DOW.has(dow);
       btn.className = 'tog-btn' + (hidden ? ' off' : '');
       btn.style.borderColor = color; btn.style.color = color;
-      btn.innerHTML = `<span class="tog-ck">${hidden ? '' : ''}</span>${dow}`;
+      btn.innerHTML = `<span class="tog-ck">${hidden ? '✗' : '✓'}</span>${dow}`;
       btn.onclick = () => {
         if (LEADS_HIDDEN_DOW.has(dow)) LEADS_HIDDEN_DOW.delete(dow);
         else LEADS_HIDDEN_DOW.add(dow);
         const isHidden = LEADS_HIDDEN_DOW.has(dow);
         btn.classList.toggle('off', isHidden);
-        btn.querySelector('.tog-ck').textContent = isHidden ? '' : '';
+        btn.querySelector('.tog-ck').textContent = isHidden ? '✗' : '✓';
         buildLeadsTrendChart();
       };
       dayTogWrap.appendChild(btn);
@@ -1936,17 +1936,35 @@ function buildTrxChart(chosenMon){
     {label:'Leads', key:'leads', color:'#7C3AED'},
     {label:'Answer Rate %', key:'arOff', color:'#1E22AA', axis:'y1'},
   ];
+  const N = SERIES.length;
+  // main metric lines
   const ds = SERIES.map(s => ({
     label:s.label, data:stats.map(x=>x[s.key]), borderColor:s.color, backgroundColor:s.color+'20',
     borderWidth:2.6, pointRadius:3, pointHoverRadius:6, tension:0.35, fill:false,
     yAxisID:s.axis||'y', hidden:TRX_CHART_HIDDEN.has(s.label), datalabels:{display:false},
   }));
+  // average reference line per metric (flat dashed line at the 8-week mean),
+  // shown/hidden together with its metric.
+  const avgOf = arr => arr.reduce((a,b)=>a+b,0)/(arr.length||1);
+  SERIES.forEach(s => {
+    const vals = stats.map(x=>x[s.key]);
+    const avg = Math.round(avgOf(vals) * 10) / 10;
+    ds.push({
+      label:`Avg ${s.label}: ${avg}${s.axis==='y1'?'%':''}`, data:stats.map(()=>avg),
+      borderColor:s.color, borderWidth:1.5, borderDash:[6,4], pointRadius:0, pointHoverRadius:0,
+      fill:false, tension:0, yAxisID:s.axis||'y', hidden:TRX_CHART_HIDDEN.has(s.label),
+      datalabels:{ display:ctx=>ctx.dataIndex===vals.length-1, anchor:'center', align:'left', offset:4,
+        color:s.color, font:{size:9,weight:'700'}, formatter:()=>`avg ${avg}${s.axis==='y1'?'%':''}` },
+    });
+  });
   const chart = makeChart('trx-chart', {
     type:'line', data:{labels, datasets:ds}, plugins:[ChartDataLabels],
     options:{ responsive:true, maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
+      layout:{padding:{right:52}},
       plugins:{ legend:{display:false}, datalabels:{display:false},
-        tooltip:{callbacks:{title:it=>'Week '+labels[it[0].dataIndex].slice(1)}} },
+        tooltip:{ filter:it=>!it.dataset.label.startsWith('Avg '),   // don't clutter tooltip with avg lines
+          callbacks:{title:it=>'Week '+labels[it[0].dataIndex].slice(1)}} },
       scales:{ y:{beginAtZero:true, position:'left', grid:{color:'rgba(0,0,0,.05)'}},
                y1:{beginAtZero:true, max:100, position:'right', grid:{drawOnChartArea:false}, ticks:{callback:v=>v+'%'}} } }
   });
@@ -1956,9 +1974,11 @@ function buildTrxChart(chosenMon){
     const off = TRX_CHART_HIDDEN.has(s.label);
     const btn = document.createElement('button');
     btn.className='tog-btn'+(off?' off':''); btn.style.borderColor=s.color; btn.style.color=s.color;
-    btn.innerHTML=`<span class="tog-ck">${off?'':''}</span>${s.label}`;
+    btn.innerHTML=`<span class="tog-ck">${off?'✗':'✓'}</span>${s.label}`;
     btn.onclick=()=>{ const now=!TRX_CHART_HIDDEN.has(s.label); if(now)TRX_CHART_HIDDEN.add(s.label);else TRX_CHART_HIDDEN.delete(s.label);
-      chart.getDatasetMeta(i).hidden=now; btn.classList.toggle('off',now); btn.querySelector('.tog-ck').textContent=now?'':''; chart.update(); };
+      chart.getDatasetMeta(i).hidden=now;         // main line
+      chart.getDatasetMeta(i+N).hidden=now;       // its average line
+      btn.classList.toggle('off',now); btn.querySelector('.tog-ck').textContent=now?'✗':'✓'; chart.update(); };
     wrap.appendChild(btn);
   });
 }
