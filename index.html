@@ -1956,8 +1956,8 @@ function buildTrxChart(chosenMon){
       label:`Avg ${s.label}: ${avg}${s.axis==='y1'?'%':''}`, data:stats.map(()=>avg),
       borderColor:s.color, borderWidth:1.5, borderDash:[6,4], pointRadius:0, pointHoverRadius:0,
       fill:false, tension:0, yAxisID:s.axis||'y', hidden:!showAvg,
-      datalabels:{ display:ctx=>ctx.dataIndex===vals.length-1, anchor:'center', align:'left', offset:4,
-        color:s.color, font:{size:10,weight:'700'}, formatter:()=>`avg ${avg}${s.axis==='y1'?'%':''}` },
+      datalabels:{ display:ctx=>ctx.dataIndex===vals.length-1, anchor:'end', align:'top', offset:6,
+        color:s.color, font:{size:11,weight:'700'}, formatter:()=>`${avg}${s.axis==='y1'?'%':''}` },
     });
   });
   const chart = makeChart('trx-chart', {
