@@ -1820,16 +1820,24 @@ function periodStats(from, to) {
   };
 }
 
-// ── ISO calendar-week helpers (Mon–Sun) ──────────────────────────────────────
-// Timezone-safe: parse "YYYY-MM-DD" as a LOCAL date and format back from local
-// components — never via toISOString(), which shifts the day for UTC+X users
-// (e.g. IST) and was causing the week label / date range to be off by one day.
+// ── Week helpers — WEDNESDAY → TUESDAY weeks ──────────────────────────────────
+// The weekly review is on Wednesday, so a "week" runs Wed→Tue and is complete the
+// day before the review (e.g. 2 Sep–8 Sep is done on Wed 9 Sep). Each week is
+// numbered by the ISO week of its starting Wednesday.
+// Timezone-safe: parse/format from LOCAL date components — never toISOString(),
+// which shifts the day for UTC+X users (IST) and caused an off-by-one before.
 const MONTH_NM = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function _pd(dateStr){ const [y,m,d]=dateStr.split('-').map(Number); return new Date(y, m-1, d); }   // local midnight
 function _fmtLocal(dt){ return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`; }
 function isoWeek(dt){ const d=new Date(Date.UTC(dt.getFullYear(),dt.getMonth(),dt.getDate())); const day=(d.getUTCDay()+6)%7; d.setUTCDate(d.getUTCDate()-day+3); const first=new Date(Date.UTC(d.getUTCFullYear(),0,4)); return 1+Math.round(((d-first)/86400000-3+((first.getUTCDay()+6)%7))/7); }
-function weekRange(dateStr){ const dt=_pd(dateStr); const day=(dt.getDay()+6)%7; const mon=new Date(dt); mon.setDate(dt.getDate()-day); const sun=new Date(mon); sun.setDate(mon.getDate()+6); return {from:_fmtLocal(mon), to:_fmtLocal(sun), week:isoWeek(mon), mon, sun}; }
-// distinct weeks in the data, most recent first, one entry per Monday
+function weekRange(dateStr){
+  const dt=_pd(dateStr);
+  const gap=(dt.getDay()-3+7)%7;                 // days since Wednesday (Wed=3)
+  const start=new Date(dt); start.setDate(dt.getDate()-gap);   // the Wednesday
+  const end=new Date(start); end.setDate(start.getDate()+6);   // the Tuesday
+  return {from:_fmtLocal(start), to:_fmtLocal(end), week:isoWeek(start), mon:start, sun:end};
+}
+// distinct weeks in the data, most recent first, one entry per week-start (Wed)
 function dataWeeks(){
   const seen = {};
   ALL.forEach(r => { if(!r.d) return; const w=weekRange(r.d); seen[w.from]=w; });
@@ -1843,10 +1851,10 @@ let TRX_CHART_HIDDEN = new Set();
 function renderTrx(){
   const sel = document.getElementById('trx-week');
   if (!sel) return;
-  const thisMon = sel.value;                       // Monday of chosen week
+  const thisMon = sel.value;                       // start (Wednesday) of chosen week
   const wr = weekRange(thisMon);
-  const prevMonDt = new Date(wr.mon); prevMonDt.setDate(wr.mon.getDate()-7);
-  const pr = weekRange(_fmtLocal(prevMonDt));
+  const prevStartDt = new Date(wr.mon); prevStartDt.setDate(wr.mon.getDate()-7);  // prior Wednesday
+  const pr = weekRange(_fmtLocal(prevStartDt));
   const a = periodStats(wr.from, wr.to);           // chosen week
   const b = periodStats(pr.from, pr.to);           // week before
 
