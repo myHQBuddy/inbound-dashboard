@@ -1952,19 +1952,24 @@ function buildTrxChart(chosenMon){
     const vals = stats.map(x=>x[s.key]);
     const avg = Math.round(avgOf(vals) * 10) / 10;
     const showAvg = !TRX_CHART_HIDDEN.has(s.label) && visCount() === 1;
+    // Put the label on an interior point (not the last), anchored above the line,
+    // as a filled rounded pill — so it never clips at the right edge and reads
+    // cleanly on top of any coloured line.
+    const lblIdx = Math.max(0, vals.length - 2);
     ds.push({
       label:`Avg ${s.label}: ${avg}${s.axis==='y1'?'%':''}`, data:stats.map(()=>avg),
       borderColor:s.color, borderWidth:1.5, borderDash:[6,4], pointRadius:0, pointHoverRadius:0,
       fill:false, tension:0, yAxisID:s.axis||'y', hidden:!showAvg,
-      datalabels:{ display:ctx=>ctx.dataIndex===vals.length-1, anchor:'end', align:'top', offset:6,
-        color:s.color, font:{size:11,weight:'700'}, formatter:()=>`${avg}${s.axis==='y1'?'%':''}` },
+      datalabels:{ display:ctx=>ctx.dataIndex===lblIdx, anchor:'center', align:'top', offset:8,
+        backgroundColor:s.color, borderRadius:6, padding:{top:3,bottom:3,left:7,right:7},
+        color:'#fff', font:{size:11,weight:'700'}, formatter:()=>`avg ${avg}${s.axis==='y1'?'%':''}` },
     });
   });
   const chart = makeChart('trx-chart', {
     type:'line', data:{labels, datasets:ds}, plugins:[ChartDataLabels],
     options:{ responsive:true, maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
-      layout:{padding:{right:52}},
+      layout:{padding:{top:16, right:12}},
       plugins:{ legend:{display:false}, datalabels:{display:false},
         tooltip:{ filter:it=>!it.dataset.label.startsWith('Avg '),   // don't clutter tooltip with avg lines
           callbacks:{title:it=>'Week '+labels[it[0].dataIndex].slice(1)}} },
