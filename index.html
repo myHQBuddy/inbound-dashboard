@@ -573,13 +573,17 @@ function renderVolume(m) {
   const ansOff = ibOff.filter(r =>r.st === 'answered').length;
   const arOff  = pct(ansOff, ibOff.length);
 
-  // Build clickable contact lists for the Agent/Queue missed cards (sorted by time).
+  // Campaign/queue a missed call belongs to (same labelling as the campaign card).
+  const _campOf = r => (r.cp && r.cp.trim()) ? r.cp.trim()
+      : (r.sc && r.sc.indexOf('After office') >= 0 ? '(After-hours Auto Attendant)' : '(No campaign / routing)');
+  // Build clickable contact lists for the missed cards (sorted by time), incl. campaign.
   const _missRows = arr => arr
     .filter(r => r.cn)
-    .map(r => ({ cn: r.cn, missTime: r.d + ' ' + fmtTime(r.ti) }))
+    .map(r => ({ cn: r.cn, missTime: r.d + ' ' + fmtTime(r.ti), campaign: _campOf(r) }))
     .sort((a,b) => a.missTime < b.missTime ? 1 : -1);
   _actionLists.volAgentMissed = { title: 'Agent Missed', rows: _missRows(agMiss) };
   _actionLists.volQueueMissed = { title: 'Queue Missed — Within Hours', rows: _missRows(qMiss) };
+  _actionLists.volAohMissed   = { title: 'After-Hours Missed', rows: _missRows(ahMiss) };
 
   // Clickable KPI card (same look as kpiCard, with pointer + onclick).
   const kpiCardClick = (lbl, val, sub, cls, key) => `<div class="kpi ${cls}" style="cursor:pointer" onclick="openContactModal('${key}')"><div class="kpi-val">${val}</div><div class="kpi-lbl">${lbl}</div>${sub?`<div class="kpi-sub">${sub} · click to view</div>`:''}</div>`;
@@ -590,7 +594,7 @@ function renderVolume(m) {
     kpiCard('Answer Rate · 9am–6pm', arOff+'%',   `${fmtN(ansOff)} of ${fmtN(ibOff.length)} · office hours`, arOff >= 92 ? 'green' : arOff >= 90 ? 'amber' : 'red') +
     kpiCardClick('Agent Missed',   fmtN(agMiss.length), `${pct(agMiss.length,ib)}% — rung, not picked up`, agMiss.length ? 'red' : 'green', 'volAgentMissed') +
     kpiCardClick('Queue Missed',   fmtN(qMiss.length),  `${pct(qMiss.length,ib)}% — dropped in queue`, qMiss.length ? 'red' : 'green', 'volQueueMissed') +
-    kpiCard('After-Hrs Missed', fmtN(ahMiss.length), `${pct(ahMiss.length,ib)}% of inbound`, '');
+    kpiCardClick('After-Hrs Missed', fmtN(ahMiss.length), `${pct(ahMiss.length,ib)}% of inbound`, '', 'volAohMissed');
 
   // Daily stacked chart: answered / agent missed / queue missed / after-hours missed
   const days = Object.keys(m.daily).sort();
@@ -1688,6 +1692,10 @@ function _contactColumns(rows) {
     cols.push({ key: 'lastAttempt', label: 'Last Attempt', type: 'time', align: 'left',
       get: r => r.lastAttempt || '' });
   }
+  if (rows[0].campaign !== undefined) {
+    cols.push({ key: 'campaign', label: 'Campaign / Queue', type: 'str', align: 'left',
+      get: r => r.campaign || '' });
+  }
   return cols;
 }
 
@@ -1731,7 +1739,7 @@ function renderContactTable() {
     <table style="width:100%;border-collapse:collapse;font-size:13px;color:#111827"> <thead> <tr style="border-bottom:2px solid #E5E7EB;background:#F9FAFB"> <th style="padding:8px 12px;color:#6B7280;font-weight:600;text-align:left">#</th> ${cols.map(c => `<th data-sortkey="${c.key}" style="${thStyle(c.align)}" title="Sort by ${c.label}">${c.label}<span style="color:#9CA3AF;font-size:11px">${arrow(c.key)}</span></th>`).join('')}
         </tr> </thead> <tbody> ${ordered.map((r, i) => `
           <tr style="border-bottom:1px solid #F3F4F6;background:${i%2===0?'#fff':'#FAFAFA'}"> <td style="padding:8px 12px;color:#9CA3AF">${i+1}</td> <td style="padding:8px 12px;font-family:monospace;font-weight:600;color:#111827">${r.cn}</td> ${r.attempts !== undefined ? `<td style="padding:8px 12px;text-align:center;font-weight:700;color:${r.attempts >= 10 ? '#DC2626' : r.attempts < 3 ? '#16A34A' : '#F97316'}">${r.attempts}</td>` : ''}
-            <td style="padding:8px 12px;color:#6B7280">${r.missTime}</td> ${r.lastAttempt !== undefined ? `<td style="padding:8px 12px;color:#6B7280">${r.lastAttempt || '—'}</td>` : ''}
+            <td style="padding:8px 12px;color:#6B7280">${r.missTime}</td> ${r.lastAttempt !== undefined ? `<td style="padding:8px 12px;color:#6B7280">${r.lastAttempt || '—'}</td>` : ''} ${r.campaign !== undefined ? `<td style="padding:8px 12px;color:#374151">${r.campaign || '—'}</td>` : ''}
           </tr>`).join('')}
       </tbody> </table>`;
 
