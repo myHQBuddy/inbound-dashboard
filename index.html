@@ -519,9 +519,13 @@ function compute(recs) {
 
   // Insights
   const peakHr = HOURS.reduce((best, h) =>hourlyTotal[h] > hourlyTotal[best] ? h : best, HOURS[0]);
-  const lowestArHr = HOURS.filter(h => hourlyTotal[h] >= 5).reduce((worst, h) => {
-    return pct(hourlyAns[h], hourlyTotal[h]) < pct(hourlyAns[worst], hourlyTotal[worst]) ? h : worst;
-  }, HOURS[0]);
+  // Danger Zone = weakest OFFICE-HOURS hour (9am–7pm = hours 9..18). After-hours
+  // slots (7pm+) are unstaffed and always ~0%, so excluding them keeps this
+  // actionable — it flags the real coverage gap within working hours.
+  const _dzHrs = HOURS.filter(h => h >= 9 && h <= 18 && hourlyTotal[h] >= 5);
+  const lowestArHr = _dzHrs.length
+    ? _dzHrs.reduce((worst, h) => pct(hourlyAns[h], hourlyTotal[h]) < pct(hourlyAns[worst], hourlyTotal[worst]) ? h : worst)
+    : 9;
   // Best callback time — only consider core hours 10am–6pm (hours 10..17), so it
   // recommends a workable slot, not an off-hours outlier.
   const _cbHrs = HOURS.filter(h => h >= 10 && h <= 17 && cbHourTotal[h] >= 5);
