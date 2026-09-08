@@ -522,9 +522,12 @@ function compute(recs) {
   const lowestArHr = HOURS.filter(h => hourlyTotal[h] >= 5).reduce((worst, h) => {
     return pct(hourlyAns[h], hourlyTotal[h]) < pct(hourlyAns[worst], hourlyTotal[worst]) ? h : worst;
   }, HOURS[0]);
-  const bestCbHr = HOURS.filter(h =>cbHourTotal[h] >= 5).reduce((best, h) => {
-    return pct(cbHourAns[h], cbHourTotal[h]) > pct(cbHourAns[best], cbHourTotal[best]) ? h : best;
-  }, HOURS[0]);
+  // Best callback time — only consider core hours 10am–6pm (hours 10..17), so it
+  // recommends a workable slot, not an off-hours outlier.
+  const _cbHrs = HOURS.filter(h => h >= 10 && h <= 17 && cbHourTotal[h] >= 5);
+  const bestCbHr = _cbHrs.length
+    ? _cbHrs.reduce((best, h) => pct(cbHourAns[h], cbHourTotal[h]) > pct(cbHourAns[best], cbHourTotal[best]) ? h : best)
+    : 10;
 
   // Miss type counts
   const missTypeCount = { agentMissed: 0, queueMissed: 0, aohMissed: 0 };
@@ -568,8 +571,8 @@ function renderVolume(m) {
   const qMiss  = m.missIB.filter(r => r.mt === 'Queue Missed - Within Hours');
   const ahMiss = m.missIB.filter(r => r.mt === 'Queue Missed - After Hours');
   const ar = pct(ans, ib);
-  // Office-hours answer rate (9am–6pm, hours 9–18) — the TL incentive metric.
-  const ibOff  = m.ib.filter(r => r.h >= 9 && r.h <= 18);
+  // Office-hours answer rate (9am–7pm, hours 9–19) — the TL incentive metric.
+  const ibOff  = m.ib.filter(r => r.h >= 9 && r.h <= 19);
   const ansOff = ibOff.filter(r =>r.st === 'answered').length;
   const arOff  = pct(ansOff, ibOff.length);
 
@@ -591,7 +594,7 @@ function renderVolume(m) {
   document.getElementById('vol-kpis').innerHTML =
     kpiCard('Total Inbound',  fmtN(ib),           `avg ${fmtN(Math.round(m.avgDaily))}/day`, '') +
     kpiCard('Answer Rate',    ar+'%',              `${fmtN(ans)} answered · all hours`, ar >= 70 ? 'green' : ar >= 55 ? '' : 'red') +
-    kpiCard('Answer Rate · 9am–6pm', arOff+'%',   `${fmtN(ansOff)} of ${fmtN(ibOff.length)} · office hours`, arOff >= 92 ? 'green' : arOff >= 90 ? 'amber' : 'red') +
+    kpiCard('Answer Rate · 9am–7pm', arOff+'%',   `${fmtN(ansOff)} of ${fmtN(ibOff.length)} · office hours`, arOff >= 92 ? 'green' : arOff >= 90 ? 'amber' : 'red') +
     kpiCardClick('Agent Missed',   fmtN(agMiss.length), `${pct(agMiss.length,ib)}% — rung, not picked up`, agMiss.length ? 'red' : 'green', 'volAgentMissed') +
     kpiCardClick('Queue Missed',   fmtN(qMiss.length),  `${pct(qMiss.length,ib)}% — dropped in queue`, qMiss.length ? 'red' : 'green', 'volQueueMissed') +
     kpiCardClick('After-Hrs Missed', fmtN(ahMiss.length), `${pct(ahMiss.length,ib)}% of inbound`, '', 'volAohMissed');
@@ -1412,6 +1415,10 @@ function renderAction(m) {
   const within1hr = ttcBuckets['<1hr'];
   const within1hrPct = reconnected ? Math.round(within1hr/reconnected*100) : 0;
   const afterHrsMissed = m.missIB.filter(r =>r.ah === 1 || r.ah === '1').length;
+  // Office-hours (9am–7pm) inbound answer rate.
+  const _ibOff = m.ib.filter(r => r.h >= 9 && r.h <= 19);
+  const _ansOff = _ibOff.filter(r => r.st === 'answered').length;
+  const arOff97 = pct(_ansOff, _ibOff.length);
 
   // ── Active Agents — 7-min slot chart ────────────────────────────────────────
   // Follows the top date filter: shows the latest day within the current range
@@ -1490,7 +1497,7 @@ function renderAction(m) {
     <div class="insight-card ${within1hrPct >= 50 ? 'best' : within1hrPct >= 30 ? 'peak' : 'danger'}"><div class="ic-title">Same-Hour Callbacks</div><div class="ic-val">${within1hrPct}%</div><div class="ic-desc">of reached callers connected within 1 hour — prioritize speed</div></div>
     <div class="insight-card best"><div class="ic-title">Best Callback Time</div><div class="ic-val">${fmtHr(bestCbHr)}</div><div class="ic-desc">Highest customer answer rate — dial callbacks here first</div></div>
     <div class="insight-card ${afterHrsMissed > 50 ? 'danger' : 'info'}"><div class="ic-title">After-Hours Missed</div><div class="ic-val">${fmtN(afterHrsMissed)}</div><div class="ic-desc">missed after 8pm — schedule morning callbacks</div></div>
-    <div class="insight-card ${cbAr >= 40 ? 'best' : cbAr >= 25 ? 'peak' : 'danger'}"><div class="ic-title">Callback Answer Rate</div><div class="ic-val">${cbAr}%</div><div class="ic-desc">${fmtN(m.ansCB.length)} of ${fmtN(m.cb.length)} callbacks picked up</div></div>`;
+    <div class="insight-card ${arOff97 >= 85 ? 'best' : arOff97 >= 70 ? 'peak' : 'danger'}"><div class="ic-title">Answer Rate · 9am–7pm</div><div class="ic-val">${arOff97}%</div><div class="ic-desc">${fmtN(_ansOff)} of ${fmtN(_ibOff.length)} office-hours calls answered</div></div>`;
 }
 
 // ── DID HEALTH (outbound pickup rate per caller ID) ─────────────────────────
@@ -1799,7 +1806,7 @@ function periodStats(from, to) {
   const ib   = recs.filter(r => r.dr === 'inbound');
   const cb   = recs.filter(r => r.dr === 'callback');
   const ans  = ib.filter(r => r.st === 'answered').length;
-  const ibOff = ib.filter(r => r.h >= 9 && r.h <= 18);
+  const ibOff = ib.filter(r => r.h >= 9 && r.h <= 19);   // office hours 9am–7pm
   const ansOff = ibOff.filter(r =>r.st === 'answered').length;
   const qmW = ib.filter(r => r.mt === 'Queue Missed - Within Hours').length;
   const agM = ib.filter(r => r.mt === 'Agent Missed').length;
@@ -1939,7 +1946,7 @@ function renderTrx(){
     return `<div class="trx-kpi" style="--accent:${accent}"> <div class="trx-kpi-lbl">${lbl}</div> <div class="trx-kpi-val">${fmtN(av)}${sfx?`<small>${sfx}</small>`:''}</div> <span class="trx-badge ${c.cls}">${c.arrow} ${c.txt}</span> <div class="trx-kpi-prev">vs ${fmtN(bv)}${sfx||''} ${prevLabel}</div> </div>`;
   };
   document.getElementById('trx-kpis').innerHTML =
-    kpi('Answer rate · 9–6', a.arOff, b.arOff, 'good', true, '%', '#16A34A') +
+    kpi('Answer rate · 9–7', a.arOff, b.arOff, 'good', true, '%', '#16A34A') +
     kpi('Inbound calls', a.ibTotal, b.ibTotal, 'good', false, '', '#1E22AA') +
     kpi('Leads disposed', a.leads, b.leads, 'good', false, '', '#7C3AED') +
     kpi('Reconnection', a.reconRate, b.reconRate, 'good', true, '%', '#F59E0B');
@@ -1958,7 +1965,7 @@ function renderTrx(){
       mrow('Total inbound','ibTotal'),
       mrow('Answered','ans'),
       mrow('Answer rate — all hours','ar',{isPct:true,sfx:'%'}),
-      mrow('Answer rate — 9am–6pm','arOff',{isPct:true,sfx:'%'}),
+      mrow('Answer rate — 9am–7pm','arOff',{isPct:true,sfx:'%'}),
       mrow('Calls per day','perDay'),
     ].join('')) +
     grp(' Missed Breakdown', [
