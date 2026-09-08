@@ -571,8 +571,9 @@ function renderVolume(m) {
   const qMiss  = m.missIB.filter(r => r.mt === 'Queue Missed - Within Hours');
   const ahMiss = m.missIB.filter(r => r.mt === 'Queue Missed - After Hours');
   const ar = pct(ans, ib);
-  // Office-hours answer rate (9am–7pm, hours 9–19) — the TL incentive metric.
-  const ibOff  = m.ib.filter(r => r.h >= 9 && r.h <= 19);
+  // Office-hours answer rate — 9am to 7pm, i.e. the 9:00..18:59 hours (ends AT
+  // 19:00; the 19:00–20:00 window is excluded). Hours 9..18 inclusive.
+  const ibOff  = m.ib.filter(r => r.h >= 9 && r.h <= 18);
   const ansOff = ibOff.filter(r =>r.st === 'answered').length;
   const arOff  = pct(ansOff, ibOff.length);
 
@@ -1416,7 +1417,7 @@ function renderAction(m) {
   const within1hrPct = reconnected ? Math.round(within1hr/reconnected*100) : 0;
   const afterHrsMissed = m.missIB.filter(r =>r.ah === 1 || r.ah === '1').length;
   // Office-hours (9am–7pm) inbound answer rate.
-  const _ibOff = m.ib.filter(r => r.h >= 9 && r.h <= 19);
+  const _ibOff = m.ib.filter(r => r.h >= 9 && r.h <= 18);   // 9am–7pm (hours 9..18, ends at 19:00)
   const _ansOff = _ibOff.filter(r => r.st === 'answered').length;
   const arOff97 = pct(_ansOff, _ibOff.length);
 
@@ -1806,7 +1807,7 @@ function periodStats(from, to) {
   const ib   = recs.filter(r => r.dr === 'inbound');
   const cb   = recs.filter(r => r.dr === 'callback');
   const ans  = ib.filter(r => r.st === 'answered').length;
-  const ibOff = ib.filter(r => r.h >= 9 && r.h <= 19);   // office hours 9am–7pm
+  const ibOff = ib.filter(r => r.h >= 9 && r.h <= 18);   // office hours 9am–7pm (hours 9..18, ends at 19:00)
   const ansOff = ibOff.filter(r =>r.st === 'answered').length;
   const qmW = ib.filter(r => r.mt === 'Queue Missed - Within Hours').length;
   const agM = ib.filter(r => r.mt === 'Agent Missed').length;
