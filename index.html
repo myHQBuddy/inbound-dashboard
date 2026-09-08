@@ -180,7 +180,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sa
 /* SECTION TITLE */
 .sec-title{font-size:16px;font-weight:700;margin-bottom:4px}
 .sec-desc{font-size:12px;color:var(--muted);margin-bottom:16px}
-</style> </head> <body> <!-- TOPBAR --> <div class="topbar"> <div class="tb-left"> <div class="brand-mark">mH</div> <span class="tb-title">Inbound Call Centre</span> <span class="tb-sub" id="tb-updated"></span> </div> <div class="tb-right"> <div class="df-pills"> <button class="df-pill" data-df="1">Today</button> <button class="df-pill" data-df="yest">Yesterday</button> <button class="df-pill" data-df="7">7D</button> <button class="df-pill" data-df="14">14D</button> <button class="df-pill" data-df="30">30D</button> <button class="df-pill active" data-df="all">All</button> </div> <span class="date-sep">|</span> <input class="date-input" type="date" id="df-from"> <span class="date-sep"></span> <input class="date-input" type="date" id="df-to"> </div> </div> <!-- TABBAR --> <div class="tabbar"> <button class="tab active" data-tab="volume">Volume</button> <button class="tab" data-tab="hourly">Hourly Pattern</button> <button class="tab" data-tab="callbacks">Callbacks</button> <button class="tab" data-tab="leads">Leads</button> <button class="tab" data-tab="action">Action</button> <button class="tab" data-tab="trends">Trend Analysis</button> </div> <!-- MAIN --> <div class="page-wrap"> <!-- ═══ TAB: VOLUME ═══ --> <div class="tab-panel active" id="tab-volume"> <div class="kpi-row cols-6" id="vol-kpis"></div> <div class="card"> <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px"> <div class="card-title" style="margin-bottom:0">Daily Call Volume — Answered / Agent Missed / Queue Missed / AOH</div> <div id="bar-toggles" style="display:flex;gap:6px;flex-wrap:wrap"></div> </div> <div class="chart-wrap tall"><canvas id="daily-chart"></canvas></div> </div> <div class="card"> <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px"> <div class="card-title" style="margin-bottom:0">Daily Averages — Day by Day Trend</div> <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"> <div id="avg-toggles" style="display:flex;gap:6px;flex-wrap:wrap"></div> <div id="day-toggles" style="display:flex;gap:4px;flex-wrap:wrap"></div> </div> </div> <div class="chart-wrap tall"><canvas id="daily-avg-chart"></canvas></div> </div> <div class="card"> <div class="card-title">Queue Missed by Campaign</div> <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:12px">Which campaign/queue the missed inbound calls dropped in. The main "Incoming Campagin" queue matches SmartFlo's campaign report; other rows (outreach, after-hours, blank) are additional inbound the dashboard captures.</div> <div id="missed-by-campaign"></div> </div> </div> <!-- ═══ TAB: HOURLY ═══ --> <div class="tab-panel" id="tab-hourly"> <div class="insight-row" id="hourly-insights"></div> <div class="card"> <div class="card-title">Answer Rate Heatmap — by Day & Hour</div> <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"> <span>Answer rate:</span> <span style="display:flex;align-items:center;gap:0"> <span style="width:22px;height:12px;background:#DC2626;display:inline-block"></span> <span style="width:22px;height:12px;background:#F97316;display:inline-block"></span> <span style="width:22px;height:12px;background:#FBBF24;display:inline-block"></span> <span style="width:22px;height:12px;background:#BBF7D0;display:inline-block"></span> <span style="width:22px;height:12px;background:#4ADE80;display:inline-block"></span> <span style="width:22px;height:12px;background:#16A34A;display:inline-block"></span> <span style="width:22px;height:12px;background:#15803D;display:inline-block"></span> </span> <span>&lt;35% &rarr; 90%+</span> <span style="color:var(--border)">·</span> <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#F1F5F9;display:inline-block;border:1px solid var(--border)"></span>no calls</span> </div> <div class="hm-wrap" id="hm-container"></div> </div> <div class="card"> <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px"> <div class="card-title" style="margin-bottom:0">Average Volume by Hour — Answered / Agent Missed / Queue Missed / AOH</div> <div id="hourly-bar-toggles" style="display:flex;gap:6px;flex-wrap:wrap"></div> </div> <div class="chart-wrap tall"><canvas id="hourly-chart"></canvas></div> </div> </div> <!-- ═══ TAB: CALLBACKS ═══ --> <div class="tab-panel" id="tab-callbacks"> <div class="kpi-row cols-5" id="cb-kpis"></div> <div id="miss-type-breakdown"></div> <div class="card"> <div class="card-title">Reconnect Funnel</div> <div id="funnel-wrap"></div> <div id="attempt-funnel" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px"></div> <div id="reconnect-funnel" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px"></div> </div> <div class="card-row two"> <div class="card"> <div class="card-title">Time to First Callback</div> <div class="chart-wrap"><canvas id="ttc-chart"></canvas></div> </div> <div class="card"> <div class="card-title">Connect Rate by Attempt Number</div> <div class="chart-wrap"><canvas id="attempt-chart"></canvas></div> </div> </div> </div> <!-- ═══ TAB: LEADS ═══ --> <div class="tab-panel" id="tab-leads"> <div class="kpi-row cols-5" id="leads-kpis"></div> <div class="card-row two"> <div class="card"> <div class="card-title">Leads by Product</div> <div class="chart-wrap"><canvas id="leads-product-chart"></canvas></div> </div> <div class="card"> <div class="card-title">New vs Existing by Product</div> <div class="chart-wrap"><canvas id="leads-type-chart"></canvas></div> </div> </div> <div class="card"> <div class="card-title">Daily Averages — Day by Day Trend</div> <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px" id="leads-day-toggles"></div> <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="leads-trend-toggles"></div> <div class="chart-wrap tall"><canvas id="leads-trend-chart"></canvas></div> </div> </div> <!-- ═══ TAB: ACTION ═══ --> <div class="tab-panel" id="tab-action"> <div class="card" style="margin-bottom:16px"> <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"> <div class="card-title" style="margin-bottom:0">Active Agents — 7-min Slots</div> <input type="date" id="agent-activity-date" style="margin-left:auto;font-size:13px;padding:4px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);cursor:pointer"> </div> <div class="chart-wrap" style="height:200px"><canvas id="agent-activity-chart"></canvas></div> </div> <div class="insight-row" id="action-insights" style="grid-template-columns:repeat(4,1fr)"></div> <div class="kpi-row cols-3" id="action-counts" style="margin-bottom:16px"></div> <div class="card"> <div class="card-title">DID Health — Outbound Pickup Rate</div> <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:12px">Pickup rate per outbound caller ID (DID). A DID well below the average may be flagged as spam by carriers. Only DIDs with ≥30 calls shown.</div> <div id="did-health"></div> </div> </div> <!-- ═══ TAB: TREND ANALYSIS ═══ --> <div class="tab-panel" id="tab-trends"> <div class="trx"> <!-- Header: title + single week picker --> <div class="trx-head"> <div> <div class="trx-eyebrow">Weekly Performance Review</div> <h2 class="trx-h1" id="trx-title">Week —</h2> <div class="trx-dates" id="trx-dates"></div> </div> <div class="trx-pick"> <label class="trx-pick-lbl">Week</label> <select id="trx-week" class="trx-sel"></select> </div> </div> <!-- Headline KPI cards --> <div class="trx-kpis" id="trx-kpis"></div> <!-- Weekly trend chart --> <div class="trx-card"> <div class="trx-card-h">Trend — last 8 weeks</div> <div id="trx-trend-toggles" class="trx-toggles"></div> <div class="chart-wrap tall"><canvas id="trx-chart"></canvas></div> </div> <!-- Supporting detail, grouped --> <div id="trx-detail"></div> </div> </div> </div><!-- /page-wrap --> <script> // ── Helpers ──────────────────────────────────────────────────────────────────
+</style> </head> <body> <!-- TOPBAR --> <div class="topbar"> <div class="tb-left"> <div class="brand-mark">mH</div> <span class="tb-title">Inbound Call Centre</span> <span class="tb-sub" id="tb-updated"></span> </div> <div class="tb-right"> <div class="df-pills"> <button class="df-pill" data-df="1">Today</button> <button class="df-pill" data-df="yest">Yesterday</button> <button class="df-pill" data-df="7">7D</button> <button class="df-pill" data-df="14">14D</button> <button class="df-pill" data-df="30">30D</button> <button class="df-pill active" data-df="all">All</button> </div> <span class="date-sep">|</span> <input class="date-input" type="date" id="df-from"> <span class="date-sep"></span> <input class="date-input" type="date" id="df-to"> </div> </div> <!-- TABBAR --> <div class="tabbar"> <button class="tab active" data-tab="volume">Volume</button> <button class="tab" data-tab="hourly">Hourly Pattern</button> <button class="tab" data-tab="callbacks">Callbacks</button> <button class="tab" data-tab="leads">Leads</button> <button class="tab" data-tab="action">Action</button> <button class="tab" data-tab="trends">Trend Analysis</button> </div> <!-- MAIN --> <div class="page-wrap"> <!-- ═══ TAB: VOLUME ═══ --> <div class="tab-panel active" id="tab-volume"> <div class="kpi-row cols-6" id="vol-kpis"></div> <div class="card"> <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px"> <div class="card-title" style="margin-bottom:0">Daily Call Volume — Answered / Agent Missed / Queue Missed / AOH</div> <div id="bar-toggles" style="display:flex;gap:6px;flex-wrap:wrap"></div> </div> <div class="chart-wrap tall"><canvas id="daily-chart"></canvas></div> </div> <div class="card"> <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px"> <div class="card-title" style="margin-bottom:0">Daily Averages — Day by Day Trend</div> <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"> <div id="avg-toggles" style="display:flex;gap:6px;flex-wrap:wrap"></div> <div id="day-toggles" style="display:flex;gap:4px;flex-wrap:wrap"></div> </div> </div> <div class="chart-wrap tall"><canvas id="daily-avg-chart"></canvas></div> </div> <div class="card"> <div class="card-title">Queue Missed by Campaign</div> <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:12px">Which campaign/queue the missed inbound calls dropped in. The main "Incoming Campagin" queue matches SmartFlo's campaign report; other rows (outreach, after-hours, blank) are additional inbound the dashboard captures.</div> <div id="missed-by-campaign"></div> </div> </div> <!-- ═══ TAB: HOURLY ═══ --> <div class="tab-panel" id="tab-hourly"> <div class="insight-row" id="hourly-insights"></div> <div class="card"> <div class="card-title">Answer Rate Heatmap — by Day & Hour</div> <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"> <span>Answer rate:</span> <span style="display:flex;align-items:center;gap:0"> <span style="width:22px;height:12px;background:#DC2626;display:inline-block"></span> <span style="width:22px;height:12px;background:#F97316;display:inline-block"></span> <span style="width:22px;height:12px;background:#FBBF24;display:inline-block"></span> <span style="width:22px;height:12px;background:#BBF7D0;display:inline-block"></span> <span style="width:22px;height:12px;background:#4ADE80;display:inline-block"></span> <span style="width:22px;height:12px;background:#16A34A;display:inline-block"></span> <span style="width:22px;height:12px;background:#15803D;display:inline-block"></span> </span> <span>&lt;35% &rarr; 90%+</span> <span style="color:var(--border)">·</span> <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#F1F5F9;display:inline-block;border:1px solid var(--border)"></span>no calls</span> </div> <div class="hm-wrap" id="hm-container"></div> </div> <div class="card"> <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px"> <div class="card-title" style="margin-bottom:0">Average Volume by Hour — Answered / Agent Missed / Queue Missed / AOH</div> <div id="hourly-bar-toggles" style="display:flex;gap:6px;flex-wrap:wrap"></div> </div> <div class="chart-wrap tall"><canvas id="hourly-chart"></canvas></div> </div> </div> <!-- ═══ TAB: CALLBACKS ═══ --> <div class="tab-panel" id="tab-callbacks"> <div class="kpi-row cols-5" id="cb-kpis"></div> <div id="miss-type-breakdown"></div> <div class="card"> <div class="card-title">Reconnect Funnel</div> <div id="funnel-wrap"></div> <div id="attempt-funnel" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px"></div> <div id="reconnect-funnel" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px"></div> </div> <div class="card-row two"> <div class="card"> <div class="card-title">Time to First Callback</div> <div class="chart-wrap"><canvas id="ttc-chart"></canvas></div> </div> <div class="card"> <div class="card-title">Connect Rate by Attempt Number</div> <div class="chart-wrap"><canvas id="attempt-chart"></canvas></div> </div> </div> </div> <!-- ═══ TAB: LEADS ═══ --> <div class="tab-panel" id="tab-leads"> <div class="kpi-row cols-5" id="leads-kpis"></div> <div class="card-row two"> <div class="card"> <div class="card-title">Leads by Product</div> <div class="chart-wrap"><canvas id="leads-product-chart"></canvas></div> </div> <div class="card"> <div class="card-title">New vs Existing by Product</div> <div class="chart-wrap"><canvas id="leads-type-chart"></canvas></div> </div> </div> <div class="card"> <div class="card-title">Daily Averages — Day by Day Trend</div> <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px" id="leads-day-toggles"></div> <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="leads-trend-toggles"></div> <div class="chart-wrap tall"><canvas id="leads-trend-chart"></canvas></div> </div> </div> <!-- ═══ TAB: ACTION ═══ --> <div class="tab-panel" id="tab-action"> <div class="card" style="margin-bottom:16px"> <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"> <div class="card-title" style="margin-bottom:0">Active Agents — 7-min Slots</div> <input type="date" id="agent-activity-date" style="margin-left:auto;font-size:13px;padding:4px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);cursor:pointer"> </div> <div class="chart-wrap" style="height:200px"><canvas id="agent-activity-chart"></canvas></div> </div> <div class="insight-row" id="action-insights" style="grid-template-columns:repeat(4,1fr)"></div> <div class="kpi-row cols-3" id="action-counts" style="margin-bottom:16px"></div> <div class="card"> <div class="card-title">DID Health — Outbound Pickup Rate</div> <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:12px">Pickup rate per outbound caller ID (DID). A DID well below the average may be flagged as spam by carriers. Only DIDs with ≥30 calls shown.</div> <div id="did-health"></div> </div> </div> <!-- ═══ TAB: TREND ANALYSIS ═══ --> <div class="tab-panel" id="tab-trends"> <div class="trx"> <!-- Header: title + single week picker --> <div class="trx-head"> <div> <div class="trx-eyebrow" id="trx-eyebrow">Weekly Performance Review</div> <h2 class="trx-h1" id="trx-title">Week —</h2> <div class="trx-dates" id="trx-dates"></div> </div> <div style="display:flex;gap:12px;align-items:flex-end"> <div class="trx-pick"> <label class="trx-pick-lbl">Month</label> <select id="trx-month" class="trx-sel"></select> </div> <div class="trx-pick"> <label class="trx-pick-lbl">Week</label> <select id="trx-week" class="trx-sel"></select> </div> </div> </div> <!-- Headline KPI cards --> <div class="trx-kpis" id="trx-kpis"></div> <!-- Weekly trend chart --> <div class="trx-card"> <div class="trx-card-h" id="trx-chart-h">Trend — last 8 weeks</div> <div id="trx-trend-toggles" class="trx-toggles"></div> <div class="chart-wrap tall"><canvas id="trx-chart"></canvas></div> </div> <!-- Supporting detail, grouped --> <div id="trx-detail"></div> </div> </div> </div><!-- /page-wrap --> <script> // ── Helpers ──────────────────────────────────────────────────────────────────
 const fmtN = n => n == null ? '—' : n.toLocaleString('en-IN');
 const pct  = (a, b) => b ? Math.round(a / b * 100) : 0;
 const fmtS = s => {
@@ -1862,23 +1862,59 @@ function dataWeeks(){
 }
 const _dm = d => { const [y,mo,da]=d.split('-'); return `${da} ${MONTH_NM[+mo-1]}`; };  // "24 Aug"
 
+// ── Month helpers ─────────────────────────────────────────────────────────────
+// distinct months present in the data, most recent first ("YYYY-MM")
+function dataMonths(){
+  const s = new Set(); ALL.forEach(r => { if(r.d) s.add(r.d.slice(0,7)); });
+  return [...s].sort().reverse();
+}
+function monthRange(ym){
+  const [y,mo] = ym.split('-').map(Number);
+  const from = `${ym}-01`;
+  const last = new Date(y, mo, 0).getDate();
+  const to = `${ym}-${String(last).padStart(2,'0')}`;
+  return { from, to, label:`${MONTH_NM[mo-1]} ${y}`, short:MONTH_NM[mo-1] };
+}
+function prevMonth(ym){ const [y,mo]=ym.split('-').map(Number); const d=new Date(y,mo-2,1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+
 // ── Presentation view: pick a calendar week, auto-compare to the week before ──
 let TRX_CHART_HIDDEN = new Set();
 
 function renderTrx(){
-  const sel = document.getElementById('trx-week');
-  if (!sel) return;
-  const thisMon = sel.value;                       // start (Wednesday) of chosen week
-  const wr = weekRange(thisMon);
-  const prevStartDt = new Date(wr.mon); prevStartDt.setDate(wr.mon.getDate()-7);  // prior Wednesday
-  const pr = weekRange(_fmtLocal(prevStartDt));
-  const a = periodStats(wr.from, wr.to);           // chosen week
-  const b = periodStats(pr.from, pr.to);           // week before
+  const wSel = document.getElementById('trx-week');
+  const mSel = document.getElementById('trx-month');
+  if (!wSel || !mSel) return;
+  const monthly = mSel.value !== 'weekly';
 
-  // header
-  document.getElementById('trx-title').textContent = `Week ${wr.week}`;
-  document.getElementById('trx-dates').innerHTML =
-    `${_dm(wr.from)} – ${_dm(wr.to)} ${wr.to.slice(0,4)} &nbsp;·&nbsp; vs Week ${pr.week} (${_dm(pr.from)}–${_dm(pr.to)})`;
+  // Week picker is disabled in monthly mode.
+  wSel.disabled = monthly;
+  wSel.style.opacity = monthly ? '.45' : '1';
+
+  let a, b, titleTxt, datesHtml, prevLabel, chartMode, chartAnchor;
+  if (monthly){
+    const cur = monthRange(mSel.value);
+    const prv = monthRange(prevMonth(mSel.value));
+    a = periodStats(cur.from, cur.to);
+    b = periodStats(prv.from, prv.to);
+    titleTxt = cur.label;
+    datesHtml = `Full month · vs ${prv.label}`;
+    prevLabel = `${prv.short}`;
+    chartMode = 'month'; chartAnchor = mSel.value;
+  } else {
+    const wr = weekRange(wSel.value);              // start (Wed) of chosen week
+    const prevStartDt = new Date(wr.mon); prevStartDt.setDate(wr.mon.getDate()-7);
+    const pr = weekRange(_fmtLocal(prevStartDt));
+    a = periodStats(wr.from, wr.to);
+    b = periodStats(pr.from, pr.to);
+    titleTxt = `Week ${wr.week}`;
+    datesHtml = `${_dm(wr.from)} – ${_dm(wr.to)} ${wr.to.slice(0,4)} &nbsp;·&nbsp; vs Week ${pr.week} (${_dm(pr.from)}–${_dm(pr.to)})`;
+    prevLabel = 'last week';
+    chartMode = 'week'; chartAnchor = wr.from;
+  }
+
+  document.getElementById('trx-eyebrow').textContent = monthly ? 'Monthly Performance Review' : 'Weekly Performance Review';
+  document.getElementById('trx-title').textContent = titleTxt;
+  document.getElementById('trx-dates').innerHTML = datesHtml;
 
   // change badge / inline chip
   const badge = (av, bv, dir, isPct) => {
@@ -1893,7 +1929,7 @@ function renderTrx(){
   // headline KPI cards
   const kpi = (lbl, av, bv, dir, isPct, sfx, accent) => {
     const c = badge(av,bv,dir,isPct);
-    return `<div class="trx-kpi" style="--accent:${accent}"> <div class="trx-kpi-lbl">${lbl}</div> <div class="trx-kpi-val">${fmtN(av)}${sfx?`<small>${sfx}</small>`:''}</div> <span class="trx-badge ${c.cls}">${c.arrow} ${c.txt}</span> <div class="trx-kpi-prev">vs ${fmtN(bv)}${sfx||''} last week</div> </div>`;
+    return `<div class="trx-kpi" style="--accent:${accent}"> <div class="trx-kpi-lbl">${lbl}</div> <div class="trx-kpi-val">${fmtN(av)}${sfx?`<small>${sfx}</small>`:''}</div> <span class="trx-badge ${c.cls}">${c.arrow} ${c.txt}</span> <div class="trx-kpi-prev">vs ${fmtN(bv)}${sfx||''} ${prevLabel}</div> </div>`;
   };
   document.getElementById('trx-kpis').innerHTML =
     kpi('Answer rate · 9–6', a.arOff, b.arOff, 'good', true, '%', '#16A34A') +
@@ -1902,11 +1938,13 @@ function renderTrx(){
     kpi('Reconnection', a.reconRate, b.reconRate, 'good', true, '%', '#F59E0B');
 
   // supporting detail — grouped tables
+  const colA = monthly ? 'This month' : 'This week';
+  const colB = monthly ? 'Last month' : 'Last week';
   const mrow = (label, key, opts={}) => {
     const {dir='good', isPct=false, sfx=''} = opts;
     return `<tr> <td class="metric">${label}</td> <td class="num">${fmtN(a[key])}${sfx}</td> <td class="num sub">${fmtN(b[key])}${sfx}</td> <td class="num">${chip(a[key],b[key],dir,isPct)}</td> </tr>`;
   };
-  const grp = (title, rows) => `<div class="trx-card"> <div class="trx-card-h">${title}</div> <div class="scrollx"><table class="trx-tbl"> <thead><tr><th>Metric</th><th class="num">This week</th><th class="num">Last week</th><th class="num">Change</th></tr></thead> <tbody>${rows}</tbody></table></div></div>`;
+  const grp = (title, rows) => `<div class="trx-card"> <div class="trx-card-h">${title}</div> <div class="scrollx"><table class="trx-tbl"> <thead><tr><th>Metric</th><th class="num">${colA}</th><th class="num">${colB}</th><th class="num">Change</th></tr></thead> <tbody>${rows}</tbody></table></div></div>`;
 
   document.getElementById('trx-detail').innerHTML =
     grp(' Volume & Answer Rate', [
@@ -1936,17 +1974,29 @@ function renderTrx(){
       mrow('New leads','newLeads'),
     ].join(''));
 
-  buildTrxChart(thisMon);
+  buildTrxChart(chartMode, chartAnchor);
 }
 
-// last 8 complete weeks up to & including the chosen week
-function buildTrxChart(chosenMon){
-  const all = dataWeeks();                       // most recent first
-  const idx = all.findIndex(w => w.from === chosenMon);
-  const start = Math.max(0, idx);
-  const wks = all.slice(start, start+8).reverse();  // oldestnewest, ending at chosen
-  const stats = wks.map(w => periodStats(w.from, w.to));
-  const labels = wks.map(w => 'W'+w.week);
+// Trend chart. mode 'week' = last 8 weeks up to the chosen week; mode 'month' =
+// all months in the data (month-by-month), highlighting the chosen month.
+function buildTrxChart(mode, anchor){
+  let stats, labels, unitWord;
+  if (mode === 'month'){
+    const months = dataMonths().slice().reverse();          // oldest → newest
+    stats = months.map(m => { const r=monthRange(m); return periodStats(r.from, r.to); });
+    labels = months.map(m => monthRange(m).short);
+    unitWord = 'Month';
+  } else {
+    const all = dataWeeks();                                 // most recent first
+    const idx = all.findIndex(w => w.from === anchor);
+    const start = Math.max(0, idx);
+    const wks = all.slice(start, start+8).reverse();         // oldest → newest, ending at chosen
+    stats = wks.map(w => periodStats(w.from, w.to));
+    labels = wks.map(w => 'W'+w.week);
+    unitWord = 'Week';
+  }
+  const chH = document.getElementById('trx-chart-h');
+  if (chH) chH.textContent = mode==='month' ? 'Trend — month by month' : 'Trend — last 8 weeks';
   const SERIES = [
     {label:'Answered', key:'ans', color:'#16A34A'},
     {label:'Queue Missed', key:'qmW', color:'#F59E0B'},
@@ -1989,7 +2039,7 @@ function buildTrxChart(chosenMon){
       layout:{padding:{top:16, right:12}},
       plugins:{ legend:{display:false}, datalabels:{display:false},
         tooltip:{ filter:it=>!it.dataset.label.startsWith('Avg '),   // don't clutter tooltip with avg lines
-          callbacks:{title:it=>'Week '+labels[it[0].dataIndex].slice(1)}} },
+          callbacks:{title:it=>{ const l=labels[it[0].dataIndex]; return unitWord==='Week'?('Week '+l.slice(1)):l; }}} },
       scales:{ y:{beginAtZero:true, position:'left', grid:{color:'rgba(0,0,0,.05)'}},
                y1:{beginAtZero:true, max:100, position:'right', grid:{drawOnChartArea:false}, ticks:{callback:v=>v+'%'}} } }
   });
@@ -2013,14 +2063,23 @@ function buildTrxChart(chosenMon){
 
 (function initTrx(){
   const sel = document.getElementById('trx-week');
-  if (!sel) return;
+  const mSel = document.getElementById('trx-month');
+  if (!sel || !mSel) return;
   const wks = dataWeeks();  // most recent first
   sel.innerHTML = wks.map(w => `<option value="${w.from}">Week ${w.week} · ${_dm(w.from)}–${_dm(w.to)}${w.to>=DATA_MAX?' (in progress)':''}</option>`
   ).join('');
-  // default = most recent COMPLETE week (Sunday already passed)
+  // default = most recent COMPLETE week (its Tuesday already passed)
   const iComplete = wks.findIndex(w => w.to < DATA_MAX);
   sel.value = wks[iComplete>=0?iComplete:0].from;
+
+  // month dropdown: 'Weekly view' default, then each month (most recent first)
+  const months = dataMonths();
+  mSel.innerHTML = `<option value="weekly">Weekly view</option>` +
+    months.map(m => `<option value="${m}">${monthRange(m).label}${m>=DATA_MAX.slice(0,7)?' (in progress)':''}</option>`).join('');
+  mSel.value = 'weekly';
+
   sel.addEventListener('change', renderTrx);
+  mSel.addEventListener('change', renderTrx);
   renderTrx();
 })();
 
