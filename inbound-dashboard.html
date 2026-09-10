@@ -180,7 +180,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sa
 /* SECTION TITLE */
 .sec-title{font-size:16px;font-weight:700;margin-bottom:4px}
 .sec-desc{font-size:12px;color:var(--muted);margin-bottom:16px}
-</style> </head> <body> <!-- TOPBAR --> <div class="topbar"> <div class="tb-left"> <div class="brand-mark">mH</div> <span class="tb-title">Inbound Call Centre</span> <span class="tb-sub" id="tb-updated"></span> </div> <div class="tb-right"> <div class="df-pills"> <button class="df-pill" data-df="1">Today</button> <button class="df-pill" data-df="yest">Yesterday</button> <button class="df-pill" data-df="7">7D</button> <button class="df-pill" data-df="14">14D</button> <button class="df-pill" data-df="30">30D</button> <button class="df-pill active" data-df="all">All</button> </div> <span class="date-sep">|</span> <input class="date-input" type="date" id="df-from"> <span class="date-sep"></span> <input class="date-input" type="date" id="df-to"> </div> </div> <!-- TABBAR --> <div class="tabbar"> <button class="tab active" data-tab="volume">Volume</button> <button class="tab" data-tab="hourly">Hourly Pattern</button> <button class="tab" data-tab="callbacks">Callbacks</button> <button class="tab" data-tab="leads">Leads</button> <button class="tab" data-tab="action">Action</button> <button class="tab" data-tab="trends">Trend Analysis</button> </div> <!-- MAIN --> <div class="page-wrap"> <!-- ═══ TAB: VOLUME ═══ --> <div class="tab-panel active" id="tab-volume"> <div class="kpi-row cols-6" id="vol-kpis"></div> <div class="card"> <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px"> <div class="card-title" style="margin-bottom:0">Daily Call Volume — Answered / Agent Missed / Queue Missed / AOH</div> <div id="bar-toggles" style="display:flex;gap:6px;flex-wrap:wrap"></div> </div> <div class="chart-wrap tall"><canvas id="daily-chart"></canvas></div> </div> <div class="card"> <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px"> <div class="card-title" style="margin-bottom:0">Daily Averages — Day by Day Trend</div> <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"> <div id="avg-toggles" style="display:flex;gap:6px;flex-wrap:wrap"></div> <div id="day-toggles" style="display:flex;gap:4px;flex-wrap:wrap"></div> </div> </div> <div class="chart-wrap tall"><canvas id="daily-avg-chart"></canvas></div> </div> <div class="card"> <div class="card-title">Queue Missed by Campaign</div> <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:12px">Which campaign/queue the missed inbound calls dropped in. The main "Incoming Campagin" queue matches SmartFlo's campaign report; other rows (outreach, after-hours, blank) are additional inbound the dashboard captures.</div> <div id="missed-by-campaign"></div> </div> </div> <!-- ═══ TAB: HOURLY ═══ --> <div class="tab-panel" id="tab-hourly"> <div class="insight-row" id="hourly-insights"></div> <div class="card"> <div class="card-title">Answer Rate Heatmap — by Day & Hour</div> <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"> <span>Answer rate:</span> <span style="display:flex;align-items:center;gap:0"> <span style="width:22px;height:12px;background:#DC2626;display:inline-block"></span> <span style="width:22px;height:12px;background:#F97316;display:inline-block"></span> <span style="width:22px;height:12px;background:#FBBF24;display:inline-block"></span> <span style="width:22px;height:12px;background:#BBF7D0;display:inline-block"></span> <span style="width:22px;height:12px;background:#4ADE80;display:inline-block"></span> <span style="width:22px;height:12px;background:#16A34A;display:inline-block"></span> <span style="width:22px;height:12px;background:#15803D;display:inline-block"></span> </span> <span>&lt;35% &rarr; 90%+</span> <span style="color:var(--border)">·</span> <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#F1F5F9;display:inline-block;border:1px solid var(--border)"></span>no calls</span> </div> <div class="hm-wrap" id="hm-container"></div> </div> <div class="card"> <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px"> <div class="card-title" style="margin-bottom:0">Average Volume by Hour — Answered / Agent Missed / Queue Missed / AOH</div> <div id="hourly-bar-toggles" style="display:flex;gap:6px;flex-wrap:wrap"></div> </div> <div class="chart-wrap tall"><canvas id="hourly-chart"></canvas></div> </div> </div> <!-- ═══ TAB: CALLBACKS ═══ --> <div class="tab-panel" id="tab-callbacks"> <div class="kpi-row cols-5" id="cb-kpis"></div> <div id="miss-type-breakdown"></div> <div class="card"> <div class="card-title">Reconnect Funnel</div> <div id="funnel-wrap"></div> <div id="attempt-funnel" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px"></div> <div id="reconnect-funnel" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px"></div> </div> <div class="card-row two"> <div class="card"> <div class="card-title">Time to First Callback</div> <div class="chart-wrap"><canvas id="ttc-chart"></canvas></div> </div> <div class="card"> <div class="card-title">Connect Rate by Attempt Number</div> <div class="chart-wrap"><canvas id="attempt-chart"></canvas></div> </div> </div> </div> <!-- ═══ TAB: LEADS ═══ --> <div class="tab-panel" id="tab-leads"> <div class="kpi-row cols-5" id="leads-kpis"></div> <div class="card-row two"> <div class="card"> <div class="card-title">Leads by Product</div> <div class="chart-wrap"><canvas id="leads-product-chart"></canvas></div> </div> <div class="card"> <div class="card-title">New vs Existing by Product</div> <div class="chart-wrap"><canvas id="leads-type-chart"></canvas></div> </div> </div> <div class="card"> <div class="card-title">Daily Averages — Day by Day Trend</div> <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px" id="leads-day-toggles"></div> <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="leads-trend-toggles"></div> <div class="chart-wrap tall"><canvas id="leads-trend-chart"></canvas></div> </div> </div> <!-- ═══ TAB: ACTION ═══ --> <div class="tab-panel" id="tab-action"> <div class="card" style="margin-bottom:16px"> <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"> <div class="card-title" style="margin-bottom:0">Active Agents — 7-min Slots</div> <input type="date" id="agent-activity-date" style="margin-left:auto;font-size:13px;padding:4px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);cursor:pointer"> </div> <div class="chart-wrap" style="height:200px"><canvas id="agent-activity-chart"></canvas></div> </div> <div class="insight-row" id="action-insights" style="grid-template-columns:repeat(4,1fr)"></div> <div class="kpi-row cols-3" id="action-counts" style="margin-bottom:16px"></div> <div class="card"> <div class="card-title">DID Health — Outbound Pickup Rate</div> <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:12px">Pickup rate per outbound caller ID (DID). A DID well below the average may be flagged as spam by carriers. Only DIDs with ≥30 calls shown.</div> <div id="did-health"></div> </div> </div> <!-- ═══ TAB: TREND ANALYSIS ═══ --> <div class="tab-panel" id="tab-trends"> <div class="trx"> <!-- Header: title + single week picker --> <div class="trx-head"> <div> <div class="trx-eyebrow" id="trx-eyebrow">Weekly Performance Review</div> <h2 class="trx-h1" id="trx-title">Week —</h2> <div class="trx-dates" id="trx-dates"></div> </div> <div style="display:flex;gap:12px;align-items:flex-end"> <div class="trx-pick"> <label class="trx-pick-lbl">Month</label> <select id="trx-month" class="trx-sel"></select> </div> <div class="trx-pick"> <label class="trx-pick-lbl">Week</label> <select id="trx-week" class="trx-sel"></select> </div> </div> </div> <!-- Headline KPI cards --> <div class="trx-kpis" id="trx-kpis"></div> <!-- Weekly trend chart --> <div class="trx-card"> <div class="trx-card-h" id="trx-chart-h">Trend — last 8 weeks</div> <div id="trx-trend-toggles" class="trx-toggles"></div> <div class="chart-wrap tall"><canvas id="trx-chart"></canvas></div> </div> <!-- Supporting detail, grouped --> <div id="trx-detail"></div> </div> </div> </div><!-- /page-wrap --> <script> // ── Helpers ──────────────────────────────────────────────────────────────────
+</style> </head> <body> <!-- TOPBAR --> <div class="topbar"> <div class="tb-left"> <div class="brand-mark">mH</div> <span class="tb-title">Inbound Call Centre</span> <span class="tb-sub" id="tb-updated"></span> </div> <div class="tb-right"> <div class="df-pills"> <button class="df-pill" data-df="1">Today</button> <button class="df-pill" data-df="yest">Yesterday</button> <button class="df-pill" data-df="7">7D</button> <button class="df-pill" data-df="14">14D</button> <button class="df-pill" data-df="30">30D</button> <button class="df-pill active" data-df="all">All</button> </div> <span class="date-sep">|</span> <input class="date-input" type="date" id="df-from"> <span class="date-sep"></span> <input class="date-input" type="date" id="df-to"> </div> </div> <!-- TABBAR --> <div class="tabbar"> <button class="tab active" data-tab="volume">Volume</button> <button class="tab" data-tab="hourly">Hourly Pattern</button> <button class="tab" data-tab="callbacks">Callbacks</button> <button class="tab" data-tab="leads">Leads</button> <button class="tab" data-tab="action">Action</button> <button class="tab" data-tab="trends">Trend Analysis</button> </div> <!-- MAIN --> <div class="page-wrap"> <!-- ═══ TAB: VOLUME ═══ --> <div class="tab-panel active" id="tab-volume"> <div class="kpi-row cols-6" id="vol-kpis"></div> <div class="card"> <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px"> <div class="card-title" style="margin-bottom:0">Daily Call Volume — Answered / Agent Missed / Queue Missed / AOH</div> <div id="bar-toggles" style="display:flex;gap:6px;flex-wrap:wrap"></div> </div> <div class="chart-wrap tall"><canvas id="daily-chart"></canvas></div> </div> <div class="card"> <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px"> <div class="card-title" style="margin-bottom:0">Daily Averages — Day by Day Trend</div> <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"> <div id="avg-toggles" style="display:flex;gap:6px;flex-wrap:wrap"></div> <div id="day-toggles" style="display:flex;gap:4px;flex-wrap:wrap"></div> </div> </div> <div class="chart-wrap tall"><canvas id="daily-avg-chart"></canvas></div> </div> <div class="card"> <div class="card-title">Queue Missed by Campaign</div> <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:12px">Which campaign/queue the missed inbound calls dropped in. The main "Incoming Campagin" queue matches SmartFlo's campaign report; other rows (outreach, after-hours, blank) are additional inbound the dashboard captures.</div> <div id="missed-by-campaign"></div> </div> </div> <!-- ═══ TAB: HOURLY ═══ --> <div class="tab-panel" id="tab-hourly"> <div class="insight-row" id="hourly-insights"></div> <div class="card"> <div class="card-title">Answer Rate Heatmap — by Day & Hour</div> <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"> <span>Answer rate:</span> <span style="display:flex;align-items:center;gap:0"> <span style="width:22px;height:12px;background:#DC2626;display:inline-block"></span> <span style="width:22px;height:12px;background:#F97316;display:inline-block"></span> <span style="width:22px;height:12px;background:#FBBF24;display:inline-block"></span> <span style="width:22px;height:12px;background:#BBF7D0;display:inline-block"></span> <span style="width:22px;height:12px;background:#4ADE80;display:inline-block"></span> <span style="width:22px;height:12px;background:#16A34A;display:inline-block"></span> <span style="width:22px;height:12px;background:#15803D;display:inline-block"></span> </span> <span>&lt;35% &rarr; 90%+</span> <span style="color:var(--border)">·</span> <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#F1F5F9;display:inline-block;border:1px solid var(--border)"></span>no calls</span> </div> <div class="hm-wrap" id="hm-container"></div> </div> <div class="card"> <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px"> <div class="card-title" style="margin-bottom:0">Average Volume by Hour — Answered / Agent Missed / Queue Missed / AOH</div> <div id="hourly-bar-toggles" style="display:flex;gap:6px;flex-wrap:wrap"></div> </div> <div class="chart-wrap tall"><canvas id="hourly-chart"></canvas></div> </div> </div> <!-- ═══ TAB: CALLBACKS ═══ --> <div class="tab-panel" id="tab-callbacks"> <div class="kpi-row cols-5" id="cb-kpis"></div> <div id="miss-type-breakdown"></div> <div class="card"> <div class="card-title">Reconnect Funnel</div> <div id="funnel-wrap"></div> <div id="attempt-funnel" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px"></div> <div id="reconnect-funnel" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px"></div> </div> <div class="card-row two"> <div class="card"> <div class="card-title">Time to First Callback</div> <div class="chart-wrap"><canvas id="ttc-chart"></canvas></div> </div> <div class="card"> <div class="card-title">Connect Rate by Attempt Number</div> <div class="chart-wrap"><canvas id="attempt-chart"></canvas></div> </div> </div> </div> <!-- ═══ TAB: LEADS ═══ --> <div class="tab-panel" id="tab-leads"> <div class="kpi-row cols-5" id="leads-kpis"></div> <div class="card-row two"> <div class="card"> <div class="card-title">Leads by Product</div> <div class="chart-wrap"><canvas id="leads-product-chart"></canvas></div> </div> <div class="card"> <div class="card-title">New vs Existing by Product</div> <div class="chart-wrap"><canvas id="leads-type-chart"></canvas></div> </div> </div> <div class="card"> <div class="card-title">Daily Averages — Day by Day Trend</div> <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px" id="leads-day-toggles"></div> <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="leads-trend-toggles"></div> <div class="chart-wrap tall"><canvas id="leads-trend-chart"></canvas></div> </div> </div> <!-- ═══ TAB: ACTION ═══ --> <div class="tab-panel" id="tab-action"> <div class="card" style="margin-bottom:16px"> <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"> <div class="card-title" style="margin-bottom:0">Active Agents — 7-min Slots</div> <input type="date" id="agent-activity-date" style="margin-left:auto;font-size:13px;padding:4px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);cursor:pointer"> </div> <div class="chart-wrap" style="height:200px"><canvas id="agent-activity-chart"></canvas></div> </div> <div class="insight-row" id="action-insights" style="grid-template-columns:repeat(4,1fr)"></div> <div class="kpi-row cols-3" id="action-counts" style="margin-bottom:16px"></div> <div class="card"> <div class="card-title">DID Health — Outbound Pickup Rate</div> <div class="card-sub" style="font-size:11px;color:var(--muted);margin-bottom:12px">Pickup rate per outbound caller ID (DID). A DID well below the average may be flagged as spam by carriers. Only DIDs with ≥30 calls shown.</div> <div id="did-health"></div> </div> </div> <!-- ═══ TAB: TREND ANALYSIS ═══ --> <div class="tab-panel" id="tab-trends"> <div class="trx"> <!-- Header: title + single week picker --> <div class="trx-head"> <div> <div class="trx-eyebrow" id="trx-eyebrow">Weekly Performance Review</div> <h2 class="trx-h1" id="trx-title">Week —</h2> <div class="trx-dates" id="trx-dates"></div> </div> <div style="display:flex;gap:12px;align-items:flex-end"> <div class="trx-pick"> <label class="trx-pick-lbl">Month</label> <select id="trx-month" class="trx-sel"></select> </div> <div class="trx-pick"> <label class="trx-pick-lbl">Week</label> <select id="trx-week" class="trx-sel"></select> </div> </div> </div> <!-- Headline KPI cards --> <div class="trx-kpis" id="trx-kpis"></div> <!-- Weekly trend chart --> <div class="trx-card"> <div class="trx-card-h" id="trx-chart-h">Trend — last 8 weeks</div> <div id="trx-trend-toggles" class="trx-toggles"></div> <div class="chart-wrap tall"><canvas id="trx-chart"></canvas></div> </div> <!-- Lead-type split: New / Existing / Query --> <div class="trx-card"> <div class="trx-card-h" id="trx-lt-h">Lead Type — New / Existing / Query</div> <div class="card-sub" style="font-size:11px;color:var(--muted);margin:-4px 0 10px">Answered calls carrying a product tag, split by caller intent. Use the product toggles above the chart to isolate a single product (e.g. VO).</div> <div id="trx-lt-prod-toggles" class="trx-toggles" style="margin-bottom:6px"></div> <div id="trx-lt-toggles" class="trx-toggles"></div> <div class="chart-wrap tall"><canvas id="trx-lt-chart"></canvas></div> </div> <!-- Supporting detail, grouped --> <div id="trx-detail"></div> </div> </div> </div><!-- /page-wrap --> <script> // ── Helpers ──────────────────────────────────────────────────────────────────
 const fmtN = n => n == null ? '—' : n.toLocaleString('en-IN');
 const pct  = (a, b) => b ? Math.round(a / b * 100) : 0;
 const fmtS = s => {
@@ -1844,6 +1844,9 @@ function periodStats(from, to) {
   const leads = recs.filter(r =>r.st === 'answered' && ['AM','VO','OD'].includes(r.pr));
   const byProd = p => leads.filter(r => r.pr === p).length;
   const newLeads = leads.filter(r => r.ct === 'New').length;
+  // Lead-type split (New / Existing / Query) — the caller-intent differentiator.
+  const existLeads = leads.filter(r => r.ct === 'Existing').length;
+  const queryLeads = leads.filter(r => r.ct === 'Query').length;
 
   return {
     days,
@@ -1852,7 +1855,8 @@ function periodStats(from, to) {
     qmW, agM, aoh,
     uniqueMissed: missNums.length, reconRate: pct(reachedCnt, missNums.length),
     within1hr: pct(within1, reconn), zeroCb, lowAtt,
-    leads: leads.length, AM: byProd('AM'), VO: byProd('VO'), OD: byProd('OD'), newLeads,
+    leads: leads.length, AM: byProd('AM'), VO: byProd('VO'), OD: byProd('OD'),
+    newLeads, existLeads, queryLeads,
   };
 }
 
@@ -2077,6 +2081,103 @@ function buildTrxChart(mode, anchor){
       SERIES.forEach((ss,j)=>{ chart.getDatasetMeta(j+N).hidden = !(solo && !TRX_CHART_HIDDEN.has(ss.label)); });
       chart.update(); };
     wrap.appendChild(btn);
+  });
+
+  buildTrxLeadTypeChart(mode, anchor);
+}
+
+// ── Lead-type split chart: New / Existing / Query over time, per product ──────
+// Mirrors the main trend chart's week/month buckets. A product toggle (All / AM /
+// VO / OD) isolates one product so, e.g., VO's caller-intent mix is visible.
+let TRX_LT_HIDDEN  = new Set();   // hidden lead-type series
+let TRX_LT_PRODUCT = 'All';       // 'All' | 'AM' | 'VO' | 'OD'
+function buildTrxLeadTypeChart(mode, anchor){
+  // period buckets identical to buildTrxChart
+  let ranges, labels, unitWord;
+  if (mode === 'month'){
+    const months = dataMonths().slice().reverse();
+    ranges = months.map(m => monthRange(m));
+    labels = months.map(m => monthRange(m).short);
+    unitWord = 'Month';
+  } else {
+    const all = dataWeeks();
+    const idx = all.findIndex(w => w.from === anchor);
+    const start = Math.max(0, idx);
+    const wks = all.slice(start, start+8).reverse();
+    ranges = wks.map(w => ({from:w.from, to:w.to}));
+    labels = wks.map(w => 'W'+w.week);
+    unitWord = 'Week';
+  }
+  // count New/Existing/Query per bucket, filtered to answered product leads (+ optional product)
+  const prodOK = r => TRX_LT_PRODUCT==='All' ? ['AM','VO','OD'].includes(r.pr) : r.pr===TRX_LT_PRODUCT;
+  const leadRecs = ALL.filter(r => r.st==='answered' && !TR_FLOOD.has(r.cn) && prodOK(r));
+  const count = (from,to,ct) => leadRecs.filter(r => r.d>=from && r.d<=to && r.ct===ct).length;
+  const series = [
+    {label:'New',      ct:'New',      color:'#7C3AED'},
+    {label:'Existing', ct:'Existing', color:'#0D9488'},
+    {label:'Query',    ct:'Query',    color:'#E08A1E'},
+  ];
+  const M = series.length;
+  const ds = series.map(s => ({
+    label:s.label, data:ranges.map(r=>count(r.from,r.to,s.ct)),
+    borderColor:s.color, backgroundColor:s.color+'20', borderWidth:2.6,
+    pointRadius:3, pointHoverRadius:6, tension:0.35, fill:false,
+    hidden:TRX_LT_HIDDEN.has(s.label), datalabels:{display:false},
+  }));
+  // average reference line per series, shown only when exactly one series selected
+  const avgOf = arr => arr.reduce((a,b)=>a+b,0)/(arr.length||1);
+  const visCount = () => series.filter(s => !TRX_LT_HIDDEN.has(s.label)).length;
+  series.forEach(s => {
+    const vals = ranges.map(r=>count(r.from,r.to,s.ct));
+    const avg = Math.round(avgOf(vals)*10)/10;
+    const showAvg = !TRX_LT_HIDDEN.has(s.label) && visCount()===1;
+    const lblIdx = Math.max(0, vals.length-2);
+    ds.push({
+      label:`Avg ${s.label}`, data:ranges.map(()=>avg),
+      borderColor:s.color, borderWidth:1.5, borderDash:[6,4], pointRadius:0, pointHoverRadius:0,
+      fill:false, tension:0, hidden:!showAvg,
+      datalabels:{ display:ctx=>ctx.dataIndex===lblIdx, anchor:'center', align:'top', offset:8,
+        backgroundColor:s.color, borderRadius:6, padding:{top:3,bottom:3,left:7,right:7},
+        color:'#fff', font:{size:11,weight:'700'}, formatter:()=>`avg ${avg}` },
+    });
+  });
+  const chart = makeChart('trx-lt-chart', {
+    type:'line', data:{labels, datasets:ds}, plugins:[ChartDataLabels],
+    options:{ responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false}, layout:{padding:{top:16, right:12}},
+      plugins:{ legend:{display:false}, datalabels:{display:false},
+        tooltip:{ filter:it=>!it.dataset.label.startsWith('Avg '),
+          callbacks:{title:it=>{ const l=labels[it[0].dataIndex]; return unitWord==='Week'?('Week '+l.slice(1)):l; }}} },
+      scales:{ y:{beginAtZero:true, position:'left', grid:{color:'rgba(0,0,0,.05)'}} } }
+  });
+  // product toggles (segmented single-select)
+  const pwrap = document.getElementById('trx-lt-prod-toggles');
+  if (pwrap){
+    pwrap.innerHTML='';
+    ['All','AM','VO','OD'].forEach(p=>{
+      const on = TRX_LT_PRODUCT===p;
+      const b = document.createElement('button');
+      b.className='tog-btn'+(on?'':' off'); b.textContent=p;
+      if(on){ b.style.borderColor='#1E22AA'; b.style.color='#1E22AA'; }
+      b.onclick=()=>{ TRX_LT_PRODUCT=p; buildTrxLeadTypeChart(mode, anchor); };
+      pwrap.appendChild(b);
+    });
+  }
+  // lead-type series toggles
+  const twrap = document.getElementById('trx-lt-toggles'); if(!twrap||!chart) return;
+  twrap.innerHTML='';
+  series.forEach((s,i)=>{
+    const off = TRX_LT_HIDDEN.has(s.label);
+    const btn = document.createElement('button');
+    btn.className='tog-btn'+(off?' off':''); btn.style.borderColor=s.color; btn.style.color=s.color;
+    btn.innerHTML=`<span class="tog-ck">${off?'✗':'✓'}</span>${s.label}`;
+    btn.onclick=()=>{ const now=!TRX_LT_HIDDEN.has(s.label); if(now)TRX_LT_HIDDEN.add(s.label);else TRX_LT_HIDDEN.delete(s.label);
+      chart.getDatasetMeta(i).hidden=now;
+      btn.classList.toggle('off',now); btn.querySelector('.tog-ck').textContent=now?'✗':'✓';
+      const solo = visCount()===1;
+      series.forEach((ss,j)=>{ chart.getDatasetMeta(j+M).hidden = !(solo && !TRX_LT_HIDDEN.has(ss.label)); });
+      chart.update(); };
+    twrap.appendChild(btn);
   });
 }
 
