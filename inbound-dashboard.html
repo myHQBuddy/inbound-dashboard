@@ -1502,7 +1502,7 @@ function renderAction(m) {
     <div class="insight-card ${reconnectRate >= 80 ? 'best' : reconnectRate >= 60 ? 'peak' : 'danger'}"><div class="ic-title">Reconnect Rate</div><div class="ic-val">${reconnectRate}%</div><div class="ic-desc">${fmtN(m.connected)} of ${fmtN(m.uniqueMissed)} missed callers eventually reached</div></div>
     <div class="insight-card ${within1hrPct >= 50 ? 'best' : within1hrPct >= 30 ? 'peak' : 'danger'}"><div class="ic-title">Same-Hour Callbacks</div><div class="ic-val">${within1hrPct}%</div><div class="ic-desc">of reached callers connected within 1 hour — prioritize speed</div></div>
     <div class="insight-card best"><div class="ic-title">Best Callback Time</div><div class="ic-val">${fmtHr(bestCbHr)}</div><div class="ic-desc">Highest customer answer rate — dial callbacks here first</div></div>
-    <div class="insight-card ${afterHrsMissed > 50 ? 'danger' : 'info'}"><div class="ic-title">After-Hours Missed</div><div class="ic-val">${fmtN(afterHrsMissed)}</div><div class="ic-desc">missed after 8pm — schedule morning callbacks</div></div>
+    <div class="insight-card ${afterHrsMissed > 50 ? 'danger' : 'info'}"><div class="ic-title">After-Hours Missed</div><div class="ic-val">${fmtN(afterHrsMissed)}</div><div class="ic-desc">missed after 7pm — schedule morning callbacks</div></div>
     <div class="insight-card ${arOff97 >= 85 ? 'best' : arOff97 >= 70 ? 'peak' : 'danger'}"><div class="ic-title">Answer Rate · 9am–7pm</div><div class="ic-val">${arOff97}%</div><div class="ic-desc">${fmtN(_ansOff)} of ${fmtN(_ibOff.length)} office-hours calls answered</div></div>`;
 }
 
