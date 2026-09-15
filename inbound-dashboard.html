@@ -1191,10 +1191,32 @@ function renderCallbacks(m) {
   const _totCb = Object.values(_cbMissed).reduce((s,v)=>s+v, 0);
   const avgAtt = _uAtt > 0 ? (_totCb / _uAtt).toFixed(1) : '0';
 
+  // ── Clickable drill-down lists for the callback KPI cards ──
+  const _campOfCb = r => (r.cp && r.cp.trim()) ? r.cp.trim()
+      : (r.sc && r.sc.indexOf('After office') >= 0 ? '(After-hours Auto Attendant)' : '(No campaign / routing)');
+  // per missed number: most-recent miss (time + campaign) and callback attempts/first-callback
+  const _byNum = {};
+  m.missIB.forEach(r => { if(!r.cn) return; const t=r.d+' '+fmtTime(r.ti);
+    const o=_byNum[r.cn]||(_byNum[r.cn]={cn:r.cn, lastMiss:'', campaign:'', att:0, firstCb:''});
+    if (t > o.lastMiss){ o.lastMiss=t; o.campaign=_campOfCb(r); } });
+  m.cb.forEach(r => { if(!r.cn || !_byNum[r.cn]) return; const o=_byNum[r.cn]; o.att++;
+    const t=r.d+' '+fmtTime(r.ti); if(!o.firstCb || t<o.firstCb) o.firstCb=t; });
+  const _allMiss = Object.values(_byNum);
+  _actionLists.cbUniqueMissed = { title: 'Unique Missed Callers',
+    rows: _allMiss.map(o=>({cn:o.cn, attempts:o.att, missTime:o.lastMiss, campaign:o.campaign}))
+      .sort((a,b)=>a.missTime<b.missTime?1:-1) };
+  _actionLists.cbCalledBack = { title: 'Called Back',
+    rows: _allMiss.filter(o=>o.att>0).map(o=>({cn:o.cn, attempts:o.att, missTime:o.lastMiss, lastAttempt:o.firstCb, campaign:o.campaign}))
+      .sort((a,b)=>a.missTime<b.missTime?1:-1) };
+  _actionLists.cbNeverAtt = { title: 'Never Attempted',
+    rows: _allMiss.filter(o=>o.att===0).map(o=>({cn:o.cn, missTime:o.lastMiss, campaign:o.campaign}))
+      .sort((a,b)=>a.missTime<b.missTime?1:-1) };
+  const cbCardClick = (lbl, val, sub, cls, key) => `<div class="kpi ${cls}" style="cursor:pointer" onclick="openContactModal('${key}')"><div class="kpi-val">${val}</div><div class="kpi-lbl">${lbl}</div>${sub?`<div class="kpi-sub">${sub} · click to view</div>`:''}</div>`;
+
   document.getElementById('cb-kpis').innerHTML =
-    kpiCard('Unique Missed', fmtN(uniqueMissed), 'distinct callers', '') +
-    kpiCard('Called Back', reconPct+'%', fmtN(reconnected)+' of missed', reconPct >= 70 ? 'green' : 'amber') +
-    kpiCard('Never Attempted', fmtN(neverAtt), pct(neverAtt,uniqueMissed)+'% of missed', neverAtt ? 'red' : 'green') +
+    cbCardClick('Unique Missed', fmtN(uniqueMissed), 'distinct callers', '', 'cbUniqueMissed') +
+    cbCardClick('Called Back', reconPct+'%', fmtN(reconnected)+' of missed', reconPct >= 70 ? 'green' : 'amber', 'cbCalledBack') +
+    cbCardClick('Never Attempted', fmtN(neverAtt), pct(neverAtt,uniqueMissed)+'% of missed', neverAtt ? 'red' : 'green', 'cbNeverAtt') +
     kpiCard('Avg Attempts', avgAtt, 'callbacks per missed number', '') +
     kpiCard('Reached', connPct+'%', fmtN(connected)+' actually connected', connected ? 'green' : '');
 
