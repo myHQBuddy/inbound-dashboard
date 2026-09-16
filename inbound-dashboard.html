@@ -1808,7 +1808,11 @@ function closeContactModal() {
 const TR_FLOOD = new Set(['+918031451096']);   // known robodialer/spam, excluded
 
 // reached-after-last-miss + callback map, across ALL data (matches dashboard defs)
-const TR_lastMiss = {}, TR_reached = new Set(), TR_cbAll = {};
+// TR_ansTimes: per-number sorted list of all connect times (answered inbound OR
+// callback, non-Voice-Mail) — lets any window compute "reached after THIS window's
+// last miss", instead of only after the global last miss (which wrongly marked a
+// lead as not-reached if it was missed again in a later week).
+const TR_lastMiss = {}, TR_reached = new Set(), TR_cbAll = {}, TR_ansTimes = {};
 (function(){
   ALL.forEach(r => {
     if (!r.cn) return;
@@ -1817,7 +1821,10 @@ const TR_lastMiss = {}, TR_reached = new Set(), TR_cbAll = {};
       if (TR_lastMiss[r.cn] === undefined || t > TR_lastMiss[r.cn]) TR_lastMiss[r.cn] = t;
     }
     if (r.dr === 'callback') (TR_cbAll[r.cn] = TR_cbAll[r.cn] || []).push(r);
+    if (r.st === 'answered' && r.ct !== 'Voice Mail' && (r.dr === 'inbound' || r.dr === 'callback'))
+      (TR_ansTimes[r.cn] = TR_ansTimes[r.cn] || []).push(toMin(r.d, r.ti));
   });
+  Object.values(TR_ansTimes).forEach(a => a.sort((x,y)=>x-y));
   ALL.forEach(r => {
     if (!r.cn || r.st !== 'answered') return;
     if (r.dr !== 'inbound' && r.dr !== 'callback') return;
@@ -1826,6 +1833,11 @@ const TR_lastMiss = {}, TR_reached = new Set(), TR_cbAll = {};
     if (lm !== undefined && toMin(r.d, r.ti) > lm) TR_reached.add(r.cn);
   });
 })();
+// Was this number connected (answered) at any time strictly after `afterT`?
+function TR_reachedAfter(cn, afterT){
+  const a = TR_ansTimes[cn]; if (!a) return false;
+  return a[a.length-1] > afterT;   // list is sorted; last connect is the latest
+}
 
 // All metrics for a [from,to] window (inclusive, yyyy-mm-dd strings).
 // ── Agent Productivity ────────────────────────────────────────────────────────
@@ -2005,9 +2017,12 @@ function periodStats(from, to, weekly) {
     !(weekly && r.d === to && r.mt === 'Queue Missed - After Hours');
   const missRows = ib.filter(_cbMissRow);
 
-  // reconnection (unique missed in window, reached-after-last-miss across all data)
-  const missNums = [...new Set(missRows.map(r => r.cn))];
-  const reachedCnt = missNums.filter(cn => TR_reached.has(cn)).length;
+  // reconnection (unique missed in window). "Reached" is window-aware: connected
+  // at any time after this window's last miss for that number.
+  const _winLastMiss = {};
+  missRows.forEach(r => { const t = toMin(r.d, r.ti); if (_winLastMiss[r.cn] === undefined || t > _winLastMiss[r.cn]) _winLastMiss[r.cn] = t; });
+  const missNums = Object.keys(_winLastMiss);
+  const reachedCnt = missNums.filter(cn => TR_reachedAfter(cn, _winLastMiss[cn])).length;
   // callbacks within window keyed by num, for TTC + backlogs
   // Backlog metrics use ALL-TIME callbacks (TR_cbAll), not just callbacks made
   // within this week's window — otherwise a lead missed late in a week and called
@@ -2025,9 +2040,11 @@ function periodStats(from, to, weekly) {
     const firstMissT = toMin(ms[0].d, ms[0].ti);
     const cbAfter = cbs.filter(c => toMin(c.d,c.ti) >= firstMissT);
     if (cbAfter.length){ const delta = (toMin(cbAfter[0].d,cbAfter[0].ti) - firstMissT)/60; if (delta < 1) within1++; }
-    // <3 attempts (after last miss), not reached
-    if (!TR_reached.has(cn)) {
-      const lm = toMin(ms[ms.length-1].d, ms[ms.length-1].ti);
+    // <3 attempts, not reached — window-aware: "reached" means connected at any
+    // time after THIS window's last miss (not the global last miss), so a lead
+    // that was actually answered doesn't get counted as a low-attempt failure.
+    const lm = toMin(ms[ms.length-1].d, ms[ms.length-1].ti);
+    if (!TR_reachedAfter(cn, lm)) {
       const ep = cbs.filter(c =>toMin(c.d,c.ti) > lm).length;
       if (ep > 0 && ep < 3) lowAtt++;
     }
@@ -2137,7 +2154,15 @@ function renderTrx(){
     const diff = av-bv, flat = diff===0, up = diff>0;
     const cls = flat?'flat':(dir==='good'?(up?'up':'down'):(up?'down':'up'));
     const arrow = flat?'':(up?'▲':'▼');
-    const txt = (bv===0&&av===0)?'—':(isPct?`${diff>0?'+':''}${diff} pts`:`${diff>0?'+':''}${bv?Math.round(diff/bv*100):100}%`);
+    // For COUNT metrics with a tiny base (last period < 5), a percentage is
+    // meaningless and alarming (1→10 reads "+900%"). Show the absolute change
+    // instead (e.g. "+9"), since one or two leads swing the ratio wildly.
+    const tiny = !isPct && bv < 5;
+    let txt;
+    if (bv===0 && av===0) txt = '';
+    else if (isPct) txt = `${diff>0?'+':''}${diff} pts`;
+    else if (tiny)  txt = `${diff>0?'+':''}${diff}`;
+    else            txt = `${diff>0?'+':''}${bv?Math.round(diff/bv*100):100}%`;
     return {cls, arrow, txt};
   };
   const chip = (av,bv,dir,isPct)=>{ const c=badge(av,bv,dir,isPct); return `<span class="trx-chg ${c.cls}">${c.arrow} ${c.txt}</span>`; };
