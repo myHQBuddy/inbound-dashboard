@@ -511,9 +511,14 @@ function compute(recs) {
     .filter(x => x.attempts > 0)   // no callback in the current episode  not "attempted"
     .sort((a,b) => b.attempts - a.attempts);
 
-  // Never called back
+  // Never called back — use ALL-TIME callbacks (TR_cbAll), not just callbacks
+  // inside the current date window. Checking the window alone made this count
+  // non-monotonic: a lead missed recently but whose only callback fell OUTSIDE a
+  // shorter window would wrongly show as "never called back" in the 7d view but
+  // not the 14d/30d view (7d could exceed 14d). "Never called back" must mean
+  // never, ever — matching the Trend tab's all-time definition.
   const neverCalledBack = Object.entries(missedByNum)
-    .filter(([cn]) => !cbByNum[cn])
+    .filter(([cn]) => !TR_cbAll[cn])
     .map(([cn, misses]) => ({ cn, missTime: misses[0].d + ' ' + fmtTime(misses[0].ti), missRow: misses[0] }))
     .sort((a,b) => a.missTime < b.missTime ? 1 : -1);
 
