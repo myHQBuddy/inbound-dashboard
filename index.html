@@ -54,7 +54,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sa
 .trx-sel{font-family:inherit;font-size:14px;font-weight:600;padding:9px 12px;border:1.5px solid var(--brand);border-radius:10px;background:var(--surface);color:var(--ink);cursor:pointer;min-width:210px}
 
 /* headline KPI cards */
-.trx-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.trx-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px}
 @media(max-width:820px){.trx-kpis{grid-template-columns:repeat(2,1fr)}}
 .trx-kpi{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 22px;box-shadow:0 1px 2px rgba(26,29,53,.04),0 10px 26px rgba(26,29,53,.06);position:relative;overflow:hidden}
 .trx-kpi::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:var(--accent,var(--brand))}
@@ -2180,6 +2180,7 @@ function renderTrx(){
     return `<div class="trx-kpi" style="--accent:${accent}"> <div class="trx-kpi-lbl">${lbl}</div> <div class="trx-kpi-val">${fmtN(av)}${sfx?`<small>${sfx}</small>`:''}</div> <span class="trx-badge ${c.cls}">${c.arrow} ${c.txt}</span> <div class="trx-kpi-prev">vs ${fmtN(bv)}${sfx||''} ${prevLabel}</div> </div>`;
   };
   document.getElementById('trx-kpis').innerHTML =
+    kpi('Answer rate · all hours', a.ar, b.ar, 'good', true, '%', '#0D9488') +
     kpi('Answer rate · 9–7', a.arOff, b.arOff, 'good', true, '%', '#16A34A') +
     kpi('Inbound calls', a.ibTotal, b.ibTotal, 'good', false, '', '#1E22AA') +
     kpi('Leads disposed', a.leads, b.leads, 'good', false, '', '#7C3AED') +
