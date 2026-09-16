@@ -2000,16 +2000,22 @@ function periodStats(from, to) {
   const missNums = [...new Set(ib.filter(r => r.st !== 'answered' && r.cn).map(r => r.cn))];
   const reachedCnt = missNums.filter(cn => TR_reached.has(cn)).length;
   // callbacks within window keyed by num, for TTC + backlogs
-  const cbWin = {}; cb.forEach(r => { if (r.cn) (cbWin[r.cn] = cbWin[r.cn]||[]).push(r); });
+  // Backlog metrics use ALL-TIME callbacks (TR_cbAll), not just callbacks made
+  // within this week's window — otherwise a lead missed late in a week and called
+  // back a day later (next week) would be wrongly counted as "0 callbacks" here,
+  // even though the Action-tab "0 Callbacks Made" list (all-time) shows it handled.
+  // This makes the Trend backlog match the daily zero-callback worklist.
   const missWin = {}; ib.filter(r => r.st !== 'answered' && r.cn).forEach(r => { (missWin[r.cn] = missWin[r.cn]||[]).push(r); });
   let within1 = 0, reconn = 0, zeroCb = 0, lowAtt = 0;
   Object.entries(missWin).forEach(([cn, ms]) => {
     ms.sort((a,b)=>toMin(a.d,a.ti)-toMin(b.d,b.ti));
-    const cbs = (cbWin[cn]||[]).slice().sort((a,b)=>toMin(a.d,a.ti)-toMin(b.d,b.ti));
-    if (!cbs.length) { zeroCb++; return; }
+    const cbs = (TR_cbAll[cn]||[]).slice().sort((a,b)=>toMin(a.d,a.ti)-toMin(b.d,b.ti));   // all-time callbacks
+    if (!cbs.length) { zeroCb++; return; }   // never called back, ever
     reconn++;
-    const delta = (toMin(cbs[0].d,cbs[0].ti) - toMin(ms[0].d,ms[0].ti))/60;
-    if (delta < 1) within1++;
+    // first callback AFTER this window's first miss (speed of the response to it)
+    const firstMissT = toMin(ms[0].d, ms[0].ti);
+    const cbAfter = cbs.filter(c => toMin(c.d,c.ti) >= firstMissT);
+    if (cbAfter.length){ const delta = (toMin(cbAfter[0].d,cbAfter[0].ti) - firstMissT)/60; if (delta < 1) within1++; }
     // <3 attempts (after last miss), not reached
     if (!TR_reached.has(cn)) {
       const lm = toMin(ms[ms.length-1].d, ms[ms.length-1].ti);
@@ -2164,7 +2170,7 @@ function renderTrx(){
       mrow('Unique missed callers','uniqueMissed',{dir:'bad'}),
       mrow('Reconnection rate','reconRate',{dir:'good',isPct:true,sfx:'%'}),
       mrow('Within-1hr first callback','within1hr',{dir:'good',isPct:true,sfx:'%'}),
-      mrow('0 callbacks made (backlog)','zeroCb',{dir:'bad'}),
+      mrow('Never called back (all-time)','zeroCb',{dir:'bad'}),
       mrow('&lt;3 attempts, not reached','lowAtt',{dir:'bad'}),
     ].join('')) +
     grp(' Leads', [
