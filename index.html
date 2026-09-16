@@ -1983,7 +1983,7 @@ function renderAgentHeatmap(agents){
   if(sel && !sel._wired){ sel._wired=true; sel.addEventListener('change',()=>renderAgentHeatmap(agents)); }
 }
 
-function periodStats(from, to) {
+function periodStats(from, to, weekly) {
   const inRange = d => d >= from && d <= to;
   const recs = ALL.filter(r =>inRange(r.d) && !TR_FLOOD.has(r.cn));
   const ib   = recs.filter(r => r.dr === 'inbound');
@@ -1996,8 +1996,17 @@ function periodStats(from, to) {
   const aoh = ib.filter(r => r.mt === 'Queue Missed - After Hours').length;
   const days = new Set(ib.map(r => r.d)).size || 1;
 
+  // Callback-metric miss set. In WEEKLY view, exclude after-hours misses (7pm+)
+  // that fell on the LAST day of the week (the Tuesday): the callback team hadn't
+  // had a chance to work them yet when the week closed, so they belong to next
+  // week's callback numbers, not this one. Earlier-day AOH still count (the team
+  // had the following morning). Monthly view keeps all misses.
+  const _cbMissRow = r => r.st !== 'answered' && r.cn &&
+    !(weekly && r.d === to && r.mt === 'Queue Missed - After Hours');
+  const missRows = ib.filter(_cbMissRow);
+
   // reconnection (unique missed in window, reached-after-last-miss across all data)
-  const missNums = [...new Set(ib.filter(r => r.st !== 'answered' && r.cn).map(r => r.cn))];
+  const missNums = [...new Set(missRows.map(r => r.cn))];
   const reachedCnt = missNums.filter(cn => TR_reached.has(cn)).length;
   // callbacks within window keyed by num, for TTC + backlogs
   // Backlog metrics use ALL-TIME callbacks (TR_cbAll), not just callbacks made
@@ -2005,7 +2014,7 @@ function periodStats(from, to) {
   // back a day later (next week) would be wrongly counted as "0 callbacks" here,
   // even though the Action-tab "0 Callbacks Made" list (all-time) shows it handled.
   // This makes the Trend backlog match the daily zero-callback worklist.
-  const missWin = {}; ib.filter(r => r.st !== 'answered' && r.cn).forEach(r => { (missWin[r.cn] = missWin[r.cn]||[]).push(r); });
+  const missWin = {}; missRows.forEach(r => { (missWin[r.cn] = missWin[r.cn]||[]).push(r); });
   let within1 = 0, reconn = 0, zeroCb = 0, lowAtt = 0;
   Object.entries(missWin).forEach(([cn, ms]) => {
     ms.sort((a,b)=>toMin(a.d,a.ti)-toMin(b.d,b.ti));
@@ -2111,8 +2120,8 @@ function renderTrx(){
     const wr = weekRange(wSel.value);              // start (Wed) of chosen week
     const prevStartDt = new Date(wr.mon); prevStartDt.setDate(wr.mon.getDate()-7);
     const pr = weekRange(_fmtLocal(prevStartDt));
-    a = periodStats(wr.from, wr.to);
-    b = periodStats(pr.from, pr.to);
+    a = periodStats(wr.from, wr.to, true);
+    b = periodStats(pr.from, pr.to, true);
     titleTxt = `Week ${wr.week}`;
     datesHtml = `${_dm(wr.from)} – ${_dm(wr.to)} ${wr.to.slice(0,4)} &nbsp;·&nbsp; vs Week ${pr.week} (${_dm(pr.from)}–${_dm(pr.to)})`;
     prevLabel = 'last week';
@@ -2198,7 +2207,7 @@ function buildTrxChart(mode, anchor){
     const idx = all.findIndex(w => w.from === anchor);
     const start = Math.max(0, idx);
     const wks = all.slice(start, start+8).reverse();         // oldest → newest, ending at chosen
-    stats = wks.map(w => periodStats(w.from, w.to));
+    stats = wks.map(w => periodStats(w.from, w.to, true));
     labels = wks.map(w => 'W'+w.week);
     unitWord = 'Week';
   }
