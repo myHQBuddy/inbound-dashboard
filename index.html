@@ -1199,50 +1199,60 @@ function renderCallbacks(m) {
   // ── Clickable drill-down lists for the callback KPI cards ──
   const _campOfCb = r => (r.cp && r.cp.trim()) ? r.cp.trim()
       : (r.sc && r.sc.indexOf('After office') >= 0 ? '(After-hours Auto Attendant)' : '(No campaign / routing)');
-  // per missed number: most-recent miss (time + campaign) and callback attempts/first-callback
+  // per missed number: most-recent miss (time + campaign). `attSince` counts
+  // callbacks made AFTER that most-recent miss (all-time callbacks, TR_cbAll) —
+  // one consistent meaning of "Attempts" across every callback modal, so a number
+  // that was reached (its callbacks predate a later re-miss) doesn't look
+  // under-worked in one list and fine in another.
   const _byNum = {};
-  m.missIB.forEach(r => { if(!r.cn) return; const t=r.d+' '+fmtTime(r.ti);
-    const o=_byNum[r.cn]||(_byNum[r.cn]={cn:r.cn, lastMiss:'', campaign:'', att:0, firstCb:''});
-    if (t > o.lastMiss){ o.lastMiss=t; o.campaign=_campOfCb(r); } });
-  m.cb.forEach(r => { if(!r.cn || !_byNum[r.cn]) return; const o=_byNum[r.cn]; o.att++;
-    const t=r.d+' '+fmtTime(r.ti); if(!o.firstCb || t<o.firstCb) o.firstCb=t; });
+  m.missIB.forEach(r => { if(!r.cn) return; const t=r.d+' '+fmtTime(r.ti); const tn=toMin(r.d,r.ti);
+    const o=_byNum[r.cn]||(_byNum[r.cn]={cn:r.cn, lastMiss:'', lastMissT:-Infinity, campaign:'', attSince:0, firstCb:''});
+    if (tn > o.lastMissT){ o.lastMissT=tn; o.lastMiss=t; o.campaign=_campOfCb(r); } });
+  Object.values(_byNum).forEach(o => {
+    const cbs = (TR_cbAll[o.cn] || []).filter(c => toMin(c.d,c.ti) > o.lastMissT).sort((a,b)=>toMin(a.d,a.ti)-toMin(b.d,b.ti));
+    o.attSince = cbs.length;
+    if (cbs.length) o.firstCb = cbs[0].d + ' ' + fmtTime(cbs[0].ti);
+  });
   const _allMiss = Object.values(_byNum);
   _actionLists.cbUniqueMissed = { title: 'Unique Missed Callers',
-    rows: _allMiss.map(o=>({cn:o.cn, attempts:o.att, missTime:o.lastMiss, campaign:o.campaign}))
+    rows: _allMiss.map(o=>({cn:o.cn, attempts:o.attSince, missTime:o.lastMiss, campaign:o.campaign}))
       .sort((a,b)=>a.missTime<b.missTime?1:-1) };
   _actionLists.cbCalledBack = { title: 'Called Back',
-    rows: _allMiss.filter(o=>o.att>0).map(o=>({cn:o.cn, attempts:o.att, missTime:o.lastMiss, lastAttempt:o.firstCb, campaign:o.campaign}))
+    rows: _allMiss.filter(o=>o.attSince>0).map(o=>({cn:o.cn, attempts:o.attSince, missTime:o.lastMiss, lastAttempt:o.firstCb, campaign:o.campaign}))
       .sort((a,b)=>a.missTime<b.missTime?1:-1) };
-  _actionLists.cbNeverAtt = { title: 'Never Attempted',
-    rows: _allMiss.filter(o=>o.att===0).map(o=>({cn:o.cn, missTime:o.lastMiss, campaign:o.campaign}))
+  _actionLists.cbNeverAtt = { title: 'No Callback Since Most Recent Miss',
+    rows: _allMiss.filter(o=>o.attSince===0).map(o=>({cn:o.cn, missTime:o.lastMiss, campaign:o.campaign}))
       .sort((a,b)=>a.missTime<b.missTime?1:-1) };
 
   // ── Not Reached: missed numbers never connected AFTER their most recent miss,
-  // with the count of callback attempts made SINCE that last miss. Uses all-time
-  // callbacks + window-aware reached, consistent with the reconnection funnel.
-  const _lastMissT = {};   // one pass: latest miss time (mins) per number in window
-  m.missIB.forEach(r => { if(!r.cn) return; const t = toMin(r.d, r.ti);
-    if (_lastMissT[r.cn] === undefined || t > _lastMissT[r.cn]) _lastMissT[r.cn] = t; });
-  const _notReached = [];
-  _allMiss.forEach(o => {
-    const lastMissT = _lastMissT[o.cn];
-    if (TR_reachedAfter(o.cn, lastMissT)) return;    // reached -> excluded
-    const attemptsSince = (TR_cbAll[o.cn] || []).filter(c => toMin(c.d, c.ti) > lastMissT).length;
-    _notReached.push({ cn: o.cn, attempts: attemptsSince, missTime: o.lastMiss, campaign: o.campaign });
-  });
-  _notReached.sort((a,b) => b.attempts - a.attempts || (a.missTime < b.missTime ? 1 : -1));
+  // with the count of callback attempts made SINCE that last miss (same attSince
+  // used across the other modals). Excludes numbers reached after their last miss.
+  const _notReached = _allMiss
+    .filter(o => !TR_reachedAfter(o.cn, o.lastMissT))
+    .map(o => ({ cn: o.cn, attempts: o.attSince, missTime: o.lastMiss, campaign: o.campaign }))
+    .sort((a,b) => b.attempts - a.attempts || (a.missTime < b.missTime ? 1 : -1));
   _actionLists.cbNotReached = { title: 'Not Reached — attempts since last miss', rows: _notReached };
   const notReachedN = _notReached.length;
+
+  // Card values derived from the SAME attSince basis as the modals, so each card's
+  // number equals its drill-down row count exactly. ("Called back" / "never
+  // attempted" here mean since the most recent miss — the consistent definition.)
+  const _uMissed   = _allMiss.length;
+  const _calledBk  = _allMiss.filter(o=>o.attSince>0).length;
+  const _neverAtt  = _uMissed - _calledBk;
+  const _calledPct = pct(_calledBk, _uMissed);
+  const _totAtt    = _allMiss.reduce((s,o)=>s+o.attSince,0);
+  const _avgAtt    = _calledBk>0 ? (_totAtt/_calledBk).toFixed(1) : '0';
 
   const cbCardClick = (lbl, val, sub, cls, key) => `<div class="kpi ${cls}" style="cursor:pointer" onclick="openContactModal('${key}')"><div class="kpi-val">${val}</div><div class="kpi-lbl">${lbl}</div>${sub?`<div class="kpi-sub">${sub} · click to view</div>`:''}</div>`;
 
   document.getElementById('cb-kpis').innerHTML =
-    cbCardClick('Unique Missed', fmtN(uniqueMissed), 'distinct callers', '', 'cbUniqueMissed') +
-    cbCardClick('Called Back', reconPct+'%', fmtN(reconnected)+' of missed', reconPct >= 70 ? 'green' : 'amber', 'cbCalledBack') +
-    cbCardClick('Never Attempted', fmtN(neverAtt), pct(neverAtt,uniqueMissed)+'% of missed', neverAtt ? 'red' : 'green', 'cbNeverAtt') +
-    kpiCard('Avg Attempts', avgAtt, 'callbacks per missed number', '') +
+    cbCardClick('Unique Missed', fmtN(_uMissed), 'distinct callers', '', 'cbUniqueMissed') +
+    cbCardClick('Called Back', _calledPct+'%', fmtN(_calledBk)+' of missed', _calledPct >= 70 ? 'green' : 'amber', 'cbCalledBack') +
+    cbCardClick('No Attempt Since Miss', fmtN(_neverAtt), pct(_neverAtt,_uMissed)+'% of missed', _neverAtt ? 'red' : 'green', 'cbNeverAtt') +
+    kpiCard('Avg Attempts', _avgAtt, 'callbacks since last miss', '') +
     kpiCard('Reached', connPct+'%', fmtN(connected)+' actually connected', connected ? 'green' : '') +
-    cbCardClick('Not Reached', fmtN(notReachedN), pct(notReachedN,uniqueMissed)+'% — attempts since last miss', notReachedN ? 'red' : 'green', 'cbNotReached');
+    cbCardClick('Not Reached', fmtN(notReachedN), pct(notReachedN,_uMissed)+'% — attempts since last miss', notReachedN ? 'red' : 'green', 'cbNotReached');
 
   // Miss type breakdown
   const mtc = missTypeCount || {};
