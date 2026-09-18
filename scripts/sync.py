@@ -117,10 +117,13 @@ def _paginate(auth, from_dt, to_dt, direction):
 def fetch_all(auth, from_dt, to_dt):
     """Three sources, exactly like tata_sync.py; deduped by call_id in main()."""
     outbound = _paginate(auth, from_dt, to_dt, "outbound")
+    # call_type can be present-but-null in the API response, so `.get(..., "")`
+    # returns None (default only applies when the key is absent). Use `or ""` to
+    # coerce a null call_type to "" before .lower(), matching how it's read below.
     inbound_calls = [r for r in outbound
-                     if (r.get("dialer_call_details") or {}).get("call_type", "").lower() == "inbound"]
+                     if ((r.get("dialer_call_details") or {}).get("call_type") or "").lower() == "inbound"]
     callbacks = [r for r in outbound
-                 if (r.get("dialer_call_details") or {}).get("call_type", "").lower() != "inbound"]
+                 if ((r.get("dialer_call_details") or {}).get("call_type") or "").lower() != "inbound"]
     raw_inbound = _paginate(auth, from_dt, to_dt, "inbound")
     return inbound_calls + callbacks + raw_inbound
 
