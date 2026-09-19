@@ -69,21 +69,36 @@ body{background:var(--bg);color:var(--ink);
 .brand-sub{font-size:11.5px;color:var(--muted);margin-top:1px}
 
 /* ── Filter bar ── */
-.filterbar{max-width:1240px;margin:0 auto;padding:16px 24px 4px;
-  display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
-.seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);
-  border-radius:11px;padding:3px;gap:2px}
-.seg button{border:0;background:transparent;color:var(--ink-2);cursor:pointer;
-  font:600 13px Inter,sans-serif;padding:7px 15px;border-radius:8px;transition:.12s;white-space:nowrap}
-.seg button:hover{color:var(--ink)}
-.seg button.on{background:var(--surface);color:var(--brand);box-shadow:var(--shadow-sm)}
-.pick{display:flex;align-items:center;gap:8px}
-.pick label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
-.selctl,.datectl{font:500 13px Inter,sans-serif;padding:7px 11px;border:1px solid var(--line-2);
-  border-radius:9px;background:var(--surface);color:var(--ink);cursor:pointer}
-.selctl:focus,.datectl:focus{outline:2px solid var(--brand-soft);border-color:var(--brand)}
-.period-label{font-size:13px;color:var(--ink-2);margin-left:2px}
-.period-label b{color:var(--ink);font-weight:700}
+.filterbar{max-width:1240px;margin:0 auto;padding:18px 24px 6px;
+  display:flex;align-items:center;gap:0;flex-wrap:wrap;}
+/* one connected control: [ mode segment | picker ] */
+.fgroup{display:inline-flex;align-items:stretch;background:var(--surface);
+  border:1px solid var(--line-2);border-radius:13px;box-shadow:var(--shadow-sm);overflow:hidden}
+.seg{position:relative;display:inline-flex;padding:4px;gap:0;background:var(--surface-2);
+  border-right:1px solid var(--line)}
+.seg-ind{position:absolute;top:4px;bottom:4px;border-radius:9px;background:var(--surface);
+  box-shadow:var(--shadow-sm);border:1px solid var(--line);
+  transition:left .22s cubic-bezier(.4,0,.2,1), width .22s cubic-bezier(.4,0,.2,1);pointer-events:none;z-index:0}
+.seg button{position:relative;z-index:1;border:0;background:transparent;color:var(--muted);cursor:pointer;
+  font:600 13px Inter,sans-serif;padding:8px 17px;border-radius:9px;transition:color .15s;white-space:nowrap}
+.seg button:hover{color:var(--ink-2)}
+.seg button.on{color:var(--brand)}
+/* picker sits inside the same group, right of the segment */
+.pickzone{display:flex;align-items:center;padding:0 5px 0 4px;min-width:0}
+.pick{display:none;align-items:center;gap:7px;padding:0 4px}
+.pick.on{display:flex}
+.pick .p-ico{color:var(--brand);font-size:13px;line-height:1;flex-shrink:0}
+.selctl,.datectl{font:600 13px Inter,sans-serif;padding:8px 10px;border:0;
+  border-radius:9px;background:transparent;color:var(--ink);cursor:pointer;max-width:250px}
+.selctl:hover,.datectl:hover{background:var(--surface-2)}
+.selctl:focus,.datectl:focus{outline:2px solid var(--brand-soft);background:var(--surface-2)}
+.pick .dash{color:var(--faint);font-size:12px}
+/* period summary chip */
+.period-label{display:inline-flex;align-items:center;gap:9px;margin-left:14px;
+  font-size:13px;color:var(--ink-2);padding:7px 13px;border-radius:999px;
+  background:var(--brand-soft);border:1px solid transparent}
+.period-label b{color:var(--brand);font-weight:700}
+.period-label .vs{color:var(--muted);font-size:12px;font-weight:600}
 .spacer{flex:1}
 .theme-btn{border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);
   width:34px;height:34px;border-radius:9px;cursor:pointer;font-size:15px;display:grid;place-items:center}
@@ -189,18 +204,22 @@ table.dt tr:hover td{background:var(--surface-2)}
 </div>
 
 <div class="filterbar">
-  <div class="seg" id="mode-seg">
-    <button data-mode="daily" class="on">Daily</button>
-    <button data-mode="weekly">Weekly</button>
-    <button data-mode="monthly">Monthly</button>
-    <button data-mode="custom">Custom</button>
-  </div>
-  <div class="pick" id="pick-daily"><label>Date</label><select class="selctl" id="sel-daily"></select></div>
-  <div class="pick" id="pick-weekly" hidden><label>Week</label><select class="selctl" id="sel-weekly"></select></div>
-  <div class="pick" id="pick-monthly" hidden><label>Month</label><select class="selctl" id="sel-monthly"></select></div>
-  <div class="pick" id="pick-custom" hidden>
-    <label>From</label><input type="date" class="datectl" id="cust-from">
-    <label>To</label><input type="date" class="datectl" id="cust-to">
+  <div class="fgroup">
+    <div class="seg" id="mode-seg">
+      <div class="seg-ind" id="seg-ind"></div>
+      <button data-mode="daily" class="on">Daily</button>
+      <button data-mode="weekly">Weekly</button>
+      <button data-mode="monthly">Monthly</button>
+      <button data-mode="custom">Custom</button>
+    </div>
+    <div class="pickzone">
+      <div class="pick on" id="pick-daily"><span class="p-ico">📅</span><select class="selctl" id="sel-daily"></select></div>
+      <div class="pick" id="pick-weekly"><span class="p-ico">🗓</span><select class="selctl" id="sel-weekly"></select></div>
+      <div class="pick" id="pick-monthly"><span class="p-ico">🗓</span><select class="selctl" id="sel-monthly"></select></div>
+      <div class="pick" id="pick-custom"><span class="p-ico">📅</span>
+        <input type="date" class="datectl" id="cust-from"><span class="dash">→</span>
+        <input type="date" class="datectl" id="cust-to"></div>
+    </div>
   </div>
   <div class="period-label" id="period-label"></div>
 </div>
@@ -403,10 +422,21 @@ function makeChart(id,cfg){ const el=document.getElementById(id); if(!el)return 
   document.querySelectorAll('#mode-seg button').forEach(b=>b.onclick=()=>{
     document.querySelectorAll('#mode-seg button').forEach(x=>x.classList.remove('on'));
     b.classList.add('on'); FILTER.mode=b.dataset.mode;
-    ['daily','weekly','monthly','custom'].forEach(m=>document.getElementById('pick-'+m).hidden=(m!==FILTER.mode));
-    render();
+    ['daily','weekly','monthly','custom'].forEach(m=>
+      document.getElementById('pick-'+m).classList.toggle('on', m===FILTER.mode));
+    moveSegIndicator(); render();
   });
+  moveSegIndicator();
+  addEventListener('resize', moveSegIndicator);
 })();
+
+// slide the segmented-control indicator under the active mode
+function moveSegIndicator(){
+  const btn=document.querySelector('#mode-seg button.on'), ind=document.getElementById('seg-ind');
+  if(!btn||!ind) return;
+  ind.style.left=btn.offsetLeft+'px';
+  ind.style.width=btn.offsetWidth+'px';
+}
 
 // theme toggle
 document.getElementById('theme-btn').onclick=()=>{
@@ -431,7 +461,7 @@ function currentTab(){ return document.querySelector('.tab.on').dataset.tab; }
 function render(){
   const p=activePeriod();
   document.getElementById('period-label').innerHTML=
-    `<b>${p.label}</b> &nbsp;vs&nbsp; ${p.prevLabel}`;
+    `<b>${p.label}</b><span class="vs">vs ${p.prevLabel}</span>`;
   const tab=currentTab();
   if(tab==='overview') renderOverview(p);
   else if(tab==='callbacks') renderCallbacks(p);
@@ -452,6 +482,7 @@ function renderAction(p){}
 function renderTrends(p){}
 
 render();
+requestAnimationFrame(moveSegIndicator);   // ensure indicator sits right after layout
 </script>
 </body>
 </html>
