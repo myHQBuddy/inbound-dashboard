@@ -62,9 +62,9 @@ body{background:var(--bg);color:var(--ink);
 .topbar-in{max-width:1240px;margin:0 auto;padding:12px 24px;
   display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
 .brand{display:flex;align-items:center;gap:11px}
-.brand-mark{width:34px;height:34px;border-radius:9px;flex-shrink:0;
+.brand-mark{height:34px;padding:0 11px;border-radius:9px;flex-shrink:0;
   background:linear-gradient(135deg,var(--brand),var(--brand-2));
-  color:#fff;font-weight:800;font-size:14px;display:grid;place-items:center;letter-spacing:.02em}
+  color:#fff;font-weight:800;font-size:14px;display:grid;place-items:center;letter-spacing:-.01em}
 .brand-name{font-weight:700;font-size:15px;letter-spacing:-.01em}
 .brand-sub{font-size:11.5px;color:var(--muted);margin-top:1px}
 
@@ -176,6 +176,17 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 
 .empty{padding:40px;text-align:center;color:var(--muted);font-size:13px}
 
+/* breakdown rows (missed types) */
+.brow{display:flex;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px solid var(--line);cursor:pointer;transition:.12s}
+.brow:last-child{border-bottom:0}
+.brow:hover{background:var(--surface-2);border-radius:8px;padding-left:8px;padding-right:8px}
+.brow .b-dot{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+.brow .b-name{font-size:13px;font-weight:600;color:var(--ink);flex-shrink:0;min-width:128px}
+.brow .b-bar{flex:1;height:7px;border-radius:99px;background:var(--surface-2);overflow:hidden;min-width:40px}
+.brow .b-fill{height:100%;border-radius:99px}
+.brow .b-num{font-size:14px;font-weight:700;color:var(--ink);min-width:52px;text-align:right}
+.brow .b-pct{font-size:11.5px;color:var(--muted);min-width:38px;text-align:right}
+
 /* modal */
 .modal{position:fixed;inset:0;z-index:100;background:rgba(19,26,46,.5);
   display:none;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(2px)}
@@ -201,7 +212,7 @@ table.dt tr:hover td{background:var(--surface-2)}
 <div class="topbar">
   <div class="topbar-in">
     <div class="brand">
-      <div class="brand-mark">mH</div>
+      <div class="brand-mark">myHQ</div>
       <div>
         <div class="brand-name">Inbound Call Centre</div>
         <div class="brand-sub" id="updated">—</div>
@@ -242,7 +253,28 @@ table.dt tr:hover td{background:var(--surface-2)}
 </div>
 
 <div class="wrap">
-  <div class="panel on" id="panel-overview"><div class="empty">Overview — building…</div></div>
+  <div class="panel on" id="panel-overview">
+    <div class="cards" id="ov-cards"></div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-h">
+        <div class="card-title" id="ov-vol-title">Call Volume</div>
+        <div class="chips" id="ov-vol-chips"></div>
+      </div>
+      <div class="chart-wrap tall"><canvas id="ov-vol-chart"></canvas></div>
+    </div>
+    <div class="row2">
+      <div class="card">
+        <div class="card-h"><div class="card-title">Answer Rate by Hour</div></div>
+        <div class="card-note">Office hours 9am–7pm highlighted. Bar height = calls, colour = answer rate.</div>
+        <div class="chart-wrap"><canvas id="ov-hour-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="card-title">Missed Breakdown</div></div>
+        <div class="card-note">Where inbound calls were lost. Click a row for the numbers.</div>
+        <div id="ov-miss"></div>
+      </div>
+    </div>
+  </div>
   <div class="panel" id="panel-callbacks"><div class="empty">Callbacks — building…</div></div>
   <div class="panel" id="panel-leads"><div class="empty">Leads — building…</div></div>
   <div class="panel" id="panel-action"><div class="empty">Action — building…</div></div>
@@ -394,6 +426,12 @@ document.getElementById('modal').onclick=e=>{ if(e.target.id==='modal')document.
 // ══════════════════════════════════════════════════════════════════════════════
 //  CHART HELPER
 // ══════════════════════════════════════════════════════════════════════════════
+// resolve "var(--x)" or "--x" to its computed colour (re-read each call so theme swaps work)
+function cssVar(v){
+  const name = v.startsWith('var(') ? v.slice(4,-1).trim() : v;
+  if(!name.startsWith('--')) return v;
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || v;
+}
 const CHARTS={};
 function makeChart(id,cfg){ const el=document.getElementById(id); if(!el)return null;
   if(CHARTS[id])CHARTS[id].destroy();
@@ -485,8 +523,138 @@ function render(){
 (function(){ const u=document.getElementById('updated');
   if(DATA_MAX) u.textContent=`Data through ${_dmy(DATA_MAX)}`; })();
 
-// placeholder renderers (filled in next stages)
-function renderOverview(p){}
+// ══════════════════════════════════════════════════════════════════════════════
+//  SHARED STATS  — one definition of every headline metric, used by all tabs
+// ══════════════════════════════════════════════════════════════════════════════
+const MISS_TYPES = [
+  {key:'Agent Missed',                 label:'Agent Missed',   color:'var(--bad)',  note:'rang, not picked up'},
+  {key:'Queue Missed - Within Hours',  label:'Queue Missed',   color:'var(--warn)', note:'dropped in queue'},
+  {key:'Queue Missed - After Hours',   label:'After-Hours',    color:'var(--muted)',note:'outside 9am–7pm'},
+];
+function statsFor(from,to){
+  const recs = recsIn(from,to);
+  const ib   = recs.filter(r=>r.dr==='inbound');
+  const ans  = ib.filter(r=>r.st==='answered');
+  const miss = ib.filter(r=>r.st!=='answered');
+  const ibOff  = ib.filter(r=>r.h>=9 && r.h<=18);          // 9am–7pm (ends at 19:00)
+  const ansOff = ibOff.filter(r=>r.st==='answered');
+  const byType = {}; MISS_TYPES.forEach(t=>byType[t.key]=miss.filter(r=>r.mt===t.key));
+  const days = new Set(ib.map(r=>r.d)).size || 1;
+  return { recs, ib, ans, miss, ibOff, ansOff, byType, days,
+    total: ib.length, answered: ans.length, missed: miss.length,
+    ar: pct(ans.length, ib.length), arOff: pct(ansOff.length, ibOff.length),
+    perDay: Math.round(ib.length/days) };
+}
+
+// metric card builder — number + change badge + benchmark pill, no grey subtext
+function mcard({label,value,suffix,cur,prev,dir='good',isPct=false,color,onClick,bench=true}){
+  const id = onClick ? `mc_${Math.random().toString(36).slice(2,9)}` : '';
+  if(id) _cardHandlers[id]=onClick;
+  return `<div class="mcard${onClick?' clickable':''}"${id?` data-mc="${id}"`:''}>
+    <div class="m-top">
+      <span class="m-lbl">${label}</span>
+      ${color?`<span class="m-dot" style="background:${color}"></span>`:''}
+    </div>
+    <div class="m-val tnum">${value}${suffix?`<small>${suffix}</small>`:''}</div>
+    <div class="m-foot">${badge(cur,prev,dir,isPct)}${bench?benchPill():''}</div>
+  </div>`;
+}
+let _cardHandlers={};
+function wireCards(root){ root.querySelectorAll('[data-mc]').forEach(el=>{
+  const fn=_cardHandlers[el.dataset.mc]; if(fn) el.onclick=fn; }); }
+
+// contact-list columns used by the miss modals
+const MISS_COLS=[
+  {key:'cn',label:'Phone',type:'str',get:r=>r.cn},
+  {key:'time',label:'Missed at',type:'str',get:r=>r.time},
+  {key:'camp',label:'Campaign / Queue',type:'str',get:r=>r.camp},
+];
+const campOf = r => (r.cp&&r.cp.trim()) ? r.cp.trim()
+  : (r.sc && r.sc.indexOf('After office')>=0 ? 'After-hours Auto Attendant' : 'No campaign / routing');
+const missRows = arr => arr.filter(r=>r.cn)
+  .map(r=>({cn:r.cn, time:`${_dm(r.d)} ${fmtTime(r.ti)}`, camp:campOf(r), _s:r.d+r.ti}))
+  .sort((a,b)=>a._s<b._s?1:-1);
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  OVERVIEW
+// ══════════════════════════════════════════════════════════════════════════════
+let OV_SERIES=null;   // null = All; else 'answered' | one miss-type key
+function renderOverview(p){
+  const A=statsFor(p.from,p.to), B=statsFor(p.prevFrom,p.prevTo);
+  _cardHandlers={};
+
+  // ── cards ──
+  document.getElementById('ov-cards').innerHTML =
+    mcard({label:'Inbound Calls', value:fmtN(A.total), cur:A.total, prev:B.total, dir:'good', color:'var(--brand)'}) +
+    mcard({label:'Answer Rate', value:A.ar, suffix:'%', cur:A.ar, prev:B.ar, dir:'good', isPct:true, color:'var(--good)'}) +
+    mcard({label:'Answer Rate · 9–7', value:A.arOff, suffix:'%', cur:A.arOff, prev:B.arOff, dir:'good', isPct:true, color:'var(--good)'}) +
+    mcard({label:'Missed', value:fmtN(A.missed), cur:A.missed, prev:B.missed, dir:'bad', color:'var(--bad)',
+           onClick:()=>openModal('All Missed Calls', missRows(A.miss), MISS_COLS)}) +
+    mcard({label:'Calls / Day', value:fmtN(A.perDay), cur:A.perDay, prev:B.perDay, dir:'good', color:'var(--brand-2)'});
+  wireCards(document.getElementById('ov-cards'));
+
+  // ── volume chart: daily bars when range spans days, hourly when single day ──
+  const single = p.from===p.to;
+  document.getElementById('ov-vol-title').textContent = single ? 'Calls by Hour' : 'Daily Call Volume';
+  const chipItems=[{key:'answered',label:'Answered',color:'var(--good)'},
+    ...MISS_TYPES.map(t=>({key:t.key,label:t.label,color:t.color}))];
+  chipGroup(document.getElementById('ov-vol-chips'), chipItems, OV_SERIES,
+    k=>{ OV_SERIES = (OV_SERIES===k?null:k); renderOverview(p); });
+
+  const buckets = single ? Array.from({length:24},(_,h)=>h)
+                         : [...new Set(A.ib.map(r=>r.d))].sort();
+  const labelOf = b => single ? (b===0?'12a':b<12?b+'a':b===12?'12p':(b-12)+'p')
+                              : [_dowOf(b), _dm(b)];
+  const inBucket = (r,b) => single ? r.h===b : r.d===b;
+  const cv=cssVar;
+  const allSets=[{key:'answered',label:'Answered',color:cv('var(--good)'),rows:A.ans},
+    ...MISS_TYPES.map(t=>({key:t.key,label:t.label,color:cv(t.color),rows:A.byType[t.key]}))];
+  const sets = OV_SERIES ? allSets.filter(s=>s.key===OV_SERIES) : allSets;
+  makeChart('ov-vol-chart',{type:'bar',
+    data:{labels:buckets.map(labelOf), datasets:sets.map(s=>({label:s.label,
+      data:buckets.map(b=>s.rows.filter(r=>inBucket(r,b)).length),
+      backgroundColor:s.color, borderRadius:4, borderSkipped:false, barPercentage:.82, categoryPercentage:.86}))},
+    options:{responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},datalabels:{display:false},
+        tooltip:{callbacks:{title:it=>single?`${it[0].label}`:`${it[0].label}`}}},
+      scales:{x:{stacked:true,grid:{display:false},ticks:{maxRotation:0,autoSkip:true,font:{size:10.5}}},
+              y:{stacked:true,beginAtZero:true,grid:{color:cv('var(--line)')},ticks:{precision:0,font:{size:10.5}}}}}});
+
+  // ── hourly answer-rate chart ──
+  const HRS=Array.from({length:14},(_,i)=>i+7);   // 7am..8pm
+  const hTot=HRS.map(h=>A.ib.filter(r=>r.h===h).length);
+  const hAns=HRS.map(h=>A.ans.filter(r=>r.h===h).length);
+  const rateCol=(a,t,off)=>{ if(!t) return cv('var(--line)');
+    const r=a/t*100; if(!off) return cv('var(--faint)');
+    return r>=90?cv('var(--good)'):r>=75?cv('var(--warn)'):cv('var(--bad)'); };
+  makeChart('ov-hour-chart',{type:'bar',
+    data:{labels:HRS.map(h=>h<12?h+'a':h===12?'12p':(h-12)+'p'),
+      datasets:[{data:hTot, backgroundColor:HRS.map((h,i)=>rateCol(hAns[i],hTot[i],h>=9&&h<=18)),
+        borderRadius:4,borderSkipped:false,barPercentage:.8}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},datalabels:{display:false},
+        tooltip:{callbacks:{label:it=>{const i=it.dataIndex;
+          return ` ${fmtN(hTot[i])} calls · ${pct(hAns[i],hTot[i])}% answered`;}}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:10.5}}},
+              y:{beginAtZero:true,grid:{color:cv('var(--line)')},ticks:{precision:0,font:{size:10.5}}}}}});
+
+  // ── missed breakdown (single place) ──
+  const maxMiss=Math.max(1,...MISS_TYPES.map(t=>A.byType[t.key].length));
+  document.getElementById('ov-miss').innerHTML = MISS_TYPES.map((t,i)=>{
+    const n=A.byType[t.key].length;
+    return `<div class="brow" data-miss="${i}">
+      <span class="b-dot" style="background:${t.color}"></span>
+      <span class="b-name">${t.label}</span>
+      <span class="b-bar"><span class="b-fill" style="width:${n/maxMiss*100}%;background:${t.color}"></span></span>
+      <span class="b-num tnum">${fmtN(n)}</span>
+      <span class="b-pct tnum">${pct(n,A.total)}%</span>
+    </div>`;}).join('');
+  document.getElementById('ov-miss').querySelectorAll('[data-miss]').forEach(el=>{
+    const t=MISS_TYPES[+el.dataset.miss];
+    el.onclick=()=>openModal(t.label+' — '+t.note, missRows(A.byType[t.key]), MISS_COLS);
+  });
+}
 function renderCallbacks(p){}
 function renderLeads(p){}
 function renderAction(p){}
