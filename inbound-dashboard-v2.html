@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbound Call Centre · v2</title>
+<script src="inbound-dashboard-data.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+:root{
+  --bg:#f4f5fb; --surface:#ffffff; --surface-2:#f7f8fc;
+  --ink:#131a2e; --ink-2:#4a5570; --muted:#8a93ab; --faint:#b9c0d4;
+  --line:#e7eaf3; --line-2:#d7dcea;
+  --brand:#3a41d6; --brand-2:#5b62f0; --brand-soft:#ecedff;
+  --good:#0f9d63; --good-soft:#e4f6ee;
+  --warn:#c77800; --warn-soft:#fbf1de;
+  --bad:#d63a4a; --bad-soft:#fdeaec;
+  --am:#3a41d6; --vo:#0f9d63; --od:#c77800;
+  --new:#7c3aed; --exist:#0f9d63; --query:#c77800;
+  --shadow-sm:0 1px 2px rgba(19,26,46,.06);
+  --shadow:0 2px 4px rgba(19,26,46,.05),0 10px 26px -14px rgba(19,26,46,.20);
+  --r:14px; --r-sm:10px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1320; --surface:#171c2c; --surface-2:#1e2438;
+  --ink:#eef1f8; --ink-2:#aeb6cc; --muted:#7a839e; --faint:#4a5273;
+  --line:#28304a; --line-2:#38425f;
+  --brand:#7b81ff; --brand-2:#9499ff; --brand-soft:#232a4a;
+  --good:#3fd18c; --good-soft:#123227; --warn:#f2b45a; --warn-soft:#2e2411;
+  --bad:#f4818e; --bad-soft:#2f1720;
+  --am:#7b81ff; --vo:#3fd18c; --od:#f2b45a;
+  --new:#a982f7; --exist:#3fd18c; --query:#f2b45a;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3);
+  --shadow:0 2px 4px rgba(0,0,0,.3),0 12px 30px -14px rgba(0,0,0,.6);
+}}
+:root[data-theme="dark"]{
+  --bg:#0f1320; --surface:#171c2c; --surface-2:#1e2438;
+  --ink:#eef1f8; --ink-2:#aeb6cc; --muted:#7a839e; --faint:#4a5273;
+  --line:#28304a; --line-2:#38425f;
+  --brand:#7b81ff; --brand-2:#9499ff; --brand-soft:#232a4a;
+  --good:#3fd18c; --good-soft:#123227; --warn:#f2b45a; --warn-soft:#2e2411;
+  --bad:#f4818e; --bad-soft:#2f1720;
+  --am:#7b81ff; --vo:#3fd18c; --od:#f2b45a;
+  --new:#a982f7; --exist:#3fd18c; --query:#f2b45a;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3);
+  --shadow:0 2px 4px rgba(0,0,0,.3),0 12px 30px -14px rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);
+  font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;
+  font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* ── Topbar ── */
+.topbar{position:sticky;top:0;z-index:50;background:var(--surface);
+  border-bottom:1px solid var(--line);box-shadow:var(--shadow-sm);}
+.topbar-in{max-width:1240px;margin:0 auto;padding:12px 24px;
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.brand{display:flex;align-items:center;gap:11px}
+.brand-mark{width:34px;height:34px;border-radius:9px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--brand),var(--brand-2));
+  color:#fff;font-weight:800;font-size:14px;display:grid;place-items:center;letter-spacing:.02em}
+.brand-name{font-weight:700;font-size:15px;letter-spacing:-.01em}
+.brand-sub{font-size:11.5px;color:var(--muted);margin-top:1px}
+
+/* ── Filter bar ── */
+.filterbar{max-width:1240px;margin:0 auto;padding:16px 24px 4px;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);
+  border-radius:11px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;color:var(--ink-2);cursor:pointer;
+  font:600 13px Inter,sans-serif;padding:7px 15px;border-radius:8px;transition:.12s;white-space:nowrap}
+.seg button:hover{color:var(--ink)}
+.seg button.on{background:var(--surface);color:var(--brand);box-shadow:var(--shadow-sm)}
+.pick{display:flex;align-items:center;gap:8px}
+.pick label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.selctl,.datectl{font:500 13px Inter,sans-serif;padding:7px 11px;border:1px solid var(--line-2);
+  border-radius:9px;background:var(--surface);color:var(--ink);cursor:pointer}
+.selctl:focus,.datectl:focus{outline:2px solid var(--brand-soft);border-color:var(--brand)}
+.period-label{font-size:13px;color:var(--ink-2);margin-left:2px}
+.period-label b{color:var(--ink);font-weight:700}
+.spacer{flex:1}
+.theme-btn{border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);
+  width:34px;height:34px;border-radius:9px;cursor:pointer;font-size:15px;display:grid;place-items:center}
+
+/* ── Tabs ── */
+.tabbar{max-width:1240px;margin:0 auto;padding:8px 24px 0;display:flex;gap:4px;flex-wrap:wrap;
+  border-bottom:1px solid var(--line)}
+.tab{border:0;background:transparent;color:var(--muted);cursor:pointer;
+  font:600 13.5px Inter,sans-serif;padding:11px 15px;border-radius:9px 9px 0 0;
+  border-bottom:2px solid transparent;margin-bottom:-1px;transition:.12s}
+.tab:hover{color:var(--ink-2)}
+.tab.on{color:var(--brand);border-bottom-color:var(--brand)}
+
+/* ── Layout ── */
+.wrap{max-width:1240px;margin:0 auto;padding:22px 24px 80px}
+.panel{display:none}.panel.on{display:block}
+.grid{display:grid;gap:16px}
+.cards{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:18px}
+
+/* ── Metric card (clean, no grey subtext) ── */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  padding:18px 18px 16px;box-shadow:var(--shadow-sm)}
+.mcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  padding:16px 17px;box-shadow:var(--shadow-sm);position:relative;transition:.12s}
+.mcard.clickable{cursor:pointer}
+.mcard.clickable:hover{border-color:var(--line-2);box-shadow:var(--shadow);transform:translateY(-1px)}
+.mcard .m-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.mcard .m-lbl{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.01em}
+.mcard .m-val{font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1;color:var(--ink)}
+.mcard .m-val small{font-size:15px;font-weight:700;color:var(--muted);margin-left:2px}
+.mcard .m-foot{display:flex;align-items:center;gap:8px;margin-top:11px;flex-wrap:wrap}
+/* accent dot by role */
+.m-dot{width:8px;height:8px;border-radius:3px;flex-shrink:0}
+/* change badge (replaces grey subtext) */
+.chg{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;
+  padding:3px 9px;border-radius:999px;line-height:1}
+.chg.up{background:var(--good-soft);color:var(--good)}
+.chg.down{background:var(--bad-soft);color:var(--bad)}
+.chg.flat{background:var(--surface-2);color:var(--muted)}
+.chg.up-bad{background:var(--bad-soft);color:var(--bad)}
+.chg.down-good{background:var(--good-soft);color:var(--good)}
+/* benchmark pill (placeholder target) */
+.bench{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
+  color:var(--muted);background:var(--surface-2);border:1px solid var(--line);
+  padding:3px 8px;border-radius:999px}
+.bench .b-i{width:6px;height:6px;border-radius:50%}
+.bench.ok .b-i{background:var(--good)} .bench.warn .b-i{background:var(--warn)} .bench.bad .b-i{background:var(--bad)}
+.m-prev{font-size:11.5px;color:var(--faint)}
+
+/* chip row (single-click select-to-show) */
+.chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.chip{border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);
+  font:600 12px Inter,sans-serif;padding:5px 11px;border-radius:999px;cursor:pointer;transition:.12s;
+  display:inline-flex;align-items:center;gap:6px}
+.chip:hover{border-color:var(--brand);color:var(--brand)}
+.chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.chip .c-dot{width:8px;height:8px;border-radius:50%}
+
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.card-title{font-size:14.5px;font-weight:700;letter-spacing:-.01em}
+.card-note{font-size:11.5px;color:var(--muted);margin:-6px 0 12px;line-height:1.5}
+.chart-wrap{position:relative;height:300px}
+.chart-wrap.tall{height:360px}
+.row2{display:grid;gap:16px;grid-template-columns:1fr 1fr}
+@media(max-width:860px){.row2{grid-template-columns:1fr}}
+
+.empty{padding:40px;text-align:center;color:var(--muted);font-size:13px}
+
+/* modal */
+.modal{position:fixed;inset:0;z-index:100;background:rgba(19,26,46,.5);
+  display:none;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(2px)}
+.modal.on{display:flex}
+.modal-box{background:var(--surface);border-radius:16px;max-width:760px;width:100%;
+  max-height:82vh;display:flex;flex-direction:column;box-shadow:var(--shadow);overflow:hidden}
+.modal-head{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-weight:700;font-size:15px}
+.modal-x{border:0;background:var(--surface-2);width:30px;height:30px;border-radius:8px;cursor:pointer;color:var(--ink-2);font-size:16px}
+.modal-body{overflow:auto;padding:6px 0}
+table.dt{width:100%;border-collapse:collapse;font-size:13px}
+table.dt th{position:sticky;top:0;background:var(--surface-2);text-align:left;padding:9px 16px;
+  font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);cursor:pointer;white-space:nowrap;border-bottom:1px solid var(--line)}
+table.dt td{padding:8px 16px;border-bottom:1px solid var(--line);color:var(--ink-2);white-space:nowrap}
+table.dt td:first-child{color:var(--ink);font-weight:600}
+table.dt tr:hover td{background:var(--surface-2)}
+
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <div class="brand">
+      <div class="brand-mark">mH</div>
+      <div>
+        <div class="brand-name">Inbound Call Centre</div>
+        <div class="brand-sub" id="updated">—</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <button class="theme-btn" id="theme-btn" title="Toggle theme">◐</button>
+  </div>
+</div>
+
+<div class="filterbar">
+  <div class="seg" id="mode-seg">
+    <button data-mode="daily" class="on">Daily</button>
+    <button data-mode="weekly">Weekly</button>
+    <button data-mode="monthly">Monthly</button>
+    <button data-mode="custom">Custom</button>
+  </div>
+  <div class="pick" id="pick-daily"><label>Date</label><select class="selctl" id="sel-daily"></select></div>
+  <div class="pick" id="pick-weekly" hidden><label>Week</label><select class="selctl" id="sel-weekly"></select></div>
+  <div class="pick" id="pick-monthly" hidden><label>Month</label><select class="selctl" id="sel-monthly"></select></div>
+  <div class="pick" id="pick-custom" hidden>
+    <label>From</label><input type="date" class="datectl" id="cust-from">
+    <label>To</label><input type="date" class="datectl" id="cust-to">
+  </div>
+  <div class="period-label" id="period-label"></div>
+</div>
+
+<div class="tabbar" id="tabbar">
+  <button class="tab on" data-tab="overview">Overview</button>
+  <button class="tab" data-tab="callbacks">Callbacks</button>
+  <button class="tab" data-tab="leads">Leads</button>
+  <button class="tab" data-tab="action">Action</button>
+  <button class="tab" data-tab="trends">Trends Comparison</button>
+</div>
+
+<div class="wrap">
+  <div class="panel on" id="panel-overview"><div class="empty">Overview — building…</div></div>
+  <div class="panel" id="panel-callbacks"><div class="empty">Callbacks — building…</div></div>
+  <div class="panel" id="panel-leads"><div class="empty">Leads — building…</div></div>
+  <div class="panel" id="panel-action"><div class="empty">Action — building…</div></div>
+  <div class="panel" id="panel-trends"><div class="empty">Trends Comparison — building…</div></div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <div class="modal-head"><div class="modal-title" id="modal-title"></div>
+      <button class="modal-x" id="modal-x">✕</button></div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+//  DATA + HELPERS
+// ══════════════════════════════════════════════════════════════════════════════
+const ALL = typeof INBOUND_RECORDS !== 'undefined' ? INBOUND_RECORDS : [];
+const TR_FLOOD = new Set(['+918031451096']);   // robodialer, excluded everywhere
+const REC = ALL.filter(r => !TR_FLOOD.has(r.cn));
+const MONTH_NM = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DOW3 = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+const fmtN = n => n==null ? '—' : Math.round(n).toLocaleString('en-IN');
+const pct = (a,b) => b ? Math.round(a/b*100) : 0;
+const toMin = (d,ti) => { const [y,mo,da]=d.split('-').map(Number); const [h,m,s]=ti.split(':').map(Number);
+  return ((y*12+mo)*31+da)*1440 + h*60 + m + (s||0)/60; };
+function fmtTime(ti){ if(!ti) return ''; let [h,m]=ti.split(':').map(Number); const ap=h<12?'am':'pm';
+  h=h%12; if(h===0)h=12; return `${h}:${String(m).padStart(2,'0')}${ap}`; }
+const _pd = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); };
+const _fl = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+const _dm = d => { const [y,mo,da]=d.split('-'); return `${+da} ${MONTH_NM[+mo-1]}`; };
+const _dmy = d => { const [y,mo,da]=d.split('-'); return `${+da} ${MONTH_NM[+mo-1]} ${y}`; };
+const _dowOf = d => DOW3[_pd(d).getDay()];
+
+const allDates = [...new Set(REC.map(r=>r.d).filter(Boolean))].sort();
+const DATA_MIN = allDates[0] || '';
+const DATA_MAX = allDates[allDates.length-1] || '';
+
+// ISO week number of a date's Wednesday (used to label Wed→Tue weeks, matching v1)
+function isoWeek(dt){ const d=new Date(Date.UTC(dt.getFullYear(),dt.getMonth(),dt.getDate()));
+  const day=(d.getUTCDay()+6)%7; d.setUTCDate(d.getUTCDate()-day+3);
+  const first=new Date(Date.UTC(d.getUTCFullYear(),0,4));
+  return 1+Math.round(((d-first)/86400000-3+((first.getUTCDay()+6)%7))/7); }
+// Wed→Tue week containing dateStr
+function weekRange(dateStr){ const dt=_pd(dateStr); const gap=(dt.getDay()-3+7)%7;
+  const start=new Date(dt); start.setDate(dt.getDate()-gap);
+  const end=new Date(start); end.setDate(start.getDate()+6);
+  return {from:_fl(start), to:_fl(end), week:isoWeek(start)}; }
+function dataWeeks(){ const seen={}; REC.forEach(r=>{ if(!r.d)return; const w=weekRange(r.d); seen[w.from]=w; });
+  return Object.values(seen).sort((a,b)=>a.from<b.from?1:-1); }
+function dataMonths(){ const s=new Set(); REC.forEach(r=>{ if(r.d) s.add(r.d.slice(0,7)); });
+  return [...s].sort().reverse(); }
+function monthRange(ym){ const [y,mo]=ym.split('-').map(Number); const last=new Date(y,mo,0).getDate();
+  return {from:`${ym}-01`, to:`${ym}-${String(last).padStart(2,'0')}`, label:`${MONTH_NM[mo-1]} ${y}`, short:MONTH_NM[mo-1]}; }
+function prevMonth(ym){ const [y,mo]=ym.split('-').map(Number); const d=new Date(y,mo-2,1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function shiftDate(d,days){ const dt=_pd(d); dt.setDate(dt.getDate()+days); return _fl(dt); }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  GLOBAL FILTER STATE  — one control drives the whole dashboard
+// ══════════════════════════════════════════════════════════════════════════════
+const FILTER = { mode:'daily', date:DATA_MAX, week:null, month:null, from:null, to:null };
+
+// resolve current + previous period → {from,to,label,prevFrom,prevTo,prevLabel}
+function activePeriod(){
+  const f = FILTER;
+  if (f.mode==='daily'){
+    const d=f.date, p=shiftDate(d,-1);
+    return {from:d,to:d,label:`${_dowOf(d)} · ${_dmy(d)}`, prevFrom:p,prevTo:p,prevLabel:_dm(p)};
+  }
+  if (f.mode==='weekly'){
+    const w=weekRange(f.week); const pv=weekRange(shiftDate(w.from,-7));
+    return {from:w.from,to:w.to,label:`Week ${w.week} · ${_dm(w.from)}–${_dm(w.to)}`,
+      prevFrom:pv.from,prevTo:pv.to,prevLabel:`Week ${pv.week}`};
+  }
+  if (f.mode==='monthly'){
+    const m=monthRange(f.month); const pv=monthRange(prevMonth(f.month));
+    return {from:m.from,to:m.to,label:m.label, prevFrom:pv.from,prevTo:pv.to,prevLabel:pv.short};
+  }
+  // custom — previous = same-length window immediately before
+  const from=f.from||DATA_MIN, to=f.to||DATA_MAX;
+  const days=Math.round((_pd(to)-_pd(from))/86400000)+1;
+  const pTo=shiftDate(from,-1), pFrom=shiftDate(pTo,-(days-1));
+  return {from,to,label:`${_dm(from)} – ${_dm(to)}`, prevFrom:pFrom,prevTo:pTo,prevLabel:'prev'};
+}
+
+function recsIn(from,to){ return REC.filter(r=>r.d>=from && r.d<=to); }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  CHANGE BADGE (replaces grey subtext)
+// ══════════════════════════════════════════════════════════════════════════════
+// dir='good' → up is good (green); 'bad' → up is bad (red). isPct → show "pts".
+function badge(av,bv,dir='good',isPct=false){
+  const diff=av-bv; if(bv==null||av==null) return '';
+  if(diff===0) return `<span class="chg flat">→ 0${isPct?' pts':''}</span>`;
+  const up=diff>0;
+  const good=(dir==='good')?up:!up;
+  const cls=good?'up':'down';
+  const arrow=up?'▲':'▼';
+  const tiny=!isPct && Math.abs(bv)<5;
+  const txt=isPct?`${diff>0?'+':''}${diff} pts`
+    : tiny?`${diff>0?'+':''}${diff}`
+    : `${diff>0?'+':''}${bv?Math.round(diff/bv*100):100}%`;
+  return `<span class="chg ${cls}">${arrow} ${txt}</span>`;
+}
+// benchmark placeholder pill — fill targets later
+function benchPill(){ return `<span class="bench"><span class="b-i"></span>target —</span>`; }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  SINGLE-CLICK CHIP GROUP  (select-to-show; 'All' resets)
+// ══════════════════════════════════════════════════════════════════════════════
+// items:[{key,label,color?}]; onPick(selectedKey|null). null = All.
+function chipGroup(container, items, current, onPick){
+  container.innerHTML='';
+  const mk=(key,label,color,on)=>{ const b=document.createElement('button');
+    b.className='chip'+(on?' on':'');
+    b.innerHTML=(color?`<span class="c-dot" style="background:${on?'#fff':color}"></span>`:'')+label;
+    b.onclick=()=>onPick(key); return b; };
+  container.appendChild(mk(null,'All',null,current==null));
+  items.forEach(it=>container.appendChild(mk(it.key,it.label,it.color,current===it.key)));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  MODAL (sortable contact table)
+// ══════════════════════════════════════════════════════════════════════════════
+let _modal={rows:[],cols:[],sortKey:null,sortDir:1};
+function openModal(title,rows,cols){ _modal={rows,cols,sortKey:null,sortDir:1};
+  document.getElementById('modal-title').textContent=`${title} (${rows.length})`;
+  renderModal(); document.getElementById('modal').classList.add('on'); }
+function renderModal(){ const {rows,cols,sortKey,sortDir}=_modal; const body=document.getElementById('modal-body');
+  if(!rows.length){ body.innerHTML='<div class="empty">Nothing here for this period.</div>'; return; }
+  let ord=rows.slice();
+  if(sortKey){ const c=cols.find(x=>x.key===sortKey);
+    ord.sort((a,b)=>{ let va=c.get(a),vb=c.get(b);
+      if(c.type==='num') return sortDir*((va||0)-(vb||0));
+      return sortDir*String(va).localeCompare(String(vb)); }); }
+  body.innerHTML=`<table class="dt"><thead><tr>${cols.map(c=>`<th data-k="${c.key}">${c.label}${sortKey===c.key?(sortDir>0?' ▲':' ▼'):''}</th>`).join('')}</tr></thead>
+    <tbody>${ord.map(r=>`<tr>${cols.map(c=>`<td>${c.fmt?c.fmt(c.get(r)):c.get(r)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  body.querySelectorAll('th').forEach(th=>th.onclick=()=>{ const k=th.dataset.k;
+    if(_modal.sortKey===k)_modal.sortDir*=-1; else {_modal.sortKey=k;_modal.sortDir=1;} renderModal(); });
+}
+document.getElementById('modal-x').onclick=()=>document.getElementById('modal').classList.remove('on');
+document.getElementById('modal').onclick=e=>{ if(e.target.id==='modal')document.getElementById('modal').classList.remove('on'); };
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  CHART HELPER
+// ══════════════════════════════════════════════════════════════════════════════
+const CHARTS={};
+function makeChart(id,cfg){ const el=document.getElementById(id); if(!el)return null;
+  if(CHARTS[id])CHARTS[id].destroy();
+  const css=getComputedStyle(document.body);
+  Chart.defaults.color=css.getPropertyValue('--muted').trim();
+  Chart.defaults.font.family='Inter, sans-serif';
+  Chart.defaults.borderColor=css.getPropertyValue('--line').trim();
+  CHARTS[id]=new Chart(el,cfg); return CHARTS[id]; }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  FILTER UI WIRING
+// ══════════════════════════════════════════════════════════════════════════════
+(function initFilters(){
+  // daily: every date present, newest first
+  const dSel=document.getElementById('sel-daily');
+  dSel.innerHTML=allDates.slice().reverse().map(d=>`<option value="${d}">${_dowOf(d)} · ${_dmy(d)}</option>`).join('');
+  FILTER.date=DATA_MAX; dSel.value=DATA_MAX;
+  // weekly
+  const wks=dataWeeks(); const wSel=document.getElementById('sel-weekly');
+  wSel.innerHTML=wks.map(w=>`<option value="${w.from}">Week ${w.week} · ${_dm(w.from)}–${_dm(w.to)}${w.to>=DATA_MAX?' (in progress)':''}</option>`).join('');
+  const firstComplete=wks.find(w=>w.to<DATA_MAX)||wks[0]; FILTER.week=firstComplete.from; wSel.value=firstComplete.from;
+  // monthly
+  const mos=dataMonths(); const mSel=document.getElementById('sel-monthly');
+  mSel.innerHTML=mos.map(m=>`<option value="${m}">${monthRange(m).label}${m>=DATA_MAX.slice(0,7)?' (in progress)':''}</option>`).join('');
+  FILTER.month=mos[0]; mSel.value=mos[0];
+  // custom defaults
+  document.getElementById('cust-from').value=shiftDate(DATA_MAX,-6);
+  document.getElementById('cust-to').value=DATA_MAX;
+  FILTER.from=shiftDate(DATA_MAX,-6); FILTER.to=DATA_MAX;
+
+  dSel.onchange=e=>{FILTER.date=e.target.value;render();};
+  wSel.onchange=e=>{FILTER.week=e.target.value;render();};
+  mSel.onchange=e=>{FILTER.month=e.target.value;render();};
+  document.getElementById('cust-from').onchange=e=>{FILTER.from=e.target.value;render();};
+  document.getElementById('cust-to').onchange=e=>{FILTER.to=e.target.value;render();};
+
+  document.querySelectorAll('#mode-seg button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#mode-seg button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); FILTER.mode=b.dataset.mode;
+    ['daily','weekly','monthly','custom'].forEach(m=>document.getElementById('pick-'+m).hidden=(m!==FILTER.mode));
+    render();
+  });
+})();
+
+// theme toggle
+document.getElementById('theme-btn').onclick=()=>{
+  const cur=document.documentElement.getAttribute('data-theme');
+  const next=cur==='dark'?'light':(cur==='light'?null: (matchMedia('(prefers-color-scheme: dark)').matches?'light':'dark'));
+  if(next)document.documentElement.setAttribute('data-theme',next); else document.documentElement.removeAttribute('data-theme');
+  render();
+};
+
+// tabs
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(x=>x.classList.remove('on'));
+  t.classList.add('on'); document.getElementById('panel-'+t.dataset.tab).classList.add('on');
+  render();
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  MASTER RENDER
+// ══════════════════════════════════════════════════════════════════════════════
+function currentTab(){ return document.querySelector('.tab.on').dataset.tab; }
+function render(){
+  const p=activePeriod();
+  document.getElementById('period-label').innerHTML=
+    `<b>${p.label}</b> &nbsp;vs&nbsp; ${p.prevLabel}`;
+  const tab=currentTab();
+  if(tab==='overview') renderOverview(p);
+  else if(tab==='callbacks') renderCallbacks(p);
+  else if(tab==='leads') renderLeads(p);
+  else if(tab==='action') renderAction(p);
+  else if(tab==='trends') renderTrends(p);
+}
+
+// last-updated stamp
+(function(){ const u=document.getElementById('updated');
+  if(DATA_MAX) u.textContent=`Data through ${_dmy(DATA_MAX)}`; })();
+
+// placeholder renderers (filled in next stages)
+function renderOverview(p){}
+function renderCallbacks(p){}
+function renderLeads(p){}
+function renderAction(p){}
+function renderTrends(p){}
+
+render();
+</script>
+</body>
+</html>
