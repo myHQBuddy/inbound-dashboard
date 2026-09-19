@@ -265,7 +265,7 @@ table.dt tr:hover td{background:var(--surface-2)}
     <div class="row2">
       <div class="card">
         <div class="card-h"><div class="card-title">Answer Rate by Hour</div></div>
-        <div class="card-note">Office hours 9am–7pm highlighted. Bar height = calls, colour = answer rate.</div>
+        <div class="card-note">Bars show call volume (office hours 9am–7pm shaded darker); the line is answer rate.</div>
         <div class="chart-wrap"><canvas id="ov-hour-chart"></canvas></div>
       </div>
       <div class="card">
@@ -432,6 +432,16 @@ function cssVar(v){
   if(!name.startsWith('--')) return v;
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || v;
 }
+// colour + alpha → rgba() (accepts #rgb, #rrggbb, or an existing rgb()/rgba())
+function hexA(c,a){
+  c=(c||'').trim();
+  if(c.startsWith('rgb')){ const n=c.match(/[\d.]+/g)||[0,0,0]; return `rgba(${n[0]},${n[1]},${n[2]},${a})`; }
+  let h=c.replace('#','');
+  if(h.length===3) h=h.split('').map(x=>x+x).join('');
+  const int=parseInt(h,16);
+  if(isNaN(int)||h.length!==6) return `rgba(120,120,120,${a})`;
+  return `rgba(${(int>>16)&255},${(int>>8)&255},${int&255},${a})`;
+}
 const CHARTS={};
 function makeChart(id,cfg){ const el=document.getElementById(id); if(!el)return null;
   if(CHARTS[id])CHARTS[id].destroy();
@@ -509,8 +519,9 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
 function currentTab(){ return document.querySelector('.tab.on').dataset.tab; }
 function render(){
   const p=activePeriod();
-  document.getElementById('period-label').innerHTML=
-    `<b>${p.label}</b><span class="vs">vs ${p.prevLabel}</span>`;
+  // Global bar shows only the active period. Period-over-period comparison is a
+  // Trends-tab concern, not a global stamp.
+  document.getElementById('period-label').innerHTML = `<b>${p.label}</b>`;
   const tab=currentTab();
   if(tab==='overview') renderOverview(p);
   else if(tab==='callbacks') renderCallbacks(p);
@@ -607,37 +618,72 @@ function renderOverview(p){
                               : [_dowOf(b), _dm(b)];
   const inBucket = (r,b) => single ? r.h===b : r.d===b;
   const cv=cssVar;
-  const allSets=[{key:'answered',label:'Answered',color:cv('var(--good)'),rows:A.ans},
-    ...MISS_TYPES.map(t=>({key:t.key,label:t.label,color:cv(t.color),rows:A.byType[t.key]}))];
-  const sets = OV_SERIES ? allSets.filter(s=>s.key===OV_SERIES) : allSets;
-  makeChart('ov-vol-chart',{type:'bar',
-    data:{labels:buckets.map(labelOf), datasets:sets.map(s=>({label:s.label,
-      data:buckets.map(b=>s.rows.filter(r=>inBucket(r,b)).length),
-      backgroundColor:s.color, borderRadius:4, borderSkipped:false, barPercentage:.82, categoryPercentage:.86}))},
+  // Layered area: total calls (light fill) with answered (solid fill) beneath —
+  // the gap between the two lines reads directly as "missed". Selecting a chip
+  // isolates that one series as a single clean area.
+  const ctx=document.getElementById('ov-vol-chart').getContext('2d');
+  const fade=(hex,a1,a2)=>{ const g=ctx.createLinearGradient(0,0,0,330);
+    g.addColorStop(0,hexA(hex,a1)); g.addColorStop(1,hexA(hex,a2)); return g; };
+  const area=(label,color,rows,fillTop,fillBot)=>({label,
+    data:buckets.map(b=>rows.filter(r=>inBucket(r,b)).length),
+    borderColor:color, backgroundColor:fade(color,fillTop,fillBot),
+    borderWidth:2, pointRadius:0, pointHoverRadius:5, pointHoverBackgroundColor:color,
+    pointHoverBorderColor:cv('var(--surface)'), pointHoverBorderWidth:2,
+    tension:.38, fill:true});
+  let sets;
+  if (OV_SERIES==null){
+    sets=[ area('Total calls', cv('var(--brand)'), A.ib, .20, .01),
+           area('Answered',    cv('var(--good)'),  A.ans, .28, .02) ];
+  } else if (OV_SERIES==='answered'){
+    sets=[ area('Answered', cv('var(--good)'), A.ans, .28, .02) ];
+  } else {
+    const t=MISS_TYPES.find(x=>x.key===OV_SERIES);
+    sets=[ area(t.label, cv(t.color), A.byType[t.key], .26, .02) ];
+  }
+  makeChart('ov-vol-chart',{type:'line', data:{labels:buckets.map(labelOf), datasets:sets},
     options:{responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
       plugins:{legend:{display:false},datalabels:{display:false},
-        tooltip:{callbacks:{title:it=>single?`${it[0].label}`:`${it[0].label}`}}},
-      scales:{x:{stacked:true,grid:{display:false},ticks:{maxRotation:0,autoSkip:true,font:{size:10.5}}},
-              y:{stacked:true,beginAtZero:true,grid:{color:cv('var(--line)')},ticks:{precision:0,font:{size:10.5}}}}}});
+        tooltip:{padding:10,displayColors:true,boxWidth:8,boxHeight:8,usePointStyle:true,
+          callbacks:{afterBody:it=>{ if(OV_SERIES!=null||it.length<2) return '';
+            const miss=it[0].parsed.y-it[1].parsed.y; return `Missed  ${fmtN(miss)}`; }}}},
+      scales:{x:{grid:{display:false},border:{display:false},
+                 ticks:{maxRotation:0,autoSkip:true,maxTicksLimit:14,font:{size:10.5},padding:6}},
+              y:{beginAtZero:true,border:{display:false},
+                 grid:{color:cv('var(--line)'),drawTicks:false},
+                 ticks:{precision:0,font:{size:10.5},padding:8,maxTicksLimit:6}}}}});
 
   // ── hourly answer-rate chart ──
+  // Volume as soft background bars + answer-rate line on its own right axis.
+  // Office hours (9am–7pm) get a stronger bar tint so the shift reads at a glance.
   const HRS=Array.from({length:14},(_,i)=>i+7);   // 7am..8pm
   const hTot=HRS.map(h=>A.ib.filter(r=>r.h===h).length);
   const hAns=HRS.map(h=>A.ans.filter(r=>r.h===h).length);
-  const rateCol=(a,t,off)=>{ if(!t) return cv('var(--line)');
-    const r=a/t*100; if(!off) return cv('var(--faint)');
-    return r>=90?cv('var(--good)'):r>=75?cv('var(--warn)'):cv('var(--bad)'); };
-  makeChart('ov-hour-chart',{type:'bar',
+  const hRate=HRS.map((h,i)=>hTot[i]?Math.round(hAns[i]/hTot[i]*100):null);
+  const brand=cv('var(--brand)'), good=cv('var(--good)');
+  makeChart('ov-hour-chart',{
     data:{labels:HRS.map(h=>h<12?h+'a':h===12?'12p':(h-12)+'p'),
-      datasets:[{data:hTot, backgroundColor:HRS.map((h,i)=>rateCol(hAns[i],hTot[i],h>=9&&h<=18)),
-        borderRadius:4,borderSkipped:false,barPercentage:.8}]},
+      datasets:[
+        {type:'bar', label:'Calls', data:hTot, yAxisID:'y', order:2,
+         backgroundColor:HRS.map(h=>hexA(brand, (h>=9&&h<=18)?.16:.07)),
+         borderRadius:5, borderSkipped:false, barPercentage:.72, categoryPercentage:.9},
+        {type:'line', label:'Answer rate', data:hRate, yAxisID:'y1', order:1,
+         borderColor:good, borderWidth:2.4, tension:.35, spanGaps:true,
+         pointRadius:0, pointHoverRadius:5, pointHoverBackgroundColor:good,
+         pointHoverBorderColor:cv('var(--surface)'), pointHoverBorderWidth:2, fill:false}]},
     options:{responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
       plugins:{legend:{display:false},datalabels:{display:false},
-        tooltip:{callbacks:{label:it=>{const i=it.dataIndex;
-          return ` ${fmtN(hTot[i])} calls · ${pct(hAns[i],hTot[i])}% answered`;}}}},
-      scales:{x:{grid:{display:false},ticks:{font:{size:10.5}}},
-              y:{beginAtZero:true,grid:{color:cv('var(--line)')},ticks:{precision:0,font:{size:10.5}}}}}});
+        tooltip:{padding:10,usePointStyle:true,boxWidth:8,boxHeight:8,
+          callbacks:{label:it=>it.dataset.type==='bar'
+            ? ` ${fmtN(it.parsed.y)} calls`
+            : ` ${it.parsed.y==null?'—':it.parsed.y+'% answered'}`}}},
+      scales:{x:{grid:{display:false},border:{display:false},ticks:{font:{size:10.5},padding:6}},
+              y:{beginAtZero:true,border:{display:false},grid:{color:cv('var(--line)'),drawTicks:false},
+                 ticks:{precision:0,font:{size:10.5},padding:8,maxTicksLimit:5}},
+              y1:{position:'right',beginAtZero:true,max:100,border:{display:false},
+                  grid:{drawOnChartArea:false},
+                  ticks:{font:{size:10.5},padding:6,maxTicksLimit:5,callback:v=>v+'%'}}}}});
 
   // ── missed breakdown (single place) ──
   const maxMiss=Math.max(1,...MISS_TYPES.map(t=>A.byType[t.key].length));
