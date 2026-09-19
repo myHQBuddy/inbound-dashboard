@@ -187,6 +187,42 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 .brow .b-num{font-size:14px;font-weight:700;color:var(--ink);min-width:52px;text-align:right}
 .brow .b-pct{font-size:11.5px;color:var(--muted);min-width:38px;text-align:right}
 
+/* funnel */
+.funnel{display:grid;gap:10px}
+.fstage{display:flex;align-items:center;gap:14px;cursor:pointer;padding:9px 10px;border-radius:10px;transition:.12s}
+.fstage:hover{background:var(--surface-2)}
+.fstage .f-name{font-size:13px;font-weight:600;color:var(--ink);min-width:150px;flex-shrink:0}
+.fstage .f-track{flex:1;height:30px;background:var(--surface-2);border-radius:8px;overflow:hidden;position:relative;min-width:60px}
+.fstage .f-fill{height:100%;border-radius:8px;display:flex;align-items:center;padding-left:11px;
+  color:#fff;font-size:12.5px;font-weight:700;min-width:2px;transition:width .3s}
+.fstage .f-side{font-size:12px;color:var(--muted);min-width:96px;text-align:right}
+.fstage .f-side b{color:var(--ink);font-weight:700;font-size:13.5px}
+
+/* DID day-by-day grid */
+table.didgrid{border-collapse:separate;border-spacing:3px;font-size:11px}
+table.didgrid th{font-size:10px;font-weight:600;color:var(--muted);padding:2px 4px;text-align:center;white-space:nowrap}
+table.didgrid th.did-h{text-align:left;position:sticky;left:0;background:var(--surface);z-index:1;padding-right:10px}
+table.didgrid td.did-n{font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap;
+  position:sticky;left:0;background:var(--surface);z-index:1;padding-right:10px;cursor:pointer}
+table.didgrid td.did-n:hover{color:var(--brand)}
+table.didgrid td.cell{width:30px;height:26px;text-align:center;border-radius:6px;
+  font-weight:700;font-variant-numeric:tabular-nums;color:#fff}
+table.didgrid td.cell.none{background:var(--surface-2);color:var(--faint);font-weight:500}
+.did-avg{font-weight:700;font-size:12px;padding-left:8px;white-space:nowrap}
+
+/* comparison table */
+table.cmp{width:100%;border-collapse:collapse;font-size:13px}
+table.cmp th{text-align:right;padding:9px 14px;font-size:10.5px;text-transform:uppercase;
+  letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--line);white-space:nowrap}
+table.cmp th:first-child{text-align:left}
+table.cmp td{padding:10px 14px;text-align:right;border-bottom:1px solid var(--line);
+  color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+table.cmp td:first-child{text-align:left;color:var(--ink);font-weight:600}
+table.cmp td.cur{color:var(--ink);font-weight:700;font-size:14px}
+table.cmp tr.grouphead td{background:var(--surface-2);font-size:10.5px;text-transform:uppercase;
+  letter-spacing:.05em;color:var(--muted);font-weight:700;padding:7px 14px}
+table.cmp tr:last-child td{border-bottom:0}
+
 /* modal */
 .modal{position:fixed;inset:0;z-index:100;background:rgba(19,26,46,.5);
   display:none;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(2px)}
@@ -275,10 +311,80 @@ table.dt tr:hover td{background:var(--surface-2)}
       </div>
     </div>
   </div>
-  <div class="panel" id="panel-callbacks"><div class="empty">Callbacks — building…</div></div>
-  <div class="panel" id="panel-leads"><div class="empty">Leads — building…</div></div>
-  <div class="panel" id="panel-action"><div class="empty">Action — building…</div></div>
-  <div class="panel" id="panel-trends"><div class="empty">Trends Comparison — building…</div></div>
+  <div class="panel" id="panel-callbacks">
+    <div class="cards" id="cb-cards"></div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-h"><div class="card-title">Reconnect Funnel</div></div>
+      <div class="card-note">Of the numbers missed in this period: how many were called back, and how many were actually reached.</div>
+      <div id="cb-funnel"></div>
+    </div>
+    <div class="row2">
+      <div class="card">
+        <div class="card-h"><div class="card-title">Speed of First Callback</div></div>
+        <div class="card-note">How quickly the first callback went out after the miss. The first hour is broken into 10-minute steps.</div>
+        <div class="chart-wrap"><canvas id="cb-speed-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="card-title">Connect Rate by Attempt</div></div>
+        <div class="card-note">Share of numbers reached on their 1st, 2nd, 3rd… callback attempt.</div>
+        <div class="chart-wrap"><canvas id="cb-attempt-chart"></canvas></div>
+      </div>
+    </div>
+  </div>
+  <div class="panel" id="panel-leads">
+    <div class="cards" id="ld-cards"></div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-h">
+        <div class="card-title">Leads Over Time</div>
+        <div class="chips" id="ld-chips"></div>
+      </div>
+      <div class="card-note">Dispositioned leads by product. Pick a product to isolate it.</div>
+      <div class="chart-wrap tall"><canvas id="ld-trend-chart"></canvas></div>
+    </div>
+    <div class="row2">
+      <div class="card">
+        <div class="card-h"><div class="card-title">Caller Intent by Product</div></div>
+        <div class="card-note">New prospects vs existing clients vs queries, per product.</div>
+        <div class="chart-wrap"><canvas id="ld-intent-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="card-title">Product Split</div></div>
+        <div class="card-note">Share of dispositioned leads. Click a row for the calls.</div>
+        <div id="ld-split"></div>
+      </div>
+    </div>
+  </div>
+  <div class="panel" id="panel-action">
+    <div class="cards" id="ac-cards"></div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-h"><div class="card-title">DID Health — Pickup Rate by Day</div>
+        <div class="chips" id="ac-did-chips"></div></div>
+      <div class="card-note">Each row is an outbound caller ID. Cells show that day's pickup rate —
+        <b style="color:var(--bad)">red under 30%</b> means the number is likely being flagged as spam,
+        <b style="color:var(--warn)">amber 30–40%</b> is at risk. Click a row to see its daily numbers.</div>
+      <div style="overflow-x:auto" id="ac-did"></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><div class="card-title">Follow-Through Worklist</div></div>
+      <div class="card-note">Numbers that need action, by how hard they've been chased since their most recent miss.</div>
+      <div id="ac-work"></div>
+    </div>
+  </div>
+  <div class="panel" id="panel-trends">
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-h">
+        <div class="card-title" id="tr-chart-title">Trend</div>
+        <div class="chips" id="tr-chips"></div>
+      </div>
+      <div class="card-note" id="tr-chart-note"></div>
+      <div class="chart-wrap tall"><canvas id="tr-chart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><div class="card-title" id="tr-tbl-title">Period comparison</div></div>
+      <div class="card-note" id="tr-tbl-note"></div>
+      <div style="overflow-x:auto" id="tr-table"></div>
+    </div>
+  </div>
 </div>
 
 <div class="modal" id="modal">
@@ -655,10 +761,423 @@ function renderOverview(p){
     el.onclick=()=>openModal(t.label+' — '+t.note, missRows(A.byType[t.key]), MISS_COLS);
   });
 }
-function renderCallbacks(p){}
-function renderLeads(p){}
-function renderAction(p){}
-function renderTrends(p){}
+// ── all-time per-number indexes (built once): callbacks + connect times ──
+// "Reached" must look across ALL data, not just the filtered window, otherwise a
+// number reached a day after the period ends would look unreached.
+const CB_ALL={}, ANS_T={};
+(function(){
+  REC.forEach(r=>{
+    if(!r.cn) return;
+    if(r.dr==='callback') (CB_ALL[r.cn]=CB_ALL[r.cn]||[]).push(r);
+    if(r.st==='answered' && r.ct!=='Voice Mail' && (r.dr==='inbound'||r.dr==='callback'))
+      (ANS_T[r.cn]=ANS_T[r.cn]||[]).push(toMin(r.d,r.ti));
+  });
+  Object.values(ANS_T).forEach(a=>a.sort((x,y)=>x-y));
+  Object.values(CB_ALL).forEach(a=>a.sort((x,y)=>toMin(x.d,x.ti)-toMin(y.d,y.ti)));
+})();
+const reachedAfter=(cn,t)=>{ const a=ANS_T[cn]; return !!a && a[a.length-1]>t; };
+
+// Per-number callback picture for a period: last miss in window, attempts since
+// that miss (all-time callbacks), whether reached after it, and speed of the first.
+function callbackStats(from,to){
+  const ib=recsIn(from,to).filter(r=>r.dr==='inbound');
+  const miss=ib.filter(r=>r.st!=='answered' && r.cn);
+  const byNum={};
+  miss.forEach(r=>{ const t=toMin(r.d,r.ti);
+    const o=byNum[r.cn]||(byNum[r.cn]={cn:r.cn,lastT:-Infinity,lastStr:'',camp:''});
+    if(t>o.lastT){ o.lastT=t; o.lastStr=`${_dm(r.d)} ${fmtTime(r.ti)}`; o.camp=campOf(r); } });
+  const rows=Object.values(byNum);
+  rows.forEach(o=>{
+    const cbs=(CB_ALL[o.cn]||[]).filter(c=>toMin(c.d,c.ti)>o.lastT);
+    o.attempts=cbs.length;
+    o.firstCb=cbs.length?cbs[0]:null;
+    o.gapMin=cbs.length?(toMin(cbs[0].d,cbs[0].ti)-o.lastT):null;
+    o.reached=reachedAfter(o.cn,o.lastT);
+  });
+  const called=rows.filter(o=>o.attempts>0);
+  const reached=rows.filter(o=>o.reached);
+  const notReached=rows.filter(o=>!o.reached);
+  const noAttempt=rows.filter(o=>o.attempts===0);
+  const totAtt=rows.reduce((s,o)=>s+o.attempts,0);
+  return {rows,called,reached,notReached,noAttempt,
+    unique:rows.length, calledN:called.length, reachedN:reached.length,
+    avgAtt: called.length?+(totAtt/called.length).toFixed(1):0};
+}
+
+const CB_COLS=[
+  {key:'cn',label:'Phone',type:'str',get:r=>r.cn},
+  {key:'att',label:'Attempts',type:'num',get:r=>r.attempts},
+  {key:'miss',label:'Last missed',type:'str',get:r=>r.lastStr},
+  {key:'camp',label:'Campaign / Queue',type:'str',get:r=>r.camp},
+];
+
+function renderCallbacks(p){
+  const A=callbackStats(p.from,p.to), B=callbackStats(p.prevFrom,p.prevTo);
+  _cardHandlers={};
+  const cv=cssVar;
+  const openList=(title,rows)=>()=>openModal(title,
+    rows.slice().sort((a,b)=>b.attempts-a.attempts||(a.lastStr<b.lastStr?1:-1)), CB_COLS);
+
+  const reachPct=pct(A.reachedN,A.unique), reachPctB=pct(B.reachedN,B.unique);
+  const calledPct=pct(A.calledN,A.unique), calledPctB=pct(B.calledN,B.unique);
+
+  document.getElementById('cb-cards').innerHTML =
+    mcard({label:'Missed Numbers', value:fmtN(A.unique), cur:A.unique, prev:B.unique, dir:'bad',
+           color:'var(--muted)', onClick:openList('Missed Numbers',A.rows)}) +
+    mcard({label:'Called Back', value:calledPct, suffix:'%', cur:calledPct, prev:calledPctB, dir:'good', isPct:true,
+           color:'var(--brand)', onClick:openList('Called Back',A.called)}) +
+    mcard({label:'Reached', value:reachPct, suffix:'%', cur:reachPct, prev:reachPctB, dir:'good', isPct:true,
+           color:'var(--good)', onClick:openList('Reached',A.reached)}) +
+    mcard({label:'Not Reached', value:fmtN(A.notReached.length), cur:A.notReached.length, prev:B.notReached.length, dir:'bad',
+           color:'var(--bad)', onClick:openList('Not Reached — attempts since last miss',A.notReached)}) +
+    mcard({label:'No Attempt Yet', value:fmtN(A.noAttempt.length), cur:A.noAttempt.length, prev:B.noAttempt.length, dir:'bad',
+           color:'var(--warn)', onClick:openList('No Callback Since Last Miss',A.noAttempt)}) +
+    mcard({label:'Avg Attempts', value:A.avgAtt, cur:A.avgAtt, prev:B.avgAtt, dir:'good', color:'var(--brand-2)'});
+  wireCards(document.getElementById('cb-cards'));
+
+  // ── funnel ──
+  const stages=[
+    {name:'Missed numbers', n:A.unique,            color:cv('var(--muted)'), rows:A.rows},
+    {name:'Called back',    n:A.calledN,           color:cv('var(--brand)'), rows:A.called},
+    {name:'Reached',        n:A.reachedN,          color:cv('var(--good)'),  rows:A.reached},
+    {name:'Still not reached', n:A.notReached.length, color:cv('var(--bad)'), rows:A.notReached},
+  ];
+  const base=Math.max(1,A.unique);
+  document.getElementById('cb-funnel').innerHTML='<div class="funnel">'+stages.map((s,i)=>
+    `<div class="fstage" data-fs="${i}">
+      <span class="f-name">${s.name}</span>
+      <span class="f-track"><span class="f-fill" style="width:${Math.max(2,s.n/base*100)}%;background:${s.color}">${s.n/base>0.12?fmtN(s.n):''}</span></span>
+      <span class="f-side"><b>${fmtN(s.n)}</b> · ${pct(s.n,base)}%</span>
+    </div>`).join('')+'</div>';
+  document.getElementById('cb-funnel').querySelectorAll('[data-fs]').forEach(el=>{
+    const s=stages[+el.dataset.fs]; el.onclick=openList(s.name,s.rows); });
+
+  // ── speed of first callback: 10-min steps inside hour 1, then coarser ──
+  const SPEED=[
+    {label:'0–10m',  test:g=>g<10},
+    {label:'10–20m', test:g=>g>=10&&g<20},
+    {label:'20–30m', test:g=>g>=20&&g<30},
+    {label:'30–45m', test:g=>g>=30&&g<45},
+    {label:'45–60m', test:g=>g>=45&&g<60},
+    {label:'1–4h',   test:g=>g>=60&&g<240},
+    {label:'4–24h',  test:g=>g>=240&&g<1440},
+    {label:'1d+',    test:g=>g>=1440},
+  ];
+  const withGap=A.called.filter(o=>o.gapMin!=null);
+  const speedN=SPEED.map(s=>withGap.filter(o=>s.test(o.gapMin)).length);
+  const within1h=withGap.filter(o=>o.gapMin<60).length;
+  makeChart('cb-speed-chart',{type:'bar',
+    data:{labels:SPEED.map(s=>s.label),
+      datasets:[{data:speedN,
+        backgroundColor:SPEED.map((s,i)=>i<5?cv('var(--good)'):cv('var(--faint)')),
+        borderRadius:5,borderSkipped:false,barPercentage:.78}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},datalabels:{display:false},
+        tooltip:{callbacks:{label:it=>` ${fmtN(it.parsed.y)} numbers · ${pct(it.parsed.y,withGap.length)}% of called back`}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:10.5}}},
+              y:{beginAtZero:true,grid:{color:cv('var(--line)')},ticks:{precision:0,font:{size:10.5}}}}}});
+  document.querySelector('#cb-speed-chart').closest('.card').querySelector('.card-note').innerHTML =
+    `First callback after the miss. <b>${pct(within1h,withGap.length)}%</b> went out inside the first hour (green bars).`;
+
+  // ── connect rate by attempt number ──
+  const MAXA=6;
+  const buckets=Array.from({length:MAXA},(_,i)=>i+1);
+  const atN=buckets.map(k=> k<MAXA ? A.called.filter(o=>o.attempts===k) : A.called.filter(o=>o.attempts>=MAXA));
+  const atReach=atN.map(g=>g.filter(o=>o.reached).length);
+  makeChart('cb-attempt-chart',{type:'bar',
+    data:{labels:buckets.map(k=>k<MAXA?`${k}`:`${MAXA}+`),
+      datasets:[
+        {label:'Reached',data:atReach,backgroundColor:cv('var(--good)'),borderRadius:5,borderSkipped:false,stack:'s'},
+        {label:'Not reached',data:atN.map((g,i)=>g.length-atReach[i]),backgroundColor:cv('var(--bad-soft)'),borderRadius:5,borderSkipped:false,stack:'s'}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},datalabels:{display:false},
+        tooltip:{callbacks:{afterBody:it=>{const i=it[0].dataIndex;
+          return `Connect rate ${pct(atReach[i],atN[i].length)}%`;}}}},
+      scales:{x:{stacked:true,grid:{display:false},title:{display:true,text:'callback attempts made',font:{size:10.5}},ticks:{font:{size:10.5}}},
+              y:{stacked:true,beginAtZero:true,grid:{color:cv('var(--line)')},ticks:{precision:0,font:{size:10.5}}}}}});
+}
+const PRODUCTS=[{key:'AM',label:'AM',color:'var(--am)'},
+                {key:'VO',label:'VO',color:'var(--vo)'},
+                {key:'OD',label:'OD',color:'var(--od)'}];
+const INTENTS=[{key:'New',label:'New',color:'var(--new)'},
+               {key:'Existing',label:'Existing',color:'var(--exist)'},
+               {key:'Query',label:'Query',color:'var(--query)'}];
+const LEAD_COLS=[
+  {key:'cn',label:'Phone',type:'str',get:r=>r.cn},
+  {key:'when',label:'When',type:'str',get:r=>r.when},
+  {key:'prod',label:'Product',type:'str',get:r=>r.pr},
+  {key:'intent',label:'Intent',type:'str',get:r=>r.ct||'—'},
+  {key:'agent',label:'Agent',type:'str',get:r=>r.ag||'—'},
+];
+const leadRows = arr => arr.map(r=>({cn:r.cn||'—', when:`${_dm(r.d)} ${fmtTime(r.ti)}`,
+  pr:r.pr, ct:r.ct, ag:r.ag, _s:r.d+r.ti})).sort((a,b)=>a._s<b._s?1:-1);
+
+function leadStats(from,to){
+  const leads=recsIn(from,to).filter(r=>r.st==='answered' && PRODUCTS.some(p=>p.key===r.pr));
+  const byProd={}; PRODUCTS.forEach(p=>byProd[p.key]=leads.filter(r=>r.pr===p.key));
+  const newN=leads.filter(r=>r.ct==='New').length;
+  return {leads, byProd, total:leads.length, newN,
+    newShare:pct(newN,leads.length)};
+}
+
+let LD_PROD=null;   // null = All
+function renderLeads(p){
+  const A=leadStats(p.from,p.to), B=leadStats(p.prevFrom,p.prevTo);
+  _cardHandlers={}; const cv=cssVar;
+
+  document.getElementById('ld-cards').innerHTML =
+    mcard({label:'Leads Disposed', value:fmtN(A.total), cur:A.total, prev:B.total, dir:'good',
+           color:'var(--brand)', onClick:()=>openModal('Leads Disposed',leadRows(A.leads),LEAD_COLS)}) +
+    mcard({label:'New Leads', value:fmtN(A.newN), cur:A.newN, prev:B.newN, dir:'good',
+           color:'var(--new)', onClick:()=>openModal('New Leads',leadRows(A.leads.filter(r=>r.ct==='New')),LEAD_COLS)}) +
+    mcard({label:'New Share', value:A.newShare, suffix:'%', cur:A.newShare, prev:B.newShare, dir:'good', isPct:true,
+           color:'var(--new)'}) +
+    PRODUCTS.map(pr=>mcard({label:pr.label+' Leads', value:fmtN(A.byProd[pr.key].length),
+      cur:A.byProd[pr.key].length, prev:B.byProd[pr.key].length, dir:'good', color:pr.color,
+      onClick:()=>openModal(pr.label+' Leads',leadRows(A.byProd[pr.key]),LEAD_COLS)})).join('');
+  wireCards(document.getElementById('ld-cards'));
+
+  // ── leads over time ──
+  chipGroup(document.getElementById('ld-chips'),
+    PRODUCTS.map(pr=>({key:pr.key,label:pr.label,color:cv(pr.color)})), LD_PROD,
+    k=>{ LD_PROD=(LD_PROD===k?null:k); renderLeads(p); });
+
+  const single=p.from===p.to;
+  const buckets = single ? Array.from({length:24},(_,h)=>h) : [...new Set(recsIn(p.from,p.to).map(r=>r.d))].sort();
+  const labelOf = b => single ? (b===0?'12a':b<12?b+'a':b===12?'12p':(b-12)+'p') : [_dowOf(b),_dm(b)];
+  const inB=(r,b)=> single ? r.h===b : r.d===b;
+  const shown = LD_PROD ? PRODUCTS.filter(x=>x.key===LD_PROD) : PRODUCTS;
+  makeChart('ld-trend-chart',{type:'bar',
+    data:{labels:buckets.map(labelOf), datasets:shown.map(pr=>({label:pr.label,
+      data:buckets.map(b=>A.byProd[pr.key].filter(r=>inB(r,b)).length),
+      backgroundColor:cv(pr.color), borderRadius:4, borderSkipped:false, barPercentage:.82, categoryPercentage:.86}))},
+    options:{responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},datalabels:{display:false}},
+      scales:{x:{stacked:true,grid:{display:false},ticks:{maxRotation:0,autoSkip:true,font:{size:10.5}}},
+              y:{stacked:true,beginAtZero:true,grid:{color:cv('var(--line)')},ticks:{precision:0,font:{size:10.5}}}}}});
+
+  // ── intent by product ──
+  makeChart('ld-intent-chart',{type:'bar',
+    data:{labels:PRODUCTS.map(pr=>pr.label),
+      datasets:INTENTS.map(it=>({label:it.label,
+        data:PRODUCTS.map(pr=>A.byProd[pr.key].filter(r=>r.ct===it.key).length),
+        backgroundColor:cv(it.color), borderRadius:4, borderSkipped:false, barPercentage:.7}))},
+    options:{responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:9,boxHeight:9,usePointStyle:true,
+        pointStyle:'circle',font:{size:11.5},padding:14}},datalabels:{display:false}},
+      scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:11.5}}},
+              y:{stacked:true,beginAtZero:true,grid:{color:cv('var(--line)')},ticks:{precision:0,font:{size:10.5}}}}}});
+
+  // ── product split rows ──
+  const maxP=Math.max(1,...PRODUCTS.map(pr=>A.byProd[pr.key].length));
+  document.getElementById('ld-split').innerHTML = PRODUCTS.map((pr,i)=>{
+    const n=A.byProd[pr.key].length;
+    return `<div class="brow" data-ld="${i}">
+      <span class="b-dot" style="background:${pr.color}"></span>
+      <span class="b-name">${pr.label}</span>
+      <span class="b-bar"><span class="b-fill" style="width:${n/maxP*100}%;background:${pr.color}"></span></span>
+      <span class="b-num tnum">${fmtN(n)}</span>
+      <span class="b-pct tnum">${pct(n,A.total)}%</span></div>`;}).join('');
+  document.getElementById('ld-split').querySelectorAll('[data-ld]').forEach(el=>{
+    const pr=PRODUCTS[+el.dataset.ld];
+    el.onclick=()=>openModal(pr.label+' Leads',leadRows(A.byProd[pr.key]),LEAD_COLS); });
+}
+// DID spam-risk thresholds (pickup rate): <30% = flagged risk, 30–40% = at risk
+const DID_BAD=30, DID_WARN=40;
+function didColor(rate){
+  if(rate==null) return null;
+  return rate<DID_BAD ? 'var(--bad)' : rate<DID_WARN ? 'var(--warn)' : 'var(--good)';
+}
+let AC_DIDFILTER=null;   // null = all DIDs, 'risk' = only at-risk
+
+function renderAction(p){
+  _cardHandlers={}; const cv=cssVar;
+  const out=recsIn(p.from,p.to).filter(r=>r.dr==='callback' && r.dd);
+  const days=[...new Set(out.map(r=>r.d))].sort();
+
+  // ── per-DID daily pickup ──
+  const dids={};
+  out.forEach(r=>{ const o=dids[r.dd]||(dids[r.dd]={dd:r.dd,tot:0,ans:0,day:{}});
+    o.tot++; if(r.st==='answered')o.ans++;
+    const d=o.day[r.d]||(o.day[r.d]={t:0,a:0}); d.t++; if(r.st==='answered')d.a++; });
+  let list=Object.values(dids).filter(o=>o.tot>=20);
+  list.forEach(o=>{ o.rate=pct(o.ans,o.tot);
+    o.riskDays=days.filter(d=>{const c=o.day[d]; return c&&c.t>=5&&pct(c.a,c.t)<DID_BAD;}).length; });
+  list.sort((a,b)=>a.rate-b.rate);
+  const atRisk=list.filter(o=>o.rate<DID_WARN);
+  const shown = AC_DIDFILTER==='risk' ? atRisk : list;
+
+  // cards
+  const cbStats=callbackStats(p.from,p.to);
+  const stuck=cbStats.notReached.filter(o=>o.attempts>=10);
+  const low=cbStats.notReached.filter(o=>o.attempts>0&&o.attempts<3);
+  const none=cbStats.noAttempt;
+  document.getElementById('ac-cards').innerHTML =
+    mcard({label:'Active DIDs', value:fmtN(list.length), cur:list.length, prev:list.length, dir:'good', color:'var(--brand)', bench:false}) +
+    mcard({label:'DIDs at Spam Risk', value:fmtN(atRisk.length), cur:atRisk.length, prev:atRisk.length, dir:'bad',
+           color:'var(--bad)', bench:false}) +
+    mcard({label:'No Callback Yet', value:fmtN(none.length), cur:none.length, prev:none.length, dir:'bad', color:'var(--warn)', bench:false,
+           onClick:()=>openModal('No Callback Since Last Miss',none,CB_COLS)}) +
+    mcard({label:'Under 3 Attempts', value:fmtN(low.length), cur:low.length, prev:low.length, dir:'bad', color:'var(--warn)', bench:false,
+           onClick:()=>openModal('Under 3 Attempts, Not Reached',low,CB_COLS)}) +
+    mcard({label:'10+ Attempts, Unreached', value:fmtN(stuck.length), cur:stuck.length, prev:stuck.length, dir:'bad',
+           color:'var(--bad)', bench:false, onClick:()=>openModal('10+ Attempts, Still Not Reached',stuck,CB_COLS)});
+  wireCards(document.getElementById('ac-cards'));
+
+  chipGroup(document.getElementById('ac-did-chips'),
+    [{key:'risk',label:`At risk (${atRisk.length})`,color:cv('var(--bad)')}], AC_DIDFILTER,
+    k=>{ AC_DIDFILTER=(AC_DIDFILTER===k?null:k); renderAction(p); });
+
+  // ── DID day grid ──
+  const box=document.getElementById('ac-did');
+  if(!shown.length){ box.innerHTML='<div class="empty">No outbound DIDs with enough calls in this period.</div>'; }
+  else{
+    const show=days.slice(-31);
+    box.innerHTML=`<table class="didgrid"><thead><tr><th class="did-h">Caller ID</th>
+      ${show.map(d=>`<th>${_pd(d).getDate()}</th>`).join('')}<th>Avg</th></tr></thead><tbody>
+      ${shown.map(o=>`<tr><td class="did-n" data-did="${o.dd}">${o.dd}</td>
+        ${show.map(d=>{const c=o.day[d];
+          if(!c||c.t<3) return `<td class="cell none">·</td>`;
+          const r=pct(c.a,c.t);
+          return `<td class="cell" style="background:${didColor(r)}" title="${_dm(d)} · ${c.a}/${c.t} answered">${r}</td>`;}).join('')}
+        <td class="did-avg" style="color:${didColor(o.rate)}">${o.rate}%</td></tr>`).join('')}
+      </tbody></table>`;
+    box.querySelectorAll('[data-did]').forEach(el=>{ const o=dids[el.dataset.did];
+      el.onclick=()=>openModal(`${o.dd} — daily pickup`,
+        Object.entries(o.day).sort((a,b)=>a[0]<b[0]?1:-1)
+          .map(([d,c])=>({day:`${_dowOf(d)} ${_dm(d)}`, dialed:c.t, ans:c.a, rate:pct(c.a,c.t)})),
+        [{key:'day',label:'Day',type:'str',get:r=>r.day},
+         {key:'dialed',label:'Dialed',type:'num',get:r=>r.dialed},
+         {key:'ans',label:'Answered',type:'num',get:r=>r.ans},
+         {key:'rate',label:'Pickup %',type:'num',get:r=>r.rate,fmt:v=>`${v}%`}]); });
+  }
+
+  // ── worklist ──
+  const work=[
+    {name:'No callback made yet', rows:none,  color:cv('var(--warn)'), note:'start these'},
+    {name:'1–2 attempts, unreached', rows:low, color:cv('var(--warn)'), note:'push to 3+'},
+    {name:'3–9 attempts, unreached', rows:cbStats.notReached.filter(o=>o.attempts>=3&&o.attempts<10), color:cv('var(--brand)'), note:'keep trying'},
+    {name:'10+ attempts, unreached', rows:stuck, color:cv('var(--bad)'), note:'likely unreachable'},
+  ];
+  const wMax=Math.max(1,...work.map(w=>w.rows.length));
+  document.getElementById('ac-work').innerHTML=work.map((w,i)=>
+    `<div class="brow" data-wk="${i}">
+      <span class="b-dot" style="background:${w.color}"></span>
+      <span class="b-name" style="min-width:186px">${w.name}</span>
+      <span class="b-bar"><span class="b-fill" style="width:${w.rows.length/wMax*100}%;background:${w.color}"></span></span>
+      <span class="b-num tnum">${fmtN(w.rows.length)}</span>
+      <span class="b-pct">${w.note}</span></div>`).join('');
+  document.getElementById('ac-work').querySelectorAll('[data-wk]').forEach(el=>{
+    const w=work[+el.dataset.wk]; el.onclick=()=>openModal(w.name,
+      w.rows.slice().sort((a,b)=>b.attempts-a.attempts),CB_COLS); });
+}
+// full metric set for one period — powers both the trend chart and the table
+function fullStats(from,to){
+  const s=statsFor(from,to), c=callbackStats(from,to), l=leadStats(from,to);
+  return {
+    total:s.total, answered:s.answered, ar:s.ar, arOff:s.arOff, perDay:s.perDay,
+    agentMissed:s.byType['Agent Missed'].length,
+    queueMissed:s.byType['Queue Missed - Within Hours'].length,
+    aohMissed:s.byType['Queue Missed - After Hours'].length,
+    uniqueMissed:c.unique, calledBack:pct(c.calledN,c.unique), reconnect:pct(c.reachedN,c.unique),
+    noAttempt:c.noAttempt.length, notReached:c.notReached.length, avgAtt:c.avgAtt,
+    leads:l.total, newLeads:l.newN, newShare:l.newShare,
+    AM:l.byProd.AM.length, VO:l.byProd.VO.length, OD:l.byProd.OD.length,
+  };
+}
+const TR_METRICS=[
+  {key:'total',    label:'Inbound calls', color:'var(--brand)'},
+  {key:'answered', label:'Answered',      color:'var(--good)'},
+  {key:'arOff',    label:'Answer rate 9–7',color:'var(--vo)', isPct:true, axis:'y1'},
+  {key:'reconnect',label:'Reconnection',  color:'var(--warn)', isPct:true, axis:'y1'},
+  {key:'leads',    label:'Leads',         color:'var(--new)'},
+];
+let TR_SERIES=null;
+
+function renderTrends(p){
+  const cv=cssVar;
+  // periods to compare: last N of whatever unit the top filter is on
+  const mode=FILTER.mode;
+  let periods;
+  if(mode==='monthly'){
+    periods=dataMonths().slice(0,8).reverse().map(m=>{const r=monthRange(m);
+      return {label:r.short, from:r.from, to:r.to, full:r.label};});
+  } else if(mode==='daily'){
+    const idx=allDates.indexOf(FILTER.date);
+    periods=allDates.slice(Math.max(0,idx-13), idx+1)
+      .map(d=>({label:_dm(d), from:d, to:d, full:`${_dowOf(d)} ${_dmy(d)}`}));
+  } else {
+    // weekly + custom both compare recent weeks
+    const wks=dataWeeks(); const anchor = mode==='weekly' ? FILTER.week : wks[0].from;
+    const i=Math.max(0,wks.findIndex(w=>w.from===anchor));
+    periods=wks.slice(i,i+8).reverse().map(w=>({label:'W'+w.week, from:w.from, to:w.to,
+      full:`Week ${w.week} · ${_dm(w.from)}–${_dm(w.to)}`}));
+  }
+  const unit = mode==='monthly'?'month' : mode==='daily'?'day' : 'week';
+  document.getElementById('tr-chart-title').textContent =
+    `Trend — last ${periods.length} ${unit}s`;
+  document.getElementById('tr-chart-note').textContent =
+    `Follows the mode you picked above. Click a metric to isolate it.`;
+
+  const stats=periods.map(pr=>fullStats(pr.from,pr.to));
+
+  chipGroup(document.getElementById('tr-chips'),
+    TR_METRICS.map(m=>({key:m.key,label:m.label,color:cv(m.color)})), TR_SERIES,
+    k=>{ TR_SERIES=(TR_SERIES===k?null:k); renderTrends(p); });
+
+  const shown = TR_SERIES ? TR_METRICS.filter(m=>m.key===TR_SERIES) : TR_METRICS;
+  const needsPctAxis = shown.some(m=>m.axis==='y1');
+  makeChart('tr-chart',{type:'line',
+    data:{labels:periods.map(x=>x.label), datasets:shown.map(m=>({label:m.label,
+      data:stats.map(s=>s[m.key]), borderColor:cv(m.color), backgroundColor:cv(m.color),
+      borderWidth:2.4, pointRadius:3, pointHoverRadius:6, tension:.35, fill:false,
+      yAxisID:m.axis||'y'}))},
+    options:{responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:!TR_SERIES,position:'bottom',
+        labels:{boxWidth:9,boxHeight:9,usePointStyle:true,pointStyle:'circle',font:{size:11.5},padding:14}},
+        datalabels:{display:false},
+        tooltip:{callbacks:{title:it=>periods[it[0].dataIndex].full}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:11}}},
+              y:{beginAtZero:true,grid:{color:cv('var(--line)')},ticks:{precision:0,font:{size:10.5}}},
+              y1:{display:needsPctAxis,position:'right',beginAtZero:true,max:100,
+                  grid:{drawOnChartArea:false},ticks:{font:{size:10.5},callback:v=>v+'%'}}}}});
+
+  // ── comparison table: current vs previous period ──
+  const A=fullStats(p.from,p.to), B=fullStats(p.prevFrom,p.prevTo);
+  document.getElementById('tr-tbl-title').textContent=`${p.label} vs ${p.prevLabel}`;
+  document.getElementById('tr-tbl-note').textContent=
+    `Every metric for the selected period, against the one before it.`;
+  const GROUPS=[
+    {name:'Volume & answer rate', rows:[
+      ['Inbound calls','total','good',false],['Answered','answered','good',false],
+      ['Answer rate — all hours','ar','good',true],['Answer rate — 9am–7pm','arOff','good',true],
+      ['Calls per day','perDay','good',false]]},
+    {name:'Missed', rows:[
+      ['Agent missed','agentMissed','bad',false],['Queue missed','queueMissed','bad',false],
+      ['After-hours missed','aohMissed','bad',false]]},
+    {name:'Callbacks', rows:[
+      ['Missed numbers','uniqueMissed','bad',false],['Called back','calledBack','good',true],
+      ['Reconnection rate','reconnect','good',true],['Avg attempts','avgAtt','good',false],
+      ['No callback yet','noAttempt','bad',false],['Still not reached','notReached','bad',false]]},
+    {name:'Leads', rows:[
+      ['Leads disposed','leads','good',false],['New leads','newLeads','good',false],
+      ['New share','newShare','good',true],
+      ['AM','AM','good',false],['VO','VO','good',false],['OD','OD','good',false]]},
+  ];
+  document.getElementById('tr-table').innerHTML=
+    `<table class="cmp"><thead><tr><th>Metric</th><th>${p.label}</th><th>${p.prevLabel}</th><th>Change</th></tr></thead><tbody>`+
+    GROUPS.map(g=>`<tr class="grouphead"><td colspan="4">${g.name}</td></tr>`+
+      g.rows.map(([label,key,dir,isPct])=>`<tr>
+        <td>${label}</td>
+        <td class="cur">${fmtN(A[key])}${isPct?'%':''}</td>
+        <td>${fmtN(B[key])}${isPct?'%':''}</td>
+        <td>${badge(A[key],B[key],dir,isPct)}</td></tr>`).join('')
+    ).join('')+`</tbody></table>`;
+}
 
 render();
 requestAnimationFrame(moveSegIndicator);   // ensure indicator sits right after layout
