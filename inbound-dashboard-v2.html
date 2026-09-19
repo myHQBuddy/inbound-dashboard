@@ -87,7 +87,16 @@ body{background:var(--bg);color:var(--ink);
 .pickzone{display:flex;align-items:center;padding:0 5px 0 4px;min-width:0}
 .pick{display:none;align-items:center;gap:7px;padding:0 4px}
 .pick.on{display:flex}
-.pick .p-ico{color:var(--brand);font-size:13px;line-height:1;flex-shrink:0}
+/* icon system: outline strokes + optional solid bits via .fill */
+svg.p-ico{width:15px;height:15px;flex-shrink:0;fill:none;stroke:var(--brand);
+  stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round}
+svg.p-ico .fill{fill:var(--brand);stroke:none;opacity:.85}
+.theme-btn svg{width:15px;height:15px;fill:none;stroke:var(--ink-2);stroke-width:1.3}
+.theme-btn svg .fill{fill:var(--ink-2);stroke:none}
+.theme-btn:hover{color:var(--ink);border-color:var(--line-2)}
+.modal-x svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round}
+svg.ar{width:9px;height:9px;fill:currentColor;stroke:none;flex-shrink:0}
+table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 .selctl,.datectl{font:600 13px Inter,sans-serif;padding:8px 10px;border:0;
   border-radius:9px;background:transparent;color:var(--ink);cursor:pointer;max-width:250px}
 .selctl:hover,.datectl:hover{background:var(--surface-2)}
@@ -199,7 +208,7 @@ table.dt tr:hover td{background:var(--surface-2)}
       </div>
     </div>
     <div class="spacer"></div>
-    <button class="theme-btn" id="theme-btn" title="Toggle theme">◐</button>
+    <button class="theme-btn" id="theme-btn" title="Toggle theme" aria-label="Toggle theme"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6a6.4 6.4 0 100 12.8A6.4 6.4 0 008 1.6z"/><path class="fill" d="M8 1.6a6.4 6.4 0 000 12.8V1.6z"/></svg></button>
   </div>
 </div>
 
@@ -213,11 +222,11 @@ table.dt tr:hover td{background:var(--surface-2)}
       <button data-mode="custom">Custom</button>
     </div>
     <div class="pickzone">
-      <div class="pick on" id="pick-daily"><span class="p-ico">📅</span><select class="selctl" id="sel-daily"></select></div>
-      <div class="pick" id="pick-weekly"><span class="p-ico">🗓</span><select class="selctl" id="sel-weekly"></select></div>
-      <div class="pick" id="pick-monthly"><span class="p-ico">🗓</span><select class="selctl" id="sel-monthly"></select></div>
-      <div class="pick" id="pick-custom"><span class="p-ico">📅</span>
-        <input type="date" class="datectl" id="cust-from"><span class="dash">→</span>
+      <div class="pick on" id="pick-daily"><svg class="p-ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3.2" width="12" height="11" rx="2"/><path d="M2 6.6h12M5.4 1.8v2.6M10.6 1.8v2.6"/><rect class="fill" x="4.6" y="8.6" width="2.4" height="2.4" rx=".6"/></svg><select class="selctl" id="sel-daily"></select></div>
+      <div class="pick" id="pick-weekly"><svg class="p-ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3.2" width="12" height="11" rx="2"/><path d="M2 6.6h12M5.4 1.8v2.6M10.6 1.8v2.6"/><rect class="fill" x="4" y="8.8" width="8" height="2.2" rx=".7"/></svg><select class="selctl" id="sel-weekly"></select></div>
+      <div class="pick" id="pick-monthly"><svg class="p-ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3.2" width="12" height="11" rx="2"/><path d="M2 6.6h12M5.4 1.8v2.6M10.6 1.8v2.6"/><rect class="fill" x="4" y="8.4" width="8" height="3.2" rx=".7"/></svg><select class="selctl" id="sel-monthly"></select></div>
+      <div class="pick" id="pick-custom"><svg class="p-ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3.2" width="12" height="11" rx="2"/><path d="M2 6.6h12M5.4 1.8v2.6M10.6 1.8v2.6"/></svg>
+        <input type="date" class="datectl" id="cust-from"><span class="dash">–</span>
         <input type="date" class="datectl" id="cust-to"></div>
     </div>
   </div>
@@ -243,7 +252,7 @@ table.dt tr:hover td{background:var(--surface-2)}
 <div class="modal" id="modal">
   <div class="modal-box">
     <div class="modal-head"><div class="modal-title" id="modal-title"></div>
-      <button class="modal-x" id="modal-x">✕</button></div>
+      <button class="modal-x" id="modal-x" aria-label="Close"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.4 4.4l7.2 7.2M11.6 4.4l-7.2 7.2"/></svg></button></div>
     <div class="modal-body" id="modal-body"></div>
   </div>
 </div>
@@ -328,18 +337,20 @@ function recsIn(from,to){ return REC.filter(r=>r.d>=from && r.d<=to); }
 //  CHANGE BADGE (replaces grey subtext)
 // ══════════════════════════════════════════════════════════════════════════════
 // dir='good' → up is good (green); 'bad' → up is bad (red). isPct → show "pts".
+const ARROW_UP   = '<svg class="ar" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.6l3.4 5.6H1.6z"/></svg>';
+const ARROW_DOWN = '<svg class="ar" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 8.4L1.6 2.8h6.8z"/></svg>';
+const ARROW_FLAT = '<svg class="ar" viewBox="0 0 10 10" aria-hidden="true"><rect x="1.6" y="4.3" width="6.8" height="1.4" rx=".7"/></svg>';
 function badge(av,bv,dir='good',isPct=false){
   const diff=av-bv; if(bv==null||av==null) return '';
-  if(diff===0) return `<span class="chg flat">→ 0${isPct?' pts':''}</span>`;
+  if(diff===0) return `<span class="chg flat">${ARROW_FLAT}0${isPct?' pts':''}</span>`;
   const up=diff>0;
   const good=(dir==='good')?up:!up;
   const cls=good?'up':'down';
-  const arrow=up?'▲':'▼';
   const tiny=!isPct && Math.abs(bv)<5;
   const txt=isPct?`${diff>0?'+':''}${diff} pts`
     : tiny?`${diff>0?'+':''}${diff}`
     : `${diff>0?'+':''}${bv?Math.round(diff/bv*100):100}%`;
-  return `<span class="chg ${cls}">${arrow} ${txt}</span>`;
+  return `<span class="chg ${cls}">${up?ARROW_UP:ARROW_DOWN}${txt}</span>`;
 }
 // benchmark placeholder pill — fill targets later
 function benchPill(){ return `<span class="bench"><span class="b-i"></span>target —</span>`; }
@@ -372,7 +383,7 @@ function renderModal(){ const {rows,cols,sortKey,sortDir}=_modal; const body=doc
     ord.sort((a,b)=>{ let va=c.get(a),vb=c.get(b);
       if(c.type==='num') return sortDir*((va||0)-(vb||0));
       return sortDir*String(va).localeCompare(String(vb)); }); }
-  body.innerHTML=`<table class="dt"><thead><tr>${cols.map(c=>`<th data-k="${c.key}">${c.label}${sortKey===c.key?(sortDir>0?' ▲':' ▼'):''}</th>`).join('')}</tr></thead>
+  body.innerHTML=`<table class="dt"><thead><tr>${cols.map(c=>`<th data-k="${c.key}">${c.label}${sortKey===c.key?(sortDir>0?ARROW_UP:ARROW_DOWN):''}</th>`).join('')}</tr></thead>
     <tbody>${ord.map(r=>`<tr>${cols.map(c=>`<td>${c.fmt?c.fmt(c.get(r)):c.get(r)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
   body.querySelectorAll('th').forEach(th=>th.onclick=()=>{ const k=th.dataset.k;
     if(_modal.sortKey===k)_modal.sortDir*=-1; else {_modal.sortKey=k;_modal.sortDir=1;} renderModal(); });
