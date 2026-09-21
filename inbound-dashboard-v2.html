@@ -278,10 +278,10 @@ table.didgrid td.cell.none{background:var(--surface-2);color:var(--faint);font-w
    content auto-size them — otherwise "Called back" ends up three times the
    width of "AOH" and the grid reads as ragged. */
 table.trend{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed}
-/* 13% + (10 x 6%) + (3 x 9.33%) = 100% */
+/* 13% + (11 x 6.2%) + (2 x 9.4%) = 100% */
 table.trend col.c-per{width:13%}                 /* period label */
-table.trend col.c-num{width:6%}                  /* plain numeric columns */
-table.trend col.c-wide{width:9.33%}              /* columns carrying a (sub) count */
+table.trend col.c-num{width:6.2%}                /* plain numeric columns */
+table.trend col.c-wide{width:9.4%}               /* columns carrying a (sub) count */
 /* Everything centred: with fixed, equal columns the header and its numbers
    share one axis, so the grid reads as a grid rather than three alignments. */
 table.trend th{text-align:center;padding:9px 6px;font-size:10px;text-transform:uppercase;
@@ -1357,15 +1357,16 @@ function fullStats(from,to){
     AM:l.byProd.AM.length, VO:l.byProd.VO.length, OD:l.byProd.OD.length,
   };
 }
-// Columns of the Trend Comparison table. `sub` renders a secondary count in
-// brackets next to a percentage, the way the reference layout shows it.
+// Columns of the Trend Comparison table. A bracketed sub-count is only shown
+// where it adds something no other column carries: the denominator behind
+// "Called", and the new-lead count behind "New".
 // Headers are kept terse so all 14 columns fit without horizontal scroll —
 // the "%" suffix is dropped since every value in those cells already shows one.
 // `title` carries the full wording on hover.
 const TR_COLS=[
   {label:'Inbound',      title:'Total inbound calls',            get:s=>fmtN(s.total), big:true},
   {label:'Ans',          title:'Answered calls',                 get:s=>fmtN(s.answered)},
-  {label:'AR',           title:'Answer rate (all hours)', wide:true, get:s=>`${s.ar}%<span class="sub">(${fmtN(s.answered)})</span>`},
+  {label:'AR',           title:'Answer rate (all hours)', get:s=>`${s.ar}%`},
   {label:'AR 9–7',       title:'Answer rate, working hours 9am–7pm', get:s=>`${s.arOff}%`},
   {label:'Missed',       title:'Total missed calls',             get:s=>fmtN(s.agentMissed+s.queueMissed+s.aohMissed)},
   {label:'Agent',        title:'Agent missed — rang, not picked up', get:s=>fmtN(s.agentMissed)},
