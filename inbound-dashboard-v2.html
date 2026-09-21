@@ -24,6 +24,8 @@
   /* Volume chart: answered is a quiet base so the eye goes to the misses,
      which ramp by severity rather than being four unrelated hues. */
   --v-ans:#128a63; --v-agent:#d4504f; --v-queue:#e8a33d; --v-aoh:#b9c0d1;
+  /* caller-intent bars: one considered trio rather than three loud hues */
+  --i-new:#5b52c9; --i-exist:#128a63; --i-query:#e8a33d;
   --shadow-sm:0 1px 2px rgba(19,26,46,.06);
   --shadow:0 2px 4px rgba(19,26,46,.05),0 10px 26px -14px rgba(19,26,46,.20);
   --r:14px; --r-sm:10px;
@@ -38,6 +40,7 @@
   --am:#7b81ff; --vo:#3fd18c; --od:#f2b45a;
   --new:#a982f7; --exist:#3fd18c; --query:#f2b45a;
   --v-ans:#1aa377; --v-agent:#e0697a; --v-queue:#e8a963; --v-aoh:#59617d;
+  --i-new:#8b83f0; --i-exist:#1aa377; --i-query:#e8a963;
   --shadow-sm:0 1px 2px rgba(0,0,0,.3);
   --shadow:0 2px 4px rgba(0,0,0,.3),0 12px 30px -14px rgba(0,0,0,.6);
 }}
@@ -51,6 +54,7 @@
   --am:#7b81ff; --vo:#3fd18c; --od:#f2b45a;
   --new:#a982f7; --exist:#3fd18c; --query:#f2b45a;
   --v-ans:#1aa377; --v-agent:#e0697a; --v-queue:#e8a963; --v-aoh:#59617d;
+  --i-new:#8b83f0; --i-exist:#1aa377; --i-query:#e8a963;
   --shadow-sm:0 1px 2px rgba(0,0,0,.3);
   --shadow:0 2px 4px rgba(0,0,0,.3),0 12px 30px -14px rgba(0,0,0,.6);
 }
@@ -428,7 +432,9 @@ table.dt tr:hover td{background:var(--surface-2)}
         <div class="card-title">Leads Over Time</div>
         <div class="chips" id="ld-chips"></div>
       </div>
-      <div class="card-note">Dispositioned leads by product. Pick a product to isolate it.</div>
+      <!-- weekday narrowing: drop the days you don't want on the line -->
+      <div class="dow-bar" id="ld-dow"></div>
+      <div class="card-note" id="ld-note">Dispositioned leads per day by product. Dashed lines are each product's average over the shown days.</div>
       <div class="chart-wrap tall"><canvas id="ld-trend-chart"></canvas></div>
     </div>
     <div class="row2">
@@ -496,6 +502,7 @@ const TR_FLOOD = new Set(['+918031451096']);   // robodialer, excluded everywher
 const REC = ALL.filter(r => !TR_FLOOD.has(r.cn));
 const MONTH_NM = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DOW3 = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const DOW_ORDER = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];   // week starts Mon for UI
 
 const fmtN = n => n==null ? '—' : Math.round(n).toLocaleString('en-IN');
 const pct = (a,b) => b ? Math.round(a/b*100) : 0;
@@ -1214,7 +1221,25 @@ function leadStats(from,to){
     newShare:pct(newN,leads.length)};
 }
 
-let LD_PROD=null;   // null = All
+let LD_PROD=null;            // null = All (product chips above the chart)
+const LD_DOW=new Set();      // empty = every weekday; else only these on the line
+// Weekday toggles for the leads line. Hidden on a single-day view, where the
+// x-axis is hours and a weekday filter would mean nothing.
+function renderLdDowBar(p, single){
+  const bar=document.getElementById('ld-dow');
+  if(single){ bar.style.display='none'; return; }
+  bar.style.display='flex';
+  const mk=(k,l,on)=>`<button class="dow${on?' on':''}" data-d="${k==null?'':k}">${l}</button>`;
+  bar.innerHTML=`<span class="dow-lbl">Days</span>`+mk(null,'All',LD_DOW.size===0)+
+    DOW_ORDER.map(d=>mk(d,d,LD_DOW.has(d))).join('');
+  bar.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    const v=b.dataset.d||null;
+    if(v==null) LD_DOW.clear();
+    else if(LD_DOW.has(v)) LD_DOW.delete(v);
+    else LD_DOW.add(v);
+    renderLeads(p);
+  });
+}
 function renderLeads(p){
   const A=leadStats(p.from,p.to), B=leadStats(p.prevFrom,p.prevTo);
   _cardHandlers={}; const cv=cssVar;
@@ -1237,32 +1262,84 @@ function renderLeads(p){
     k=>{ LD_PROD=(LD_PROD===k?null:k); renderLeads(p); });
 
   const single=p.from===p.to;
-  const buckets = single ? Array.from({length:24},(_,h)=>h) : [...new Set(recsIn(p.from,p.to).map(r=>r.d))].sort();
+  // Weekday toggles: drop whole days from the series so a weekday pattern
+  // (or a weekend dip) can be excluded rather than distorting the averages.
+  renderLdDowBar(p, single);
   const labelOf = b => single ? (b===0?'12a':b<12?b+'a':b===12?'12p':(b-12)+'p') : [_dowOf(b),_dm(b)];
   const inB=(r,b)=> single ? r.h===b : r.d===b;
+  let buckets = single ? Array.from({length:24},(_,h)=>h)
+                       : [...new Set(recsIn(p.from,p.to).map(r=>r.d))].sort();
+  if(!single && LD_DOW.size) buckets = buckets.filter(d=>LD_DOW.has(_dowOf(d)));
   const shown = LD_PROD ? PRODUCTS.filter(x=>x.key===LD_PROD) : PRODUCTS;
-  makeChart('ld-trend-chart',{type:'bar',
-    data:{labels:buckets.map(labelOf), datasets:shown.map(pr=>({label:pr.label,
-      data:buckets.map(b=>A.byProd[pr.key].filter(r=>inB(r,b)).length),
-      backgroundColor:cv(pr.color), borderRadius:4, borderSkipped:false, barPercentage:.82, categoryPercentage:.86}))},
+
+  // Per-product series plus a dashed average line for each, so every point can
+  // be read against that product's own baseline rather than a shared one.
+  const series = shown.map(pr=>{
+    const data=buckets.map(b=>A.byProd[pr.key].filter(r=>inB(r,b)).length);
+    const mean=data.length?data.reduce((a,v)=>a+v,0)/data.length:0;
+    return {pr, data, mean:Math.round(mean)};
+  });
+  const sets=[];
+  series.forEach(s=>{
+    sets.push({label:s.pr.label, data:s.data, borderColor:cv(s.pr.color),
+      backgroundColor:cv(s.pr.color), borderWidth:2.2, tension:.35,
+      pointRadius:buckets.length>45?0:3, pointHoverRadius:5,
+      pointBackgroundColor:cv('var(--surface)'), pointBorderColor:cv(s.pr.color),
+      pointBorderWidth:2, fill:false, order:1});
+    // flat reference line at this product's mean
+    sets.push({label:`${s.pr.label} avg`, data:buckets.map(()=>s.mean),
+      borderColor:cv(s.pr.color), borderWidth:1.2, borderDash:[5,4],
+      pointRadius:0, pointHoverRadius:0, fill:false, tension:0, order:2, isAvg:true});
+  });
+  makeChart('ld-trend-chart',{type:'line',
+    data:{labels:buckets.map(labelOf), datasets:sets},
     options:{responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
-      plugins:{legend:{display:false},datalabels:{display:false}},
-      scales:{x:{stacked:true,grid:{display:false},ticks:{maxRotation:0,autoSkip:true,font:{size:10.5}}},
-              y:{stacked:true,beginAtZero:true,grid:{color:cv('var(--line)')},ticks:{precision:0,font:{size:10.5}}}}}});
+      plugins:{legend:{display:false},datalabels:{display:false},
+        tooltip:{filter:it=>!it.dataset.isAvg,      // averages aren't per-point facts
+          callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y}`}}},
+      scales:{x:{grid:{display:false},border:{display:false},
+                 ticks:{maxRotation:0,autoSkip:true,autoSkipPadding:12,
+                        color:cv('var(--muted)'),font:{size:10.5},padding:4}},
+              y:{beginAtZero:true,border:{display:false},
+                 grid:{color:cv('var(--line)'),drawTicks:false},
+                 ticks:{precision:0,maxTicksLimit:6,color:cv('var(--muted)'),
+                        font:{size:10.5},padding:8}}}}});
+  document.getElementById('ld-note').textContent =
+    (single ? 'Dispositioned leads by hour for the selected day. '
+            : 'Dispositioned leads per day by product. Dashed lines are each product\'s average over the shown days. ')
+    + (LD_DOW.size ? `Showing ${[...LD_DOW].join(', ')} only.` : '');
 
   // ── intent by product ──
+  // Same treatment as the volume chart: share printed inside each segment, the
+  // product total above the bar, and no y-axis once both are on the chart.
+  const intTot = PRODUCTS.map(pr=>A.byProd[pr.key].length);
+  const intMax = Math.max(1,...intTot);
+  const I_COL={New:'var(--i-new)',Existing:'var(--i-exist)',Query:'var(--i-query)'};
+  const intSets = INTENTS.map((it,i)=>({label:it.label,
+    data:PRODUCTS.map(pr=>A.byProd[pr.key].filter(r=>r.ct===it.key).length),
+    backgroundColor:cv(I_COL[it.key]||it.color), borderSkipped:false,
+    borderRadius:i===INTENTS.length-1?{topLeft:3,topRight:3}:0,
+    barPercentage:.62, categoryPercentage:.9,
+    datalabels:{display:ctx=>{const v=ctx.dataset.data[ctx.dataIndex];
+        return v>0 && (v/intMax)>=.08; },
+      color:'#fff', font:{size:10.5,weight:'700'},
+      formatter:(v,ctx)=>{const t=intTot[ctx.dataIndex]; return t?Math.round(v/t*100)+'%':'';}}}));
+  intSets[intSets.length-1].datalabels={labels:{
+    share:intSets[intSets.length-1].datalabels,
+    total:{display:ctx=>intTot[ctx.dataIndex]>0, anchor:'end', align:'end',
+      offset:3, clamp:true, color:cv('var(--ink-2)'), font:{size:10.5,weight:'700'},
+      formatter:(v,ctx)=>fmtN(intTot[ctx.dataIndex])}}};
   makeChart('ld-intent-chart',{type:'bar',
-    data:{labels:PRODUCTS.map(pr=>pr.label),
-      datasets:INTENTS.map(it=>({label:it.label,
-        data:PRODUCTS.map(pr=>A.byProd[pr.key].filter(r=>r.ct===it.key).length),
-        backgroundColor:cv(it.color), borderRadius:4, borderSkipped:false, barPercentage:.7}))},
+    data:{labels:PRODUCTS.map(pr=>pr.label), datasets:intSets},
     options:{responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
-      plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:9,boxHeight:9,usePointStyle:true,
-        pointStyle:'circle',font:{size:11.5},padding:14}},datalabels:{display:false}},
-      scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:11.5}}},
-              y:{stacked:true,beginAtZero:true,grid:{color:cv('var(--line)')},ticks:{precision:0,font:{size:10.5}}}}}});
+      layout:{padding:{top:16}},
+      plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:8,boxHeight:8,usePointStyle:true,
+        pointStyle:'circle',font:{size:11.5},padding:14,color:cv('var(--muted)')}}},
+      scales:{x:{stacked:true,grid:{display:false},border:{display:false},
+                 ticks:{font:{size:11.5},color:cv('var(--ink-2)'),padding:4}},
+              y:{stacked:true,beginAtZero:true,display:false,grace:'10%'}}}});
 
   // ── product split rows ──
   const maxP=Math.max(1,...PRODUCTS.map(pr=>A.byProd[pr.key].length));
@@ -1404,7 +1481,6 @@ const TR_COLS=[
 ];
 let TR_GROUP='day';
 let TR_DOW=null;                 // null = every day; else 'Mon'…'Sun'
-const DOW_ORDER=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
 // Self-contained: own Day/Week/Month grouping, every period newest-first,
 // all metrics as columns. Deliberately ignores the global filter.
