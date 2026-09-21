@@ -178,6 +178,18 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 .chip:hover{color:var(--ink);background:var(--surface-2)}
 .chip.on{color:var(--ink);background:var(--surface-2);border-color:var(--line-2)}
 .chip .c-dot{width:8px;height:8px;border-radius:2px;opacity:.45;transition:.12s}
+
+/* weekday selector in Trend Comparison */
+.dow-bar{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:-4px 0 12px}
+.dow-lbl{font-size:11.5px;font-weight:600;color:var(--muted);margin-right:3px}
+.dow{border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);
+  font:600 11.5px Inter,sans-serif;padding:4px 10px;border-radius:7px;cursor:pointer;transition:.12s}
+.dow:hover{border-color:var(--brand);color:var(--brand)}
+.dow.on{background:var(--brand);border-color:var(--brand);color:#fff}
+/* pinned average row when a single weekday is isolated */
+table.trend tr.avg-row td{background:var(--brand-soft);font-weight:700;
+  border-bottom:1px solid var(--line-2)}
+table.trend tr.avg-row td:first-child{color:var(--brand)}
 .chip.on .c-dot,.chip:hover .c-dot{opacity:1}
 
 .card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
@@ -449,7 +461,9 @@ table.dt tr:hover td{background:var(--surface-2)}
           <button data-g="month">Month</button>
         </div>
       </div>
-      <div class="card-note">Every period, newest first. This table has its own grouping and ignores the filter above.</div>
+      <!-- day-of-week narrowing: only meaningful for the Day grouping -->
+      <div class="dow-bar" id="tr-dow"></div>
+      <div class="card-note" id="tr-note">Every period, newest first. This table has its own grouping and ignores the filter above.</div>
       <div style="overflow-x:auto" id="tr-table"></div>
     </div>
   </div>
@@ -1348,6 +1362,8 @@ const TR_COLS=[
   {label:'New leads %',        get:s=>`${s.newShare}%<span class="sub">(${fmtN(s.newLeads)})</span>`},
 ];
 let TR_GROUP='day';
+let TR_DOW=null;                 // null = every day; else 'Mon'…'Sun'
+const DOW_ORDER=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
 // Self-contained: own Day/Week/Month grouping, every period newest-first,
 // all metrics as columns. Deliberately ignores the global filter.
@@ -1356,20 +1372,66 @@ function trendPeriods(group){
     return dataMonths().map(m=>{const r=monthRange(m); return {label:r.label, from:r.from, to:r.to};});
   if(group==='week')
     return dataWeeks().map(w=>({label:`${_dm(w.from)} – ${_dm(w.to)}`, sub:`W${w.week}`, from:w.from, to:w.to}));
-  return allDates.slice().reverse().map(d=>({label:_dmy(d), sub:_dowOf(d), from:d, to:d}));
+  // Day grouping, optionally narrowed to one weekday so a single day can be
+  // compared across the dataset (every Monday, every Tuesday, …).
+  let ds=allDates.slice().reverse();
+  if(TR_DOW) ds=ds.filter(d=>_dowOf(d)===TR_DOW);
+  return ds.map(d=>({label:_dmy(d), sub:_dowOf(d), from:d, to:d}));
 }
-let _trRendered=null;   // caches which grouping is currently drawn
+// Weekday selector — shown only for the Day grouping, where it means something.
+function renderDowBar(){
+  const bar=document.getElementById('tr-dow');
+  if(TR_GROUP!=='day'){ bar.style.display='none'; return; }
+  bar.style.display='flex';
+  const mk=(key,label)=>{
+    const on = TR_DOW===key;
+    return `<button class="dow${on?' on':''}" data-d="${key==null?'':key}">${label}</button>`;
+  };
+  bar.innerHTML=`<span class="dow-lbl">Compare</span>`+mk(null,'All days')+
+    DOW_ORDER.map(d=>mk(d,d)).join('');
+  bar.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    const v=b.dataset.d||null;
+    TR_DOW = (TR_DOW===v) ? null : v;      // clicking the active one clears it
+    _trRendered=null; renderTrends();
+  });
+}
+let _trRendered=null;   // caches which grouping+weekday is currently drawn
 function renderTrends(){
-  if(_trRendered===TR_GROUP) { moveTrSeg(); return; }   // table ignores the global filter
-  _trRendered=TR_GROUP;
+  const key=TR_GROUP+'|'+(TR_DOW||'');
+  if(_trRendered===key) { moveTrSeg(); return; }   // table ignores the global filter
+  _trRendered=key;
+  renderDowBar();
   const periods=trendPeriods(TR_GROUP);
   const rows=periods.map(pr=>({pr, s:fullStats(pr.from,pr.to)}));
+  // When one weekday is isolated, an average row makes the comparison useful —
+  // you want to know whether a given Monday is above or below a typical one.
+  const avg = (TR_GROUP==='day' && TR_DOW && rows.length>1) ? (()=>{
+    const n=rows.length, sum=k=>rows.reduce((a,{s})=>a+(s[k]||0),0);
+    const t=sum('total'), a=sum('answered'), u=sum('uniqueMissed');
+    return {total:Math.round(t/n), answered:Math.round(a/n), ar:pct(a,t),
+      arOff:Math.round(sum('arOff')/n), perDay:Math.round(t/n),
+      agentMissed:Math.round(sum('agentMissed')/n),
+      queueMissed:Math.round(sum('queueMissed')/n),
+      aohMissed:Math.round(sum('aohMissed')/n),
+      uniqueMissed:Math.round(u/n),
+      calledBack:Math.round(sum('calledBack')/n), reconnect:Math.round(sum('reconnect')/n),
+      notReached:Math.round(sum('notReached')/n),
+      leads:Math.round(sum('leads')/n), newLeads:Math.round(sum('newLeads')/n),
+      newShare:Math.round(sum('newShare')/n)};
+  })() : null;
   document.getElementById('tr-table').innerHTML=
     `<table class="trend"><thead><tr><th>Period</th>${TR_COLS.map(c=>`<th>${c.label}</th>`).join('')}</tr></thead>
-     <tbody>${rows.map(({pr,s})=>`<tr>
+     <tbody>${avg?`<tr class="avg-row">
+        <td>${TR_DOW} average<span class="sub">${rows.length} ${TR_DOW}s</span></td>
+        ${TR_COLS.map(c=>`<td${c.big?' class="big"':''}>${c.get(avg)}</td>`).join('')}
+      </tr>`:''}
+      ${rows.map(({pr,s})=>`<tr>
         <td>${pr.label}${pr.sub?`<span class="sub">${pr.sub}</span>`:''}</td>
         ${TR_COLS.map(c=>`<td${c.big?' class="big"':''}>${c.get(s)}</td>`).join('')}
       </tr>`).join('')}</tbody></table>`;
+  document.getElementById('tr-note').textContent = TR_DOW
+    ? `Every ${TR_DOW} in the data, newest first, with the ${TR_DOW} average pinned on top. This table ignores the filter above.`
+    : 'Every period, newest first. This table has its own grouping and ignores the filter above.';
   moveTrSeg();
 }
 function moveTrSeg(){
@@ -1379,7 +1441,9 @@ function moveTrSeg(){
 }
 document.querySelectorAll('#tr-seg button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#tr-seg button').forEach(x=>x.classList.remove('on'));
-  b.classList.add('on'); TR_GROUP=b.dataset.g; _trRendered=null; renderTrends();
+  b.classList.add('on'); TR_GROUP=b.dataset.g;
+  if(TR_GROUP!=='day') TR_DOW=null;      // weekday narrowing only applies to Day
+  _trRendered=null; renderTrends();
 });
 
 render();
