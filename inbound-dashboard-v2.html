@@ -218,6 +218,26 @@ table.didgrid td.cell{width:30px;height:26px;text-align:center;border-radius:6px
 table.didgrid td.cell.none{background:var(--surface-2);color:var(--faint);font-weight:500}
 .did-avg{font-weight:700;font-size:12px;padding-left:8px;white-space:nowrap}
 
+/* small segmented control (in-card) */
+.seg.seg-sm{border:1px solid var(--line);border-radius:10px;padding:3px;background:var(--surface-2)}
+.seg.seg-sm button{padding:6px 14px;font-size:12.5px}
+.seg.seg-sm .seg-ind{top:3px;bottom:3px}
+
+/* trend comparison table */
+table.trend{width:100%;border-collapse:collapse;font-size:13px;min-width:820px}
+table.trend th{text-align:right;padding:10px 14px;font-size:10.5px;text-transform:uppercase;
+  letter-spacing:.05em;color:var(--muted);background:var(--surface-2);white-space:nowrap;
+  border-bottom:1px solid var(--line-2);position:sticky;top:0;z-index:1}
+table.trend th:first-child{text-align:left;border-top-left-radius:9px}
+table.trend th:last-child{border-top-right-radius:9px}
+table.trend td{padding:11px 14px;text-align:right;border-bottom:1px solid var(--line);
+  color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+table.trend td:first-child{text-align:left;color:var(--ink);font-weight:700}
+table.trend tbody tr:hover td{background:var(--surface-2)}
+table.trend tbody tr:last-child td{border-bottom:0}
+table.trend .sub{color:var(--muted);font-size:11.5px;margin-left:5px}
+table.trend .big{color:var(--ink);font-weight:700}
+
 /* comparison table */
 table.cmp{width:100%;border-collapse:collapse;font-size:13px}
 table.cmp th{text-align:right;padding:9px 14px;font-size:10.5px;text-transform:uppercase;
@@ -382,17 +402,17 @@ table.dt tr:hover td{background:var(--surface-2)}
     </div>
   </div>
   <div class="panel" id="panel-trends">
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-h">
-        <div class="card-title" id="tr-chart-title">Trend</div>
-        <div class="chips" id="tr-chips"></div>
-      </div>
-      <div class="card-note" id="tr-chart-note"></div>
-      <div class="chart-wrap tall"><canvas id="tr-chart"></canvas></div>
-    </div>
     <div class="card">
-      <div class="card-h"><div class="card-title" id="tr-tbl-title">Period comparison</div></div>
-      <div class="card-note" id="tr-tbl-note"></div>
+      <div class="card-h">
+        <div class="card-title">Trend Comparison</div>
+        <div class="seg seg-sm" id="tr-seg">
+          <div class="seg-ind" id="tr-seg-ind"></div>
+          <button data-g="day" class="on">Day</button>
+          <button data-g="week">Week</button>
+          <button data-g="month">Month</button>
+        </div>
+      </div>
+      <div class="card-note">Every period, newest first. This table has its own grouping and ignores the filter above.</div>
       <div style="overflow-x:auto" id="tr-table"></div>
     </div>
   </div>
@@ -480,7 +500,16 @@ function activePeriod(){
   return {from,to,label:`${_dm(from)} – ${_dm(to)}`, prevFrom:pFrom,prevTo:pTo,prevLabel:'prev'};
 }
 
-function recsIn(from,to){ return REC.filter(r=>r.d>=from && r.d<=to); }
+// Records bucketed by date once, so a period slice costs only the days it spans
+// (the Trend table asks for 100+ periods; filtering all ~160k rows each time
+// would take seconds). Dates are pre-sorted so a range is a contiguous slice.
+const BY_DATE={}; REC.forEach(r=>{ if(r.d)(BY_DATE[r.d]=BY_DATE[r.d]||[]).push(r); });
+function recsIn(from,to){
+  if(from===to) return BY_DATE[from]||[];
+  const out=[];
+  for(const d of allDates){ if(d<from) continue; if(d>to) break; const b=BY_DATE[d]; if(b) out.push(...b); }
+  return out;
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  CHANGE BADGE (replaces grey subtext)
@@ -1117,96 +1146,57 @@ function fullStats(from,to){
     AM:l.byProd.AM.length, VO:l.byProd.VO.length, OD:l.byProd.OD.length,
   };
 }
-const TR_METRICS=[
-  {key:'total',    label:'Inbound calls', color:'var(--brand)'},
-  {key:'answered', label:'Answered',      color:'var(--good)'},
-  {key:'arOff',    label:'Answer rate 9–7',color:'var(--vo)', isPct:true, axis:'y1'},
-  {key:'reconnect',label:'Reconnection',  color:'var(--warn)', isPct:true, axis:'y1'},
-  {key:'leads',    label:'Leads',         color:'var(--new)'},
+// Columns of the Trend Comparison table. `sub` renders a secondary count in
+// brackets next to a percentage, the way the reference layout shows it.
+const TR_COLS=[
+  {label:'Inbound',            get:s=>fmtN(s.total), big:true},
+  {label:'Answered',           get:s=>fmtN(s.answered)},
+  {label:'Answer rate %',      get:s=>`${s.ar}%<span class="sub">(${fmtN(s.answered)})</span>`},
+  {label:'Working-hr AR %',    get:s=>`${s.arOff}%`},
+  {label:'Missed',             get:s=>fmtN(s.agentMissed+s.queueMissed+s.aohMissed)},
+  {label:'Agent missed',       get:s=>fmtN(s.agentMissed)},
+  {label:'Queue missed',       get:s=>fmtN(s.queueMissed)},
+  {label:'AOH missed',         get:s=>fmtN(s.aohMissed)},
+  {label:'Called back %',      get:s=>`${s.calledBack}%<span class="sub">(${fmtN(s.uniqueMissed)})</span>`},
+  {label:'Reconnection %',     get:s=>`${s.reconnect}%`},
+  {label:'Not reached',        get:s=>fmtN(s.notReached)},
+  {label:'Leads',              get:s=>fmtN(s.leads)},
+  {label:'New leads %',        get:s=>`${s.newShare}%<span class="sub">(${fmtN(s.newLeads)})</span>`},
 ];
-let TR_SERIES=null;
+let TR_GROUP='day';
 
-function renderTrends(p){
-  const cv=cssVar;
-  // periods to compare: last N of whatever unit the top filter is on
-  const mode=FILTER.mode;
-  let periods;
-  if(mode==='monthly'){
-    periods=dataMonths().slice(0,8).reverse().map(m=>{const r=monthRange(m);
-      return {label:r.short, from:r.from, to:r.to, full:r.label};});
-  } else if(mode==='daily'){
-    const idx=allDates.indexOf(FILTER.date);
-    periods=allDates.slice(Math.max(0,idx-13), idx+1)
-      .map(d=>({label:_dm(d), from:d, to:d, full:`${_dowOf(d)} ${_dmy(d)}`}));
-  } else {
-    // weekly + custom both compare recent weeks
-    const wks=dataWeeks(); const anchor = mode==='weekly' ? FILTER.week : wks[0].from;
-    const i=Math.max(0,wks.findIndex(w=>w.from===anchor));
-    periods=wks.slice(i,i+8).reverse().map(w=>({label:'W'+w.week, from:w.from, to:w.to,
-      full:`Week ${w.week} · ${_dm(w.from)}–${_dm(w.to)}`}));
-  }
-  const unit = mode==='monthly'?'month' : mode==='daily'?'day' : 'week';
-  document.getElementById('tr-chart-title').textContent =
-    `Trend — last ${periods.length} ${unit}s`;
-  document.getElementById('tr-chart-note').textContent =
-    `Follows the mode you picked above. Click a metric to isolate it.`;
-
-  const stats=periods.map(pr=>fullStats(pr.from,pr.to));
-
-  chipGroup(document.getElementById('tr-chips'),
-    TR_METRICS.map(m=>({key:m.key,label:m.label,color:cv(m.color)})), TR_SERIES,
-    k=>{ TR_SERIES=(TR_SERIES===k?null:k); renderTrends(p); });
-
-  const shown = TR_SERIES ? TR_METRICS.filter(m=>m.key===TR_SERIES) : TR_METRICS;
-  const needsPctAxis = shown.some(m=>m.axis==='y1');
-  makeChart('tr-chart',{type:'line',
-    data:{labels:periods.map(x=>x.label), datasets:shown.map(m=>({label:m.label,
-      data:stats.map(s=>s[m.key]), borderColor:cv(m.color), backgroundColor:cv(m.color),
-      borderWidth:2.4, pointRadius:3, pointHoverRadius:6, tension:.35, fill:false,
-      yAxisID:m.axis||'y'}))},
-    options:{responsive:true,maintainAspectRatio:false,
-      interaction:{mode:'index',intersect:false},
-      plugins:{legend:{display:!TR_SERIES,position:'bottom',
-        labels:{boxWidth:9,boxHeight:9,usePointStyle:true,pointStyle:'circle',font:{size:11.5},padding:14}},
-        datalabels:{display:false},
-        tooltip:{callbacks:{title:it=>periods[it[0].dataIndex].full}}},
-      scales:{x:{grid:{display:false},ticks:{font:{size:11}}},
-              y:{beginAtZero:true,grid:{color:cv('var(--line)')},ticks:{precision:0,font:{size:10.5}}},
-              y1:{display:needsPctAxis,position:'right',beginAtZero:true,max:100,
-                  grid:{drawOnChartArea:false},ticks:{font:{size:10.5},callback:v=>v+'%'}}}}});
-
-  // ── comparison table: current vs previous period ──
-  const A=fullStats(p.from,p.to), B=fullStats(p.prevFrom,p.prevTo);
-  document.getElementById('tr-tbl-title').textContent=`${p.label} vs ${p.prevLabel}`;
-  document.getElementById('tr-tbl-note').textContent=
-    `Every metric for the selected period, against the one before it.`;
-  const GROUPS=[
-    {name:'Volume & answer rate', rows:[
-      ['Inbound calls','total','good',false],['Answered','answered','good',false],
-      ['Answer rate — all hours','ar','good',true],['Answer rate — 9am–7pm','arOff','good',true],
-      ['Calls per day','perDay','good',false]]},
-    {name:'Missed', rows:[
-      ['Agent missed','agentMissed','bad',false],['Queue missed','queueMissed','bad',false],
-      ['After-hours missed','aohMissed','bad',false]]},
-    {name:'Callbacks', rows:[
-      ['Missed numbers','uniqueMissed','bad',false],['Called back','calledBack','good',true],
-      ['Reconnection rate','reconnect','good',true],['Avg attempts','avgAtt','good',false],
-      ['No callback yet','noAttempt','bad',false],['Still not reached','notReached','bad',false]]},
-    {name:'Leads', rows:[
-      ['Leads disposed','leads','good',false],['New leads','newLeads','good',false],
-      ['New share','newShare','good',true],
-      ['AM','AM','good',false],['VO','VO','good',false],['OD','OD','good',false]]},
-  ];
-  document.getElementById('tr-table').innerHTML=
-    `<table class="cmp"><thead><tr><th>Metric</th><th>${p.label}</th><th>${p.prevLabel}</th><th>Change</th></tr></thead><tbody>`+
-    GROUPS.map(g=>`<tr class="grouphead"><td colspan="4">${g.name}</td></tr>`+
-      g.rows.map(([label,key,dir,isPct])=>`<tr>
-        <td>${label}</td>
-        <td class="cur">${fmtN(A[key])}${isPct?'%':''}</td>
-        <td>${fmtN(B[key])}${isPct?'%':''}</td>
-        <td>${badge(A[key],B[key],dir,isPct)}</td></tr>`).join('')
-    ).join('')+`</tbody></table>`;
+// Self-contained: own Day/Week/Month grouping, every period newest-first,
+// all metrics as columns. Deliberately ignores the global filter.
+function trendPeriods(group){
+  if(group==='month')
+    return dataMonths().map(m=>{const r=monthRange(m); return {label:r.label, from:r.from, to:r.to};});
+  if(group==='week')
+    return dataWeeks().map(w=>({label:`${_dm(w.from)} – ${_dm(w.to)}`, sub:`W${w.week}`, from:w.from, to:w.to}));
+  return allDates.slice().reverse().map(d=>({label:_dmy(d), sub:_dowOf(d), from:d, to:d}));
 }
+let _trRendered=null;   // caches which grouping is currently drawn
+function renderTrends(){
+  if(_trRendered===TR_GROUP) { moveTrSeg(); return; }   // table ignores the global filter
+  _trRendered=TR_GROUP;
+  const periods=trendPeriods(TR_GROUP);
+  const rows=periods.map(pr=>({pr, s:fullStats(pr.from,pr.to)}));
+  document.getElementById('tr-table').innerHTML=
+    `<table class="trend"><thead><tr><th>Period</th>${TR_COLS.map(c=>`<th>${c.label}</th>`).join('')}</tr></thead>
+     <tbody>${rows.map(({pr,s})=>`<tr>
+        <td>${pr.label}${pr.sub?`<span class="sub">${pr.sub}</span>`:''}</td>
+        ${TR_COLS.map(c=>`<td${c.big?' class="big"':''}>${c.get(s)}</td>`).join('')}
+      </tr>`).join('')}</tbody></table>`;
+  moveTrSeg();
+}
+function moveTrSeg(){
+  const btn=document.querySelector('#tr-seg button.on'), ind=document.getElementById('tr-seg-ind');
+  if(!btn||!ind) return;
+  ind.style.left=btn.offsetLeft+'px'; ind.style.width=btn.offsetWidth+'px';
+}
+document.querySelectorAll('#tr-seg button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#tr-seg button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); TR_GROUP=b.dataset.g; _trRendered=null; renderTrends();
+});
 
 render();
 requestAnimationFrame(moveSegIndicator);   // ensure indicator sits right after layout
