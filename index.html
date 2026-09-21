@@ -1035,10 +1035,21 @@ function renderHourly(m) {
   const peakVol = Math.round((hourlyAns[peakHr] + hourlyMiss[peakHr]));
   const dangerAr = pct(hourlyAns[lowestArHr], hourlyTotal[lowestArHr]);
   const bestCbAr = pct(cbHourAns[bestCbHr], cbHourTotal[bestCbHr]);
+  // The weakest office hour is only a "danger" if it's actually underperforming.
+  // Previously this always flagged the lowest hour, so a period where every hour
+  // answered 100% still rendered "Danger Zone — 100% AR", which reads as nonsense.
+  const DANGER_AR = 85;                       // below this = genuinely needs coverage
+  const isDanger  = dangerAr < DANGER_AR;
+  const dangerCls = isDanger ? 'danger' : 'best';
+  const dangerTtl = isDanger ? 'Danger Zone' : 'Weakest Hour';
+  const dangerVal = isDanger ? `${fmtHr(lowestArHr)} — ${dangerAr}% AR`
+                             : `All hours ≥ ${dangerAr}%`;
+  const dangerDsc = isDanger ? 'Lowest answer rate — needs more agent coverage'
+                             : `Even the weakest hour (${fmtHr(lowestArHr)}) is healthy — no coverage gap`;
   const within1hrPct = m.ttcBuckets['<1hr'] ? Math.round(m.ttcBuckets['<1hr'] / Math.max(m.reconnected,1) * 100) : 0;
 
   document.getElementById('hourly-insights').innerHTML = `
-    <div class="insight-card peak"><div class="ic-title">Peak Volume Hour</div><div class="ic-val">${fmtHr(peakHr)}</div><div class="ic-desc">${fmtN(peakVol)} total calls — highest inbound hour</div></div> <div class="insight-card danger"><div class="ic-title">Danger Zone</div><div class="ic-val">${fmtHr(lowestArHr)} — ${dangerAr}% AR</div><div class="ic-desc">Lowest answer rate — needs more agent coverage</div></div> <div class="insight-card best"><div class="ic-title">Best Callback Window</div><div class="ic-val">${fmtHr(bestCbHr)} — ${bestCbAr}% connect</div><div class="ic-desc">Highest callback answer rate — prioritize this slot</div></div>`;
+    <div class="insight-card peak"><div class="ic-title">Peak Volume Hour</div><div class="ic-val">${fmtHr(peakHr)}</div><div class="ic-desc">${fmtN(peakVol)} total calls — highest inbound hour</div></div> <div class="insight-card ${dangerCls}"><div class="ic-title">${dangerTtl}</div><div class="ic-val">${dangerVal}</div><div class="ic-desc">${dangerDsc}</div></div> <div class="insight-card best"><div class="ic-title">Best Callback Window</div><div class="ic-val">${fmtHr(bestCbHr)} — ${bestCbAr}% connect</div><div class="ic-desc">Highest callback answer rate — prioritize this slot</div></div>`;
 
   // Heatmap
   const hm = m.hmData;
