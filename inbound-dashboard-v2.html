@@ -272,18 +272,21 @@ table.didgrid td.cell.none{background:var(--surface-2);color:var(--faint);font-w
 .seg.seg-sm .seg-ind{top:3px;bottom:3px}
 
 /* trend comparison table */
-table.trend{width:100%;border-collapse:collapse;font-size:13px;min-width:820px}
-table.trend th{text-align:right;padding:10px 14px;font-size:10.5px;text-transform:uppercase;
-  letter-spacing:.05em;color:var(--muted);background:var(--surface-2);white-space:nowrap;
+/* 14 columns have to fit the card: tight horizontal padding and no uppercase
+   letter-spacing, which together cost more width than the labels themselves. */
+table.trend{width:100%;border-collapse:collapse;font-size:12.5px}
+table.trend th{text-align:right;padding:9px 7px;font-size:10px;text-transform:uppercase;
+  letter-spacing:.02em;color:var(--muted);background:var(--surface-2);white-space:nowrap;
   border-bottom:1px solid var(--line-2);position:sticky;top:0;z-index:1}
-table.trend th:first-child{text-align:left;border-top-left-radius:9px}
-table.trend th:last-child{border-top-right-radius:9px}
-table.trend td{padding:11px 14px;text-align:right;border-bottom:1px solid var(--line);
+table.trend th:first-child{text-align:left;border-top-left-radius:9px;padding-left:12px}
+table.trend th:last-child{border-top-right-radius:9px;padding-right:12px}
+table.trend td{padding:10px 7px;text-align:right;border-bottom:1px solid var(--line);
   color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
-table.trend td:first-child{text-align:left;color:var(--ink);font-weight:700}
+table.trend td:first-child{text-align:left;color:var(--ink);font-weight:700;padding-left:12px}
+table.trend td:last-child{padding-right:12px}
 table.trend tbody tr:hover td{background:var(--surface-2)}
 table.trend tbody tr:last-child td{border-bottom:0}
-table.trend .sub{color:var(--muted);font-size:11.5px;margin-left:5px}
+table.trend .sub{color:var(--muted);font-size:11px;margin-left:3px}
 table.trend .big{color:var(--ink);font-weight:700}
 
 /* comparison table */
@@ -1346,20 +1349,23 @@ function fullStats(from,to){
 }
 // Columns of the Trend Comparison table. `sub` renders a secondary count in
 // brackets next to a percentage, the way the reference layout shows it.
+// Headers are kept terse so all 14 columns fit without horizontal scroll —
+// the "%" suffix is dropped since every value in those cells already shows one.
+// `title` carries the full wording on hover.
 const TR_COLS=[
-  {label:'Inbound',            get:s=>fmtN(s.total), big:true},
-  {label:'Answered',           get:s=>fmtN(s.answered)},
-  {label:'Answer rate %',      get:s=>`${s.ar}%<span class="sub">(${fmtN(s.answered)})</span>`},
-  {label:'Working-hr AR %',    get:s=>`${s.arOff}%`},
-  {label:'Missed',             get:s=>fmtN(s.agentMissed+s.queueMissed+s.aohMissed)},
-  {label:'Agent missed',       get:s=>fmtN(s.agentMissed)},
-  {label:'Queue missed',       get:s=>fmtN(s.queueMissed)},
-  {label:'AOH missed',         get:s=>fmtN(s.aohMissed)},
-  {label:'Called back %',      get:s=>`${s.calledBack}%<span class="sub">(${fmtN(s.uniqueMissed)})</span>`},
-  {label:'Reconnection %',     get:s=>`${s.reconnect}%`},
-  {label:'Not reached',        get:s=>fmtN(s.notReached)},
-  {label:'Leads',              get:s=>fmtN(s.leads)},
-  {label:'New leads %',        get:s=>`${s.newShare}%<span class="sub">(${fmtN(s.newLeads)})</span>`},
+  {label:'Inbound',      title:'Total inbound calls',            get:s=>fmtN(s.total), big:true},
+  {label:'Ans',          title:'Answered calls',                 get:s=>fmtN(s.answered)},
+  {label:'AR',           title:'Answer rate (all hours)',        get:s=>`${s.ar}%<span class="sub">(${fmtN(s.answered)})</span>`},
+  {label:'AR 9–7',       title:'Answer rate, working hours 9am–7pm', get:s=>`${s.arOff}%`},
+  {label:'Missed',       title:'Total missed calls',             get:s=>fmtN(s.agentMissed+s.queueMissed+s.aohMissed)},
+  {label:'Agent',        title:'Agent missed — rang, not picked up', get:s=>fmtN(s.agentMissed)},
+  {label:'Queue',        title:'Queue missed — dropped in queue', get:s=>fmtN(s.queueMissed)},
+  {label:'AOH',          title:'After-hours missed (outside 9am–7pm)', get:s=>fmtN(s.aohMissed)},
+  {label:'Called back',  title:'Share of missed numbers called back', get:s=>`${s.calledBack}%<span class="sub">(${fmtN(s.uniqueMissed)})</span>`},
+  {label:'Reconn',       title:'Reconnection rate — missed numbers actually reached', get:s=>`${s.reconnect}%`},
+  {label:'Unreached',    title:'Missed numbers never reached',   get:s=>fmtN(s.notReached)},
+  {label:'Leads',        title:'Total leads',                    get:s=>fmtN(s.leads)},
+  {label:'New',          title:'Share of leads that are new',    get:s=>`${s.newShare}%<span class="sub">(${fmtN(s.newLeads)})</span>`},
 ];
 let TR_GROUP='day';
 let TR_DOW=null;                 // null = every day; else 'Mon'…'Sun'
@@ -1376,7 +1382,11 @@ function trendPeriods(group){
   // compared across the dataset (every Monday, every Tuesday, …).
   let ds=allDates.slice().reverse();
   if(TR_DOW) ds=ds.filter(d=>_dowOf(d)===TR_DOW);
-  return ds.map(d=>({label:_dmy(d), sub:_dowOf(d), from:d, to:d}));
+  // Short date + weekday sub-label. The year is only printed when it differs
+  // from the most recent one, so it doesn't repeat down every row but a
+  // cross-year comparison is still unambiguous.
+  const curY=DATA_MAX.slice(0,4);
+  return ds.map(d=>({label:d.slice(0,4)===curY?_dm(d):_dmy(d), sub:_dowOf(d), from:d, to:d}));
 }
 // Weekday selector — shown only for the Day grouping, where it means something.
 function renderDowBar(){
@@ -1420,7 +1430,7 @@ function renderTrends(){
       newShare:Math.round(sum('newShare')/n)};
   })() : null;
   document.getElementById('tr-table').innerHTML=
-    `<table class="trend"><thead><tr><th>Period</th>${TR_COLS.map(c=>`<th>${c.label}</th>`).join('')}</tr></thead>
+    `<table class="trend"><thead><tr><th>Period</th>${TR_COLS.map(c=>`<th title="${c.title||c.label}">${c.label}</th>`).join('')}</tr></thead>
      <tbody>${avg?`<tr class="avg-row">
         <td>${TR_DOW} average<span class="sub">${rows.length} ${TR_DOW}s</span></td>
         ${TR_COLS.map(c=>`<td${c.big?' class="big"':''}>${c.get(avg)}</td>`).join('')}
