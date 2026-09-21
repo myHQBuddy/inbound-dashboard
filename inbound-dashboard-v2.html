@@ -107,7 +107,6 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
   font-size:13px;color:var(--ink-2);padding:7px 13px;border-radius:999px;
   background:var(--brand-soft);border:1px solid transparent}
 .period-label b{color:var(--brand);font-weight:700}
-.period-label .vs{color:var(--muted);font-size:12px;font-weight:600}
 .spacer{flex:1}
 .theme-btn{border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);
   width:34px;height:34px;border-radius:9px;cursor:pointer;font-size:15px;display:grid;place-items:center}
@@ -655,8 +654,9 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
 function currentTab(){ return document.querySelector('.tab.on').dataset.tab; }
 function render(){
   const p=activePeriod();
-  document.getElementById('period-label').innerHTML=
-    `<b>${p.label}</b><span class="vs">vs ${p.prevLabel}</span>`;
+  // Just the active period. Period-over-period comparison belongs in the
+  // Trends tab, not as a global stamp on every screen.
+  document.getElementById('period-label').innerHTML=`<b>${p.label}</b>`;
   const tab=currentTab();
   if(tab==='overview') renderOverview(p);
   else if(tab==='callbacks') renderCallbacks(p);
