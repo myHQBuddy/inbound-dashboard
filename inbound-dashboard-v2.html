@@ -191,6 +191,8 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
   font:600 11.5px Inter,sans-serif;padding:4px 10px;border-radius:7px;cursor:pointer;transition:.12s}
 .dow:hover{border-color:var(--brand);color:var(--brand)}
 .dow.on{background:var(--brand);border-color:var(--brand);color:#fff}
+/* explanation shown where a filter row doesn't apply to the current view */
+.dow-off{font-size:11.5px;color:var(--faint);font-style:italic;padding:4px 2px}
 /* pinned average row when a single weekday is isolated */
 table.trend tr.avg-row td{background:var(--brand-soft);font-weight:700;
   border-bottom:1px solid var(--line-2)}
@@ -514,6 +516,10 @@ const REC = ALL.filter(r => !TR_FLOOD.has(r.cn));
 const MONTH_NM = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DOW3 = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const DOW_ORDER = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];   // week starts Mon for UI
+// Hour labels. Charts use the two-line form so "9 AM" stays readable across 24
+// columns; tooltips and prose use the one-line form. Never "9a"/"9p".
+const _hr2  = h => [String(h%12===0?12:h%12), h<12?'AM':'PM'];
+const _hr1  = h => `${h%12===0?12:h%12} ${h<12?'AM':'PM'}`;
 
 const fmtN = n => n==null ? '—' : Math.round(n).toLocaleString('en-IN');
 const pct = (a,b) => b ? Math.round(a/b*100) : 0;
@@ -881,7 +887,7 @@ function renderHeatmap(A,p){
 
   if(!src.length){ box.innerHTML='<div class="empty">No inbound calls in this period.</div>'; return; }
 
-  const hTxt=h=>`${h%12===0?12:h%12}${h<12?'am':'pm'}`;               // tooltips (plain)
+  const hTxt=_hr1;                                                    // tooltips: "9 AM"
   const hLbl=h=>`${h%12===0?12:h%12}<span class="ap">${h<12?'AM':'PM'}</span>`;  // header
   box.innerHTML=`<table class="hm">
     <colgroup><col class="c-row" style="width:${byMonth?74:68}px">${HM_HOURS.map(h=>`<col class="${isOffice(h)?'c-off':'c-aoh'}"${isOffice(h)||!byMonth?'':' style="width:26px"'}>`).join('')}<col class="c-sum"></colgroup>
@@ -976,10 +982,8 @@ function renderOverview(p){
                          : [...new Set(A.ib.map(r=>r.d))].sort();
   // Two-line hour labels ("9" over "AM") keep the full AM/PM wording readable
   // without the width that "9 AM" on one line would need across 24 columns.
-  const labelOf = b => single ? [String(b%12===0?12:b%12), b<12?'AM':'PM']
-                              : [_dowOf(b), _dm(b)];
-  const labelFull = b => single ? `${b%12===0?12:b%12} ${b<12?'AM':'PM'}`
-                                : `${_dowOf(b)} ${_dm(b)}`;
+  const labelOf   = b => single ? _hr2(b) : [_dowOf(b), _dm(b)];
+  const labelFull = b => single ? _hr1(b) : `${_dowOf(b)} ${_dm(b)}`;
   const inBucket = (r,b) => single ? r.h===b : r.d===b;
   const cv=cssVar;
   // Answered is the quiet base of the stack; the misses carry the colour, so
@@ -1264,8 +1268,14 @@ function renderLdIntentBar(p){
 // x-axis is hours and a weekday filter would mean nothing.
 function renderLdDowBar(p, single){
   const bar=document.getElementById('ld-dow');
-  if(single){ bar.style.display='none'; return; }
   bar.style.display='flex';
+  if(single){
+    // A single day is plotted by hour, so there are no weekdays to pick between.
+    // Say so rather than silently dropping the row.
+    bar.innerHTML=`<span class="dow-lbl">Days</span>`+
+      `<span class="dow-off">Pick Weekly, Monthly or All to filter by weekday</span>`;
+    return;
+  }
   const mk=(k,l,on)=>`<button class="dow${on?' on':''}" data-d="${k==null?'':k}">${l}</button>`;
   bar.innerHTML=`<span class="dow-lbl">Days</span>`+mk(null,'All',LD_DOW.size===0)+
     DOW_ORDER.map(d=>mk(d,d,LD_DOW.has(d))).join('');
@@ -1303,7 +1313,8 @@ function renderLeads(p){
   // (or a weekend dip) can be excluded rather than distorting the averages.
   renderLdIntentBar(p);
   renderLdDowBar(p, single);
-  const labelOf = b => single ? (b===0?'12a':b<12?b+'a':b===12?'12p':(b-12)+'p') : [_dowOf(b),_dm(b)];
+  const labelOf = b => single ? _hr2(b) : [_dowOf(b),_dm(b)];
+  const labelFull = b => single ? _hr1(b) : `${_dowOf(b)} ${_dm(b)}`;
   const inB=(r,b)=> single ? r.h===b : r.d===b;
   let buckets = single ? Array.from({length:24},(_,h)=>h)
                        : [...new Set(recsIn(p.from,p.to).map(r=>r.d))].sort();
@@ -1342,9 +1353,12 @@ function renderLeads(p){
     options:{responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
       layout:{padding:{right:26}},          // room for the average value labels
-      plugins:{legend:{display:false},datalabels:{display:false},
+      plugins:{legend:{display:false},
         tooltip:{filter:it=>!it.dataset.isAvg,      // averages aren't per-point facts
-          callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y}`}}},
+          callbacks:{
+            // labels are two-line arrays on a single day, so rebuild the text
+            title:it=>labelFull(buckets[it[0].dataIndex]),
+            label:c=>` ${c.dataset.label}: ${c.parsed.y}`}}},
       scales:{x:{grid:{display:false},border:{display:false},
                  ticks:{maxRotation:0,autoSkip:true,autoSkipPadding:12,
                         color:cv('var(--muted)'),font:{size:10.5},padding:4}},
