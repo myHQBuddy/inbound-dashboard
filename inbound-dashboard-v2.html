@@ -107,11 +107,6 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 .selctl:hover,.datectl:hover{background:var(--surface-2)}
 .selctl:focus,.datectl:focus{outline:2px solid var(--brand-soft);background:var(--surface-2)}
 .pick .dash{color:var(--faint);font-size:12px}
-/* period summary chip */
-.period-label{display:inline-flex;align-items:center;gap:9px;margin-left:14px;
-  font-size:13px;color:var(--ink-2);padding:7px 13px;border-radius:999px;
-  background:var(--brand-soft);border:1px solid transparent}
-.period-label b{color:var(--brand);font-weight:700}
 .spacer{flex:1}
 .theme-btn{border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);
   width:34px;height:34px;border-radius:9px;cursor:pointer;font-size:15px;display:grid;place-items:center}
@@ -369,7 +364,6 @@ table.dt tr:hover td{background:var(--surface-2)}
         <input type="date" class="datectl" id="cust-to"></div>
     </div>
   </div>
-  <div class="period-label" id="period-label"></div>
 </div>
 
 <div class="tabbar" id="tabbar">
@@ -742,9 +736,8 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
 function currentTab(){ return document.querySelector('.tab.on').dataset.tab; }
 function render(){
   const p=activePeriod();
-  // Just the active period. Period-over-period comparison belongs in the
-  // Trends tab, not as a global stamp on every screen.
-  document.getElementById('period-label').innerHTML=`<b>${p.label}</b>`;
+  // No period stamp here: the filter controls alongside already show the
+  // selected day, week or month, so a pill repeating it is noise.
   const tab=currentTab();
   if(tab==='overview') renderOverview(p);
   else if(tab==='callbacks') renderCallbacks(p);
