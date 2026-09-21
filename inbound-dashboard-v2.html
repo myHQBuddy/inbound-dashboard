@@ -604,16 +604,22 @@ function benchPill(){ return `<span class="bench"><span class="b-i"></span>targe
 //  SINGLE-CLICK CHIP GROUP  (select-to-show; 'All' resets)
 // ══════════════════════════════════════════════════════════════════════════════
 // items:[{key,label,color?}]; onPick(selectedKey|null). null = All.
+// `current` is a single key (or null for All). Pass a Set as `current` to get
+// multi-select: any combination of series can be shown together, and "All"
+// clears back to everything.
 function chipGroup(container, items, current, onPick){
   container.innerHTML='';
+  const multi = current instanceof Set;
+  const isOn = k => multi ? (k==null ? current.size===0 : current.has(k))
+                          : (k==null ? current==null : current===k);
   const mk=(key,label,color,on)=>{ const b=document.createElement('button');
     b.className='chip'+(on?' on':'');
     // the selected chip no longer has a dark fill, so the swatch keeps its own
     // colour in both states (opacity in CSS carries the on/off distinction)
     b.innerHTML=(color?`<span class="c-dot" style="background:${color}"></span>`:'')+label;
     b.onclick=()=>onPick(key); return b; };
-  container.appendChild(mk(null,'All',null,current==null));
-  items.forEach(it=>container.appendChild(mk(it.key,it.label,it.color,current===it.key)));
+  container.appendChild(mk(null,'All',null,isOn(null)));
+  items.forEach(it=>container.appendChild(mk(it.key,it.label,it.color,isOn(it.key))));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -899,7 +905,10 @@ function renderHeatmap(A,p){
     `which show the <b>number of calls</b> instead.`;
 }
 
-let OV_SERIES=null;   // null = All; else 'answered' | one miss-type key
+// Which series the volume chart shows. Empty set = all of them; otherwise any
+// combination, so "answered + queue missed" or "all three miss types" is one
+// or two clicks rather than an impossible filter.
+const OV_SERIES=new Set();
 function renderOverview(p){
   const A=statsFor(p.from,p.to), B=statsFor(p.prevFrom,p.prevTo);
   _cardHandlers={};
@@ -936,7 +945,12 @@ function renderOverview(p){
            :t.key==='Queue Missed - Within Hours'?'var(--v-queue)':'var(--v-aoh)'}))];
   const chipBox=document.getElementById('ov-vol-chips');
   chipGroup(chipBox, chipItems, OV_SERIES,
-    k=>{ OV_SERIES = (OV_SERIES===k?null:k); renderOverview(p); });
+    k=>{
+      if(k==null) OV_SERIES.clear();              // "All" resets
+      else if(OV_SERIES.has(k)) OV_SERIES.delete(k);
+      else OV_SERIES.add(k);
+      renderOverview(p);
+    });
 
   const buckets = single ? Array.from({length:24},(_,h)=>h)
                          : [...new Set(A.ib.map(r=>r.d))].sort();
@@ -954,18 +968,22 @@ function renderOverview(p){
     'Queue Missed - Within Hours':'var(--v-queue)','Queue Missed - After Hours':'var(--v-aoh)'};
   const allSets=[{key:'answered',label:'Answered',color:cv('var(--v-ans)'),rows:A.ans},
     ...MISS_TYPES.map(t=>({key:t.key,label:t.label,color:cv(V_COL[t.key]),rows:A.byType[t.key]}))];
-  const sets = OV_SERIES ? allSets.filter(s=>s.key===OV_SERIES) : allSets;
+  const sets = OV_SERIES.size ? allSets.filter(s=>OV_SERIES.has(s.key)) : allSets;
+  // With a subset shown, the bar no longer reaches the bucket's inbound total,
+  // so labels are computed against what is actually stacked.
+  const partial = OV_SERIES.size>0 && OV_SERIES.size<allSets.length;
   // Only the topmost visible segment gets rounded corners, so the stack reads
   // as one column instead of a pile of detached blocks.
   const lastIdx=sets.length-1;
-  // Answer rate per bucket, on its own 0–100 axis. A stacked volume chart can't
-  // show a rate — you'd be eyeballing a ratio of segment heights — so the line
-  // carries it directly. Buckets below a few calls are left null rather than
-  // plotted, since 1-of-1 as "100%" would be noise.
   // Bucket totals drive both the share labels inside each segment and the
-  // total printed above the bar.
+  // total printed above the bar. `totals` is always the full inbound count so
+  // the in-segment % stays a share of all calls — "queue missed was 8% of the
+  // day" means the same whether or not the other series are on screen.
   const totals = buckets.map(b=>A.ib.filter(r=>inBucket(r,b)).length);
-  const maxTot = Math.max(1,...totals);
+  // The stacked height, on the other hand, only covers the visible series, and
+  // that is what decides whether a segment has room for its label.
+  const shown = buckets.map((b,i)=>sets.reduce((a,s)=>a+s.rows.filter(r=>inBucket(r,b)).length,0));
+  const maxTot = Math.max(1,...shown);
   // A label needs room: skip it when the segment is too thin a slice of the
   // tallest bar to hold text, otherwise the chart fills with unreadable specks.
   const MIN_SHARE=.07;
@@ -986,12 +1004,12 @@ function renderOverview(p){
   // and add the bucket total, anchored above the top of the stack.
   barSets[lastIdx].datalabels = {labels:{
     share: barSets[lastIdx].datalabels,
-    // When one series is isolated the bar no longer reaches the bucket total,
-    // so print that series' own count instead of a total it doesn't represent.
-    total: {display:ctx=>(OV_SERIES?ctx.dataset.data[ctx.dataIndex]:totals[ctx.dataIndex])>0,
+    // With a subset shown the bar stops short of the bucket total, so print
+    // the stacked figure instead of a total the bar doesn't represent.
+    total: {display:ctx=>(partial?shown[ctx.dataIndex]:totals[ctx.dataIndex])>0,
       anchor:'end', align:'end', offset:3, clamp:true,
       color:cv('var(--ink-2)'), font:{size:10.5,weight:'700'},
-      formatter:(v,ctx)=>fmtN(OV_SERIES?v:totals[ctx.dataIndex])}}};
+      formatter:(v,ctx)=>fmtN(partial?shown[ctx.dataIndex]:totals[ctx.dataIndex])}}};
   makeChart('ov-vol-chart',{type:'bar',
     data:{labels:buckets.map(labelOf), datasets:barSets},
     options:{responsive:true,maintainAspectRatio:false,
@@ -1003,10 +1021,13 @@ function renderOverview(p){
           // labels are two-line arrays, so rebuild the readable form
           title:it=>labelFull(buckets[it[0].dataIndex]),
           label:c=>` ${c.dataset.label}: ${c.parsed.y}`,
-          footer:it=>{ const t=totals[it[0].dataIndex];
+          // Always states the full inbound picture, so a filtered view still
+          // shows what share of the day the visible series represent.
+          footer:it=>{ const i=it[0].dataIndex, t=totals[i];
             if(!t) return '';
-            const a=A.ans.filter(r=>inBucket(r,buckets[it[0].dataIndex])).length;
-            return `Total ${t} · ${Math.round(a/t*100)}% answered`; }}}},
+            const a=A.ans.filter(r=>inBucket(r,buckets[i])).length;
+            const base=`All inbound ${t} · ${Math.round(a/t*100)}% answered`;
+            return partial ? `Shown ${shown[i]} of ${t}\n${base}` : base; }}}},
       // With every total printed above its bar and every share inside it, the
       // y-axis and its gridlines are redundant chrome — drop them entirely.
       scales:{x:{stacked:true,grid:{display:false},border:{display:false},
