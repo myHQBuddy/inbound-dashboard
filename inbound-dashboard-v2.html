@@ -126,6 +126,13 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 .panel{display:none}.panel.on{display:block}
 .grid{display:grid;gap:16px}
 .cards{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:18px}
+.cards.cols4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:900px){.cards.cols4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.cards.cols4{grid-template-columns:1fr}}
+/* section heading above a card row */
+.sect-h{font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--muted);margin:2px 0 10px;display:flex;align-items:center;gap:10px}
+.sect-h::after{content:"";flex:1;height:1px;background:var(--line)}
 
 /* ── Metric card (clean, no grey subtext) ── */
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
@@ -181,7 +188,8 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 .brow:last-child{border-bottom:0}
 .brow:hover{background:var(--surface-2);border-radius:8px;padding-left:8px;padding-right:8px}
 .brow .b-dot{width:9px;height:9px;border-radius:3px;flex-shrink:0}
-.brow .b-name{font-size:13px;font-weight:600;color:var(--ink);flex-shrink:0;min-width:128px}
+.brow .b-name{font-size:13px;font-weight:600;color:var(--ink);flex-shrink:0;min-width:128px;
+  max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .brow .b-bar{flex:1;height:7px;border-radius:99px;background:var(--surface-2);overflow:hidden;min-width:40px}
 .brow .b-fill{height:100%;border-radius:99px}
 .brow .b-num{font-size:14px;font-weight:700;color:var(--ink);min-width:52px;text-align:right}
@@ -290,7 +298,10 @@ table.dt tr:hover td{background:var(--surface-2)}
 
 <div class="wrap">
   <div class="panel on" id="panel-overview">
-    <div class="cards" id="ov-cards"></div>
+    <div class="sect-h">Call Volume</div>
+    <div class="cards cols4" id="ov-cards-vol"></div>
+    <div class="sect-h">Missed Call Breakdown</div>
+    <div class="cards cols4" id="ov-cards-miss"></div>
     <div class="card" style="margin-bottom:16px">
       <div class="card-h">
         <div class="card-title" id="ov-vol-title">Call Volume</div>
@@ -305,8 +316,8 @@ table.dt tr:hover td{background:var(--surface-2)}
         <div class="chart-wrap"><canvas id="ov-hour-chart"></canvas></div>
       </div>
       <div class="card">
-        <div class="card-h"><div class="card-title">Missed Breakdown</div></div>
-        <div class="card-note">Where inbound calls were lost. Click a row for the numbers.</div>
+        <div class="card-h"><div class="card-title">Missed by Campaign / Queue</div></div>
+        <div class="card-note">Which queue the missed calls dropped in. Click a row for the numbers.</div>
         <div id="ov-miss"></div>
       </div>
     </div>
@@ -689,15 +700,27 @@ function renderOverview(p){
   const A=statsFor(p.from,p.to), B=statsFor(p.prevFrom,p.prevTo);
   _cardHandlers={};
 
-  // ── cards ──
-  document.getElementById('ov-cards').innerHTML =
-    mcard({label:'Inbound Calls', value:fmtN(A.total), cur:A.total, prev:B.total, dir:'good', color:'var(--brand)'}) +
-    mcard({label:'Answer Rate', value:A.ar, suffix:'%', cur:A.ar, prev:B.ar, dir:'good', isPct:true, color:'var(--good)'}) +
-    mcard({label:'Answer Rate · 9–7', value:A.arOff, suffix:'%', cur:A.arOff, prev:B.arOff, dir:'good', isPct:true, color:'var(--good)'}) +
-    mcard({label:'Missed', value:fmtN(A.missed), cur:A.missed, prev:B.missed, dir:'bad', color:'var(--bad)',
+  // ── row 1: call volume ──
+  document.getElementById('ov-cards-vol').innerHTML =
+    mcard({label:'Total Inbound Calls', value:fmtN(A.total), cur:A.total, prev:B.total, dir:'good', color:'var(--brand)'}) +
+    mcard({label:'Answer Rate (All Hours)', value:A.ar, suffix:'%', cur:A.ar, prev:B.ar, dir:'good', isPct:true, color:'var(--good)'}) +
+    mcard({label:'Answer Rate (Working Hours)', value:A.arOff, suffix:'%', cur:A.arOff, prev:B.arOff, dir:'good', isPct:true, color:'var(--good)'}) +
+    mcard({label:'Inbound Calls / Day', value:fmtN(A.perDay), cur:A.perDay, prev:B.perDay, dir:'good', color:'var(--brand-2)'});
+
+  // ── row 2: missed breakdown (each clickable to its numbers) ──
+  const mt = k => MISS_TYPES.find(t=>t.key===k);
+  document.getElementById('ov-cards-miss').innerHTML =
+    mcard({label:'Total Missed Calls', value:fmtN(A.missed), cur:A.missed, prev:B.missed, dir:'bad', color:'var(--bad)',
            onClick:()=>openModal('All Missed Calls', missRows(A.miss), MISS_COLS)}) +
-    mcard({label:'Calls / Day', value:fmtN(A.perDay), cur:A.perDay, prev:B.perDay, dir:'good', color:'var(--brand-2)'});
-  wireCards(document.getElementById('ov-cards'));
+    MISS_TYPES.map(t=>{
+      const lbl = t.key==='Agent Missed' ? 'Agent Missed'
+                : t.key==='Queue Missed - Within Hours' ? 'Queue Missed' : 'AOH Missed';
+      return mcard({label:lbl, value:fmtN(A.byType[t.key].length),
+        cur:A.byType[t.key].length, prev:B.byType[t.key].length, dir:'bad', color:t.color,
+        onClick:()=>openModal(`${lbl} — ${t.note}`, missRows(A.byType[t.key]), MISS_COLS)});
+    }).join('');
+  wireCards(document.getElementById('ov-cards-vol'));
+  wireCards(document.getElementById('ov-cards-miss'));
 
   // ── volume chart: daily bars when range spans days, hourly when single day ──
   const single = p.from===p.to;
@@ -745,21 +768,27 @@ function renderOverview(p){
       scales:{x:{grid:{display:false},ticks:{font:{size:10.5}}},
               y:{beginAtZero:true,grid:{color:cv('var(--line)')},ticks:{precision:0,font:{size:10.5}}}}}});
 
-  // ── missed breakdown (single place) ──
-  const maxMiss=Math.max(1,...MISS_TYPES.map(t=>A.byType[t.key].length));
-  document.getElementById('ov-miss').innerHTML = MISS_TYPES.map((t,i)=>{
-    const n=A.byType[t.key].length;
-    return `<div class="brow" data-miss="${i}">
-      <span class="b-dot" style="background:${t.color}"></span>
-      <span class="b-name">${t.label}</span>
-      <span class="b-bar"><span class="b-fill" style="width:${n/maxMiss*100}%;background:${t.color}"></span></span>
-      <span class="b-num tnum">${fmtN(n)}</span>
-      <span class="b-pct tnum">${pct(n,A.total)}%</span>
-    </div>`;}).join('');
-  document.getElementById('ov-miss').querySelectorAll('[data-miss]').forEach(el=>{
-    const t=MISS_TYPES[+el.dataset.miss];
-    el.onclick=()=>openModal(t.label+' — '+t.note, missRows(A.byType[t.key]), MISS_COLS);
-  });
+  // ── missed by campaign / queue (the type split already lives in the cards above) ──
+  const byCamp={};
+  A.miss.forEach(r=>{ const c=campOf(r); (byCamp[c]=byCamp[c]||[]).push(r); });
+  const camps=Object.entries(byCamp).sort((a,b)=>b[1].length-a[1].length).slice(0,8);
+  const maxC=Math.max(1,...camps.map(([,v])=>v.length));
+  const box=document.getElementById('ov-miss');
+  if(!camps.length){ box.innerHTML='<div class="empty">No missed calls in this period.</div>'; }
+  else {
+    box.innerHTML = camps.map(([name,rows],i)=>
+      `<div class="brow" data-camp="${i}">
+        <span class="b-dot" style="background:var(--brand)"></span>
+        <span class="b-name" title="${name}">${name}</span>
+        <span class="b-bar"><span class="b-fill" style="width:${rows.length/maxC*100}%;background:var(--brand)"></span></span>
+        <span class="b-num tnum">${fmtN(rows.length)}</span>
+        <span class="b-pct tnum">${pct(rows.length,A.missed)}%</span>
+      </div>`).join('');
+    box.querySelectorAll('[data-camp]').forEach(el=>{
+      const [name,rows]=camps[+el.dataset.camp];
+      el.onclick=()=>openModal('Missed — '+name, missRows(rows), MISS_COLS);
+    });
+  }
 }
 // ── all-time per-number indexes (built once): callbacks + connect times ──
 // "Reached" must look across ALL data, not just the filtered window, otherwise a
