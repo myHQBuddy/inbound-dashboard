@@ -252,6 +252,9 @@ table.hm th.aoh,table.hm td.aohc{font-size:9.5px}
 table.hm td .pc{font-size:8.5px;font-weight:600;opacity:.75;margin-left:.5px}
 table.hm td.has:hover{transform:scale(1.09);box-shadow:var(--shadow)}
 table.hm td.nil{background:var(--surface-2);color:var(--faint);font-weight:500}
+/* office hour with very few calls: rate still shown, but faded so the thin
+   base is obvious and doesn't read with the same weight as a busy hour */
+table.hm td.thin{opacity:.45}
 .hm-legend{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted)}
 .hm-legend .sw{display:flex;gap:2px}
 .hm-legend .sw i{width:16px;height:11px;border-radius:2px;display:block}
@@ -867,10 +870,16 @@ function renderHeatmap(A,p){
         // isn't meaningful because nobody is staffed.
         if(!isOffice(h))
           return `<td class="nil aohc" title="${rowLabel(rk)} ${hTxt(h)} · ${c?`${c.a}/${c.t} answered`:'no calls'}">${c?c.t:''}</td>`;
-        if(!c||c.t<HM_MIN)
-          return `<td class="nil" title="${rowLabel(rk)} ${hTxt(h)} · ${c?`${c.a}/${c.t} answered`:'no calls'}">${c?c.t:''}</td>`;
-        const r=Math.round(c.a/c.t*100), col=hmColor(r);
-        return `<td class="has" style="background:${col.bg};color:${col.fg}" title="${rowLabel(rk)} ${hTxt(h)} · ${c.a}/${c.t} answered">${r}<span class="pc">%</span></td>`;
+        // Genuinely no calls — nothing to rate.
+        if(!c)
+          return `<td class="nil" title="${rowLabel(rk)} ${hTxt(h)} · no calls">·</td>`;
+        // An office hour is staffed, so its rate counts however few calls came
+        // in. Thin bases are drawn faded rather than dropped, otherwise a real
+        // 1-of-1 office hour looks identical to an unstaffed one.
+        const r=Math.round(c.a/c.t*100), col=hmColor(r), thin=c.t<HM_MIN;
+        return `<td class="has${thin?' thin':''}" style="background:${col.bg};color:${col.fg}" `+
+          `title="${rowLabel(rk)} ${hTxt(h)} · ${c.a}/${c.t} answered${thin?' (low volume)':''}">`+
+          `${r}<span class="pc">%</span></td>`;
       }).join('');
       const rr=rt?Math.round(ra/rt*100):null;
       return `<tr><th class="rowh">${rowLabel(rk)}</th>${tds}
@@ -884,9 +893,10 @@ function renderHeatmap(A,p){
     (byMonth
       ? `<b>All months</b> shown for comparison — each cell is that hour's average answer rate across the whole month, so this grid ignores the selected month. `
       : '')+
-    `Coloured cells show <b>answer rate</b> during office hours (9am–7pm), by ${byMonth?'month':byDow?'day of week':'date'}. `+
-    `The narrow columns either side are the unstaffed hours (6–8am before, 7pm–5am after) — `+
-    `those, and any hour with fewer than ${HM_MIN} calls, show the <b>number of calls</b> instead.`;
+    `Coloured cells show <b>answer rate</b> for every office hour (9am–7pm), by ${byMonth?'month':byDow?'day of week':'date'}; `+
+    `hours with fewer than ${HM_MIN} calls are faded to flag the thin base. `+
+    `The narrow columns either side are the unstaffed hours (6–8am before, 7pm–5am after), `+
+    `which show the <b>number of calls</b> instead.`;
 }
 
 let OV_SERIES=null;   // null = All; else 'answered' | one miss-type key
