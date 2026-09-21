@@ -278,21 +278,22 @@ table.didgrid td.cell.none{background:var(--surface-2);color:var(--faint);font-w
    content auto-size them — otherwise "Called back" ends up three times the
    width of "AOH" and the grid reads as ragged. */
 table.trend{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed}
-/* 14% + (10 x 5.8%) + (3 x 9.4%) = 100% */
-table.trend col.c-per{width:14%}                 /* period label */
-table.trend col.c-num{width:5.8%}                /* plain numeric columns */
-table.trend col.c-wide{width:9.4%}               /* columns carrying a (sub) count */
-table.trend th{text-align:right;padding:9px 7px;font-size:10px;text-transform:uppercase;
+/* 13% + (10 x 6%) + (3 x 9.33%) = 100% */
+table.trend col.c-per{width:13%}                 /* period label */
+table.trend col.c-num{width:6%}                  /* plain numeric columns */
+table.trend col.c-wide{width:9.33%}              /* columns carrying a (sub) count */
+/* Everything centred: with fixed, equal columns the header and its numbers
+   share one axis, so the grid reads as a grid rather than three alignments. */
+table.trend th{text-align:center;padding:9px 6px;font-size:10px;text-transform:uppercase;
   letter-spacing:.02em;color:var(--muted);background:var(--surface-2);
   border-bottom:1px solid var(--line-2);position:sticky;top:0;z-index:1;
   vertical-align:bottom;line-height:1.25;overflow:hidden;text-overflow:ellipsis}
-table.trend th:first-child{text-align:left;border-top-left-radius:9px;padding-left:12px}
-table.trend th:last-child{border-top-right-radius:9px;padding-right:12px}
-table.trend td{padding:10px 7px;text-align:right;border-bottom:1px solid var(--line);
+table.trend th:first-child{border-top-left-radius:9px}
+table.trend th:last-child{border-top-right-radius:9px}
+table.trend td{padding:10px 6px;text-align:center;border-bottom:1px solid var(--line);
   color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis}
-table.trend td:first-child{text-align:left;color:var(--ink);font-weight:700;padding-left:12px}
-table.trend td:last-child{padding-right:12px}
+table.trend td:first-child{color:var(--ink);font-weight:700}
 table.trend tbody tr:hover td{background:var(--surface-2)}
 table.trend tbody tr:last-child td{border-bottom:0}
 table.trend .sub{color:var(--muted);font-size:11px;margin-left:3px}
