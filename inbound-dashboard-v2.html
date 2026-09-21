@@ -273,15 +273,24 @@ table.didgrid td.cell.none{background:var(--surface-2);color:var(--faint);font-w
 
 /* trend comparison table */
 /* 14 columns have to fit the card: tight horizontal padding and no uppercase
-   letter-spacing, which together cost more width than the labels themselves. */
-table.trend{width:100%;border-collapse:collapse;font-size:12.5px}
+   letter-spacing, which together cost more width than the labels themselves.
+   table-layout:fixed keeps every numeric column identical instead of letting
+   content auto-size them — otherwise "Called back" ends up three times the
+   width of "AOH" and the grid reads as ragged. */
+table.trend{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed}
+/* 14% + (10 x 5.8%) + (3 x 9.4%) = 100% */
+table.trend col.c-per{width:14%}                 /* period label */
+table.trend col.c-num{width:5.8%}                /* plain numeric columns */
+table.trend col.c-wide{width:9.4%}               /* columns carrying a (sub) count */
 table.trend th{text-align:right;padding:9px 7px;font-size:10px;text-transform:uppercase;
-  letter-spacing:.02em;color:var(--muted);background:var(--surface-2);white-space:nowrap;
-  border-bottom:1px solid var(--line-2);position:sticky;top:0;z-index:1}
+  letter-spacing:.02em;color:var(--muted);background:var(--surface-2);
+  border-bottom:1px solid var(--line-2);position:sticky;top:0;z-index:1;
+  vertical-align:bottom;line-height:1.25;overflow:hidden;text-overflow:ellipsis}
 table.trend th:first-child{text-align:left;border-top-left-radius:9px;padding-left:12px}
 table.trend th:last-child{border-top-right-radius:9px;padding-right:12px}
 table.trend td{padding:10px 7px;text-align:right;border-bottom:1px solid var(--line);
-  color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+  color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
 table.trend td:first-child{text-align:left;color:var(--ink);font-weight:700;padding-left:12px}
 table.trend td:last-child{padding-right:12px}
 table.trend tbody tr:hover td{background:var(--surface-2)}
@@ -1355,17 +1364,17 @@ function fullStats(from,to){
 const TR_COLS=[
   {label:'Inbound',      title:'Total inbound calls',            get:s=>fmtN(s.total), big:true},
   {label:'Ans',          title:'Answered calls',                 get:s=>fmtN(s.answered)},
-  {label:'AR',           title:'Answer rate (all hours)',        get:s=>`${s.ar}%<span class="sub">(${fmtN(s.answered)})</span>`},
+  {label:'AR',           title:'Answer rate (all hours)', wide:true, get:s=>`${s.ar}%<span class="sub">(${fmtN(s.answered)})</span>`},
   {label:'AR 9–7',       title:'Answer rate, working hours 9am–7pm', get:s=>`${s.arOff}%`},
   {label:'Missed',       title:'Total missed calls',             get:s=>fmtN(s.agentMissed+s.queueMissed+s.aohMissed)},
   {label:'Agent',        title:'Agent missed — rang, not picked up', get:s=>fmtN(s.agentMissed)},
   {label:'Queue',        title:'Queue missed — dropped in queue', get:s=>fmtN(s.queueMissed)},
   {label:'AOH',          title:'After-hours missed (outside 9am–7pm)', get:s=>fmtN(s.aohMissed)},
-  {label:'Called back',  title:'Share of missed numbers called back', get:s=>`${s.calledBack}%<span class="sub">(${fmtN(s.uniqueMissed)})</span>`},
+  {label:'Called',       title:'Share of missed numbers called back', wide:true, get:s=>`${s.calledBack}%<span class="sub">(${fmtN(s.uniqueMissed)})</span>`},
   {label:'Reconn',       title:'Reconnection rate — missed numbers actually reached', get:s=>`${s.reconnect}%`},
   {label:'Unreached',    title:'Missed numbers never reached',   get:s=>fmtN(s.notReached)},
   {label:'Leads',        title:'Total leads',                    get:s=>fmtN(s.leads)},
-  {label:'New',          title:'Share of leads that are new',    get:s=>`${s.newShare}%<span class="sub">(${fmtN(s.newLeads)})</span>`},
+  {label:'New',          title:'Share of leads that are new', wide:true, get:s=>`${s.newShare}%<span class="sub">(${fmtN(s.newLeads)})</span>`},
 ];
 let TR_GROUP='day';
 let TR_DOW=null;                 // null = every day; else 'Mon'…'Sun'
@@ -1430,7 +1439,9 @@ function renderTrends(){
       newShare:Math.round(sum('newShare')/n)};
   })() : null;
   document.getElementById('tr-table').innerHTML=
-    `<table class="trend"><thead><tr><th>Period</th>${TR_COLS.map(c=>`<th title="${c.title||c.label}">${c.label}</th>`).join('')}</tr></thead>
+    `<table class="trend">
+     <colgroup><col class="c-per">${TR_COLS.map(c=>`<col class="${c.wide?'c-wide':'c-num'}">`).join('')}</colgroup>
+     <thead><tr><th>Period</th>${TR_COLS.map(c=>`<th title="${c.title||c.label}">${c.label}</th>`).join('')}</tr></thead>
      <tbody>${avg?`<tr class="avg-row">
         <td>${TR_DOW} average<span class="sub">${rows.length} ${TR_DOW}s</span></td>
         ${TR_COLS.map(c=>`<td${c.big?' class="big"':''}>${c.get(avg)}</td>`).join('')}
