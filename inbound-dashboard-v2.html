@@ -23,7 +23,7 @@
   --new:#7c3aed; --exist:#0f9d63; --query:#c77800;
   /* Volume chart: answered is a quiet base so the eye goes to the misses,
      which ramp by severity rather than being four unrelated hues. */
-  --v-ans:#5fb894; --v-agent:#c0485a; --v-queue:#e0954a; --v-aoh:#c3c9d8;
+  --v-ans:#128a63; --v-agent:#d4504f; --v-queue:#e8a33d; --v-aoh:#b9c0d1;
   --shadow-sm:0 1px 2px rgba(19,26,46,.06);
   --shadow:0 2px 4px rgba(19,26,46,.05),0 10px 26px -14px rgba(19,26,46,.20);
   --r:14px; --r-sm:10px;
@@ -37,7 +37,7 @@
   --bad:#f4818e; --bad-soft:#2f1720;
   --am:#7b81ff; --vo:#3fd18c; --od:#f2b45a;
   --new:#a982f7; --exist:#3fd18c; --query:#f2b45a;
-  --v-ans:#3d8f73; --v-agent:#e0697a; --v-queue:#e8a963; --v-aoh:#4d5570;
+  --v-ans:#1aa377; --v-agent:#e0697a; --v-queue:#e8a963; --v-aoh:#59617d;
   --shadow-sm:0 1px 2px rgba(0,0,0,.3);
   --shadow:0 2px 4px rgba(0,0,0,.3),0 12px 30px -14px rgba(0,0,0,.6);
 }}
@@ -50,7 +50,7 @@
   --bad:#f4818e; --bad-soft:#2f1720;
   --am:#7b81ff; --vo:#3fd18c; --od:#f2b45a;
   --new:#a982f7; --exist:#3fd18c; --query:#f2b45a;
-  --v-ans:#3d8f73; --v-agent:#e0697a; --v-queue:#e8a963; --v-aoh:#4d5570;
+  --v-ans:#1aa377; --v-agent:#e0697a; --v-queue:#e8a963; --v-aoh:#59617d;
   --shadow-sm:0 1px 2px rgba(0,0,0,.3);
   --shadow:0 2px 4px rgba(0,0,0,.3),0 12px 30px -14px rgba(0,0,0,.6);
 }
@@ -178,10 +178,6 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 .chip:hover{color:var(--ink);background:var(--surface-2)}
 .chip.on{color:var(--ink);background:var(--surface-2);border-color:var(--line-2)}
 .chip .c-dot{width:8px;height:8px;border-radius:2px;opacity:.45;transition:.12s}
-/* static key for the answer-rate line: a short rule, matching the plotted line */
-.linekey{display:inline-flex;align-items:center;gap:6px;margin-left:4px;
-  font:600 12px Inter,sans-serif;color:var(--muted);padding:4px 2px}
-.linekey i{width:14px;height:2px;background:var(--ink-2);border-radius:1px;display:block}
 .chip.on .c-dot,.chip:hover .c-dot{opacity:1}
 
 .card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
@@ -892,14 +888,6 @@ function renderOverview(p){
   const chipBox=document.getElementById('ov-vol-chips');
   chipGroup(chipBox, chipItems, OV_SERIES,
     k=>{ OV_SERIES = (OV_SERIES===k?null:k); renderOverview(p); });
-  // static key for the answer-rate line (not a toggle — it's always the
-  // reference series, and it only shows when no single series is isolated)
-  if(!OV_SERIES){
-    const k=document.createElement('span');
-    k.className='linekey';
-    k.innerHTML='<i></i>Answer rate';
-    chipBox.appendChild(k);
-  }
 
   const buckets = single ? Array.from({length:24},(_,h)=>h)
                          : [...new Set(A.ib.map(r=>r.d))].sort();
@@ -925,51 +913,56 @@ function renderOverview(p){
   // show a rate — you'd be eyeballing a ratio of segment heights — so the line
   // carries it directly. Buckets below a few calls are left null rather than
   // plotted, since 1-of-1 as "100%" would be noise.
-  const AR_MIN=3;
-  const arData = buckets.map(b=>{
-    const tot=A.ib.filter(r=>inBucket(r,b)).length;
-    if(tot<AR_MIN) return null;
-    return Math.round(A.ans.filter(r=>inBucket(r,b)).length/tot*100);
-  });
-  const showAr = !OV_SERIES && arData.some(v=>v!=null);
-  const barSets = sets.map((s,i)=>({label:s.label, type:'bar', yAxisID:'y', order:2,
-      data:buckets.map(b=>s.rows.filter(r=>inBucket(r,b)).length),
-      backgroundColor:s.color,
+  // Bucket totals drive both the share labels inside each segment and the
+  // total printed above the bar.
+  const totals = buckets.map(b=>A.ib.filter(r=>inBucket(r,b)).length);
+  const maxTot = Math.max(1,...totals);
+  // A label needs room: skip it when the segment is too thin a slice of the
+  // tallest bar to hold text, otherwise the chart fills with unreadable specks.
+  const MIN_SHARE=.07;
+  const barSets = sets.map((s,i)=>{
+    const data=buckets.map(b=>s.rows.filter(r=>inBucket(r,b)).length);
+    return {label:s.label, data, backgroundColor:s.color,
       borderRadius:i===lastIdx?{topLeft:3,topRight:3}:0, borderSkipped:false,
-      barPercentage:.9, categoryPercentage:.88}));
-  const arSet = {label:'Answer rate', type:'line', yAxisID:'yAr', order:1,
-      data:arData, spanGaps:true,
-      borderColor:cv('var(--ink-2)'), borderWidth:2,
-      pointRadius:single?0:2.5, pointHoverRadius:4,
-      pointBackgroundColor:cv('var(--surface)'), pointBorderColor:cv('var(--ink-2)'),
-      pointBorderWidth:1.5, tension:.35, fill:false};
+      barPercentage:.88, categoryPercentage:.9,
+      datalabels:{
+        display:ctx=>{ const v=ctx.dataset.data[ctx.dataIndex];
+          return v>0 && (v/maxTot)>=MIN_SHARE; },
+        color:s.key==='Queue Missed - After Hours'?cv('var(--ink-2)'):'#fff',
+        font:{size:10.5,weight:'700'},
+        formatter:(v,ctx)=>{ const t=totals[ctx.dataIndex];
+          return t?Math.round(v/t*100)+'%':''; }}};
+  });
+  // datalabels supports several labels per dataset: keep the in-segment share
+  // and add the bucket total, anchored above the top of the stack.
+  barSets[lastIdx].datalabels = {labels:{
+    share: barSets[lastIdx].datalabels,
+    total: {display:ctx=>totals[ctx.dataIndex]>0,
+      anchor:'end', align:'end', offset:3, clamp:true,
+      color:cv('var(--ink-2)'), font:{size:10.5,weight:'700'},
+      formatter:(v,ctx)=>fmtN(totals[ctx.dataIndex])}}};
   makeChart('ov-vol-chart',{type:'bar',
-    data:{labels:buckets.map(labelOf),
-      datasets: showAr ? [...barSets, arSet] : barSets},
+    data:{labels:buckets.map(labelOf), datasets:barSets},
     options:{responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
-      plugins:{legend:{display:false},datalabels:{display:false},
+      // headroom so the total above the tallest bar isn't clipped
+      layout:{padding:{top:18}},
+      plugins:{legend:{display:false},
         tooltip:{callbacks:{
           // labels are two-line arrays, so rebuild the readable form
           title:it=>labelFull(buckets[it[0].dataIndex]),
-          label:c=>c.dataset.type==='line'
-            ? (c.parsed.y==null?null:` Answer rate: ${c.parsed.y}%`)
-            : ` ${c.dataset.label}: ${c.parsed.y}`}}},
-      // Light chrome: no axis borders, fewer gridlines, muted tick colour — the
-      // grid should read as a quiet reference, not a cage around the data.
+          label:c=>` ${c.dataset.label}: ${c.parsed.y}`,
+          footer:it=>{ const t=totals[it[0].dataIndex];
+            if(!t) return '';
+            const a=A.ans.filter(r=>inBucket(r,buckets[it[0].dataIndex])).length;
+            return `Total ${t} · ${Math.round(a/t*100)}% answered`; }}}},
+      // With every total printed above its bar and every share inside it, the
+      // y-axis and its gridlines are redundant chrome — drop them entirely.
       scales:{x:{stacked:true,grid:{display:false},border:{display:false},
-                 ticks:{maxRotation:0,autoSkip:true,autoSkipPadding:14,
-                        color:cv('var(--muted)'),font:{size:10.5},padding:4}},
-              y:{stacked:true,beginAtZero:true,border:{display:false},
-                 grid:{color:cv('var(--line)'),drawTicks:false},
-                 ticks:{precision:0,maxTicksLimit:5,color:cv('var(--muted)'),
-                        font:{size:10.5},padding:8}},
-              // rate axis: fixed 0–100 so the line's height always means the
-              // same thing, and gridless so it doesn't double up on y's lines
-              yAr:{display:showAr,position:'right',min:0,max:100,
-                 stacked:false,border:{display:false},grid:{display:false},
-                 ticks:{maxTicksLimit:5,color:cv('var(--muted)'),font:{size:10.5},
-                        padding:6,callback:v=>v+'%'}}}}});
+                 ticks:{maxRotation:0,autoSkip:true,autoSkipPadding:10,
+                        color:cv('var(--muted)'),font:{size:10.5},padding:6}},
+              y:{stacked:true,beginAtZero:true,display:false,
+                 grace:'8%'}}}});
 
   // ── answer-rate heatmap: rows = day (or day-of-week), cols = hour ──
   renderHeatmap(A, p);
