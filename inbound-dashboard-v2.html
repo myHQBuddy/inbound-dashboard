@@ -209,9 +209,11 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 table.hm{border-collapse:separate;border-spacing:4px;font-size:11px;margin:2px 0 0}
 table.hm th{font-size:10.5px;font-weight:600;color:var(--muted);padding:1px 3px;text-align:center;white-space:nowrap}
 table.hm th.rowh{text-align:right;padding-right:9px;min-width:38px}
-table.hm td{width:38px;height:30px;text-align:center;border-radius:7px;
+table.hm th .ap{font-size:8.5px;font-weight:700;margin-left:1px;opacity:.65;letter-spacing:.02em}
+table.hm td{width:46px;height:31px;text-align:center;border-radius:7px;
   font-weight:700;font-variant-numeric:tabular-nums;font-size:11.5px;
   cursor:default;transition:transform .1s}
+table.hm td .pc{font-size:8.5px;font-weight:600;opacity:.75;margin-left:.5px}
 table.hm td.has:hover{transform:scale(1.09);box-shadow:var(--shadow)}
 table.hm td.nil{background:var(--surface-2);color:var(--faint);font-weight:500}
 .hm-legend{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted)}
@@ -772,7 +774,8 @@ function renderHeatmap(A,p){
 
   if(!A.ib.length){ box.innerHTML='<div class="empty">No inbound calls in this period.</div>'; return; }
 
-  const hLbl=h=>h<12?h+'a':h===12?'12p':(h-12)+'p';
+  const hTxt=h=>`${h<12?h:h===12?12:h-12}${h<12?'am':'pm'}`;          // tooltips (plain)
+  const hLbl=h=>`${h<12?h:h===12?12:h-12}<span class="ap">${h<12?'AM':'PM'}</span>`;  // header
   box.innerHTML=`<table class="hm"><thead><tr><th class="rowh"></th>
       ${HM_HOURS.map(h=>`<th>${hLbl(h)}</th>`).join('')}<th style="padding-left:8px">All</th></tr></thead>
     <tbody>${rows.map(rk=>{
@@ -781,11 +784,11 @@ function renderHeatmap(A,p){
         if(!c||c.t<HM_MIN) return `<td class="nil" title="${c?`${c.a}/${c.t} answered`:'no calls'}">${c?c.t:''}</td>`;
         rt+=c.t; ra+=c.a;
         const r=Math.round(c.a/c.t*100), col=hmColor(r);
-        return `<td class="has" style="background:${col.bg};color:${col.fg}" title="${rowLabel(rk)} ${hLbl(h)} · ${c.a}/${c.t} answered">${r}</td>`;
+        return `<td class="has" style="background:${col.bg};color:${col.fg}" title="${rowLabel(rk)} ${hTxt(h)} · ${c.a}/${c.t} answered">${r}<span class="pc">%</span></td>`;
       }).join('');
       const rr=rt?Math.round(ra/rt*100):null;
       return `<tr><th class="rowh">${rowLabel(rk)}</th>${tds}
-        <td class="has" style="background:${rr==null?'var(--surface-2)':hmColor(rr).bg};color:${rr==null?'var(--faint)':hmColor(rr).fg};padding-left:8px">${rr==null?'–':rr}</td></tr>`;
+        <td class="has" style="background:${rr==null?'var(--surface-2)':hmColor(rr).bg};color:${rr==null?'var(--faint)':hmColor(rr).fg}" title="${rowLabel(rk)} · ${ra}/${rt} answered">${rr==null?'–':`${rr}<span class="pc">%</span>`}</td></tr>`;
     }).join('')}</tbody></table>`;
 
   document.getElementById('ov-hm-legend').innerHTML=
