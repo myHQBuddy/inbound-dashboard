@@ -1455,9 +1455,11 @@ function renderTrends(){
   renderDowBar();
   const periods=trendPeriods(TR_GROUP);
   const rows=periods.map(pr=>({pr, s:fullStats(pr.from,pr.to)}));
-  // When one weekday is isolated, an average row makes the comparison useful —
-  // you want to know whether a given Monday is above or below a typical one.
-  const avg = (TR_GROUP==='day' && TR_DOW && rows.length>1) ? (()=>{
+  // Every grouping gets a baseline row on top: the question "is this period
+  // good?" always needs something to sit against. Rate columns are recomputed
+  // from summed numerator and denominator rather than averaged, so a quiet
+  // period can't distort them as much as a busy one.
+  const avg = rows.length>1 ? (()=>{
     const n=rows.length, sum=k=>rows.reduce((a,{s})=>a+(s[k]||0),0);
     const t=sum('total'), a=sum('answered'), u=sum('uniqueMissed');
     return {total:Math.round(t/n), answered:Math.round(a/n), ar:pct(a,t),
@@ -1471,21 +1473,29 @@ function renderTrends(){
       leads:Math.round(sum('leads')/n), newLeads:Math.round(sum('newLeads')/n),
       newShare:Math.round(sum('newShare')/n)};
   })() : null;
+  // label for the baseline row, e.g. "Mon average / 17 Mons" or "Week average"
+  const avgLbl = TR_DOW ? `${TR_DOW} average`
+    : TR_GROUP==='day' ? 'Daily average'
+    : TR_GROUP==='week' ? 'Weekly average' : 'Monthly average';
+  const avgSub = TR_DOW ? `${rows.length} ${TR_DOW}s`
+    : `${rows.length} ${TR_GROUP==='day'?'days':TR_GROUP==='week'?'weeks':'months'}`;
   document.getElementById('tr-table').innerHTML=
     `<table class="trend">
      <colgroup><col class="c-per">${TR_COLS.map(c=>`<col class="${c.wide?'c-wide':'c-num'}">`).join('')}</colgroup>
      <thead><tr><th>Period</th>${TR_COLS.map(c=>`<th title="${c.title||c.label}">${c.label}</th>`).join('')}</tr></thead>
      <tbody>${avg?`<tr class="avg-row">
-        <td>${TR_DOW} average<span class="sub">${rows.length} ${TR_DOW}s</span></td>
+        <td>${avgLbl}<span class="sub">${avgSub}</span></td>
         ${TR_COLS.map(c=>`<td${c.big?' class="big"':''}>${c.get(avg)}</td>`).join('')}
       </tr>`:''}
       ${rows.map(({pr,s})=>`<tr>
         <td>${pr.label}${pr.sub?`<span class="sub">${pr.sub}</span>`:''}</td>
         ${TR_COLS.map(c=>`<td${c.big?' class="big"':''}>${c.get(s)}</td>`).join('')}
       </tr>`).join('')}</tbody></table>`;
-  document.getElementById('tr-note').textContent = TR_DOW
-    ? `Every ${TR_DOW} in the data, newest first, with the ${TR_DOW} average pinned on top. This table ignores the filter above.`
-    : 'Every period, newest first. This table has its own grouping and ignores the filter above.';
+  document.getElementById('tr-note').textContent = (TR_DOW
+    ? `Every ${TR_DOW} in the data, newest first, with the ${TR_DOW} average pinned on top. `
+    : 'Every period, newest first, with the average pinned on top. ')
+    + 'Answer rate in the average row is weighted by volume, not a mean of the percentages. '
+    + 'This table has its own grouping and ignores the filter above.';
   moveTrSeg();
 }
 function moveTrSeg(){
