@@ -1473,18 +1473,16 @@ function renderTrends(){
       leads:Math.round(sum('leads')/n), newLeads:Math.round(sum('newLeads')/n),
       newShare:Math.round(sum('newShare')/n)};
   })() : null;
-  // label for the baseline row, e.g. "Mon average / 17 Mons" or "Week average"
+  // label for the baseline row — the name alone, no period count beside it
   const avgLbl = TR_DOW ? `${TR_DOW} average`
     : TR_GROUP==='day' ? 'Daily average'
     : TR_GROUP==='week' ? 'Weekly average' : 'Monthly average';
-  const avgSub = TR_DOW ? `${rows.length} ${TR_DOW}s`
-    : `${rows.length} ${TR_GROUP==='day'?'days':TR_GROUP==='week'?'weeks':'months'}`;
   document.getElementById('tr-table').innerHTML=
     `<table class="trend">
      <colgroup><col class="c-per">${TR_COLS.map(c=>`<col class="${c.wide?'c-wide':'c-num'}">`).join('')}</colgroup>
      <thead><tr><th>Period</th>${TR_COLS.map(c=>`<th title="${c.title||c.label}">${c.label}</th>`).join('')}</tr></thead>
      <tbody>${avg?`<tr class="avg-row">
-        <td>${avgLbl}<span class="sub">${avgSub}</span></td>
+        <td>${avgLbl}</td>
         ${TR_COLS.map(c=>`<td${c.big?' class="big"':''}>${c.get(avg)}</td>`).join('')}
       </tr>`:''}
       ${rows.map(({pr,s})=>`<tr>
