@@ -210,8 +210,14 @@ table.hm{border-collapse:separate;border-spacing:4px;font-size:11px;margin:2px 0
 table.hm th{font-size:10.5px;font-weight:600;color:var(--muted);padding:1px 3px;text-align:center;white-space:nowrap}
 table.hm th.rowh{text-align:right;padding-right:9px;min-width:38px}
 table.hm th .ap{font-size:8.5px;font-weight:700;margin-left:1px;opacity:.65;letter-spacing:.02em}
-table.hm td{width:46px;height:31px;text-align:center;border-radius:7px;
-  font-weight:700;font-variant-numeric:tabular-nums;font-size:11.5px;
+table.hm th.aoh{opacity:.5}                       /* unstaffed hours: quieter header */
+table.hm th.off{color:var(--ink-2)}               /* office hours: stronger header */
+table.hm th.sumh{padding-left:10px;text-align:center;line-height:1.25;color:var(--ink-2)}
+table.hm th.sumh .sub2{font-size:9px;font-weight:600;opacity:.7;text-transform:none}
+table.hm td.sumc{margin-left:6px}
+table.hm{border-spacing:3px}
+table.hm td{width:40px;min-width:40px;height:30px;text-align:center;border-radius:6px;
+  font-weight:700;font-variant-numeric:tabular-nums;font-size:11px;
   cursor:default;transition:transform .1s}
 table.hm td .pc{font-size:8.5px;font-weight:600;opacity:.75;margin-left:.5px}
 table.hm td.has:hover{transform:scale(1.09);box-shadow:var(--shadow)}
@@ -746,7 +752,12 @@ const missRows = arr => arr.filter(r=>r.cn)
 // shows each date; a long range collapses to day-of-week so the grid stays
 // readable. Colour is a 5-step green→red ramp; cells with too few calls to be
 // meaningful are shown neutral rather than given a misleading colour.
-const HM_HOURS=Array.from({length:12},(_,i)=>i+8);   // 8am..7pm
+// Full 24h span starting at 6am: 6,7,8 … 23, then 0 … 5. Office hours (9am–6pm
+// inclusive, i.e. ending at 7pm) get a coloured answer-rate cell; the unstaffed
+// hours either side show only the call count, since a rate there is meaningless.
+const HM_HOURS=[...Array.from({length:18},(_,i)=>i+6), ...Array.from({length:6},(_,i)=>i)];
+const HM_OFF_FROM=9, HM_OFF_TO=18;                   // 9am..6:59pm = ends at 7pm
+const isOffice=h=>h>=HM_OFF_FROM&&h<=HM_OFF_TO;
 const HM_MIN=3;                                      // min calls for a coloured cell
 function hmColor(rate){
   if(rate>=95) return {bg:'#0f7a4f', fg:'#fff'};
@@ -766,37 +777,42 @@ function renderHeatmap(A,p){
     byDow=true;
     rows=['Mon','Tue','Wed','Thu','Fri','Sat','Sun']; rowLabel=d=>d; rowKeyOf=r=>r.w;
   }
-  // bucket
+  // bucket every hour of the day
   const cell={};
-  A.ib.forEach(r=>{ if(r.h<HM_HOURS[0]||r.h>HM_HOURS[HM_HOURS.length-1]) return;
-    const k=rowKeyOf(r)+'|'+r.h; const c=cell[k]||(cell[k]={t:0,a:0});
+  A.ib.forEach(r=>{ const k=rowKeyOf(r)+'|'+r.h; const c=cell[k]||(cell[k]={t:0,a:0});
     c.t++; if(r.st==='answered')c.a++; });
 
   if(!A.ib.length){ box.innerHTML='<div class="empty">No inbound calls in this period.</div>'; return; }
 
-  const hTxt=h=>`${h<12?h:h===12?12:h-12}${h<12?'am':'pm'}`;          // tooltips (plain)
-  const hLbl=h=>`${h<12?h:h===12?12:h-12}<span class="ap">${h<12?'AM':'PM'}</span>`;  // header
+  const hTxt=h=>`${h%12===0?12:h%12}${h<12?'am':'pm'}`;               // tooltips (plain)
+  const hLbl=h=>`${h%12===0?12:h%12}<span class="ap">${h<12?'AM':'PM'}</span>`;  // header
   box.innerHTML=`<table class="hm"><thead><tr><th class="rowh"></th>
-      ${HM_HOURS.map(h=>`<th>${hLbl(h)}</th>`).join('')}<th style="padding-left:8px">All</th></tr></thead>
+      ${HM_HOURS.map(h=>`<th class="${isOffice(h)?'off':'aoh'}">${hLbl(h)}</th>`).join('')}
+      <th class="sumh">Answer rate<br><span class="sub2">all hours</span></th></tr></thead>
     <tbody>${rows.map(rk=>{
-      let rt=0,ra=0;
+      let rt=0,ra=0;                                  // row totals across ALL hours
       const tds=HM_HOURS.map(h=>{ const c=cell[rk+'|'+h];
-        if(!c||c.t<HM_MIN) return `<td class="nil" title="${c?`${c.a}/${c.t} answered`:'no calls'}">${c?c.t:''}</td>`;
-        rt+=c.t; ra+=c.a;
+        if(c){ rt+=c.t; ra+=c.a; }
+        // outside office hours: show the raw count only — an answer rate there
+        // isn't meaningful because nobody is staffed.
+        if(!isOffice(h))
+          return `<td class="nil" title="${rowLabel(rk)} ${hTxt(h)} · ${c?`${c.a}/${c.t} answered`:'no calls'}">${c?c.t:''}</td>`;
+        if(!c||c.t<HM_MIN)
+          return `<td class="nil" title="${rowLabel(rk)} ${hTxt(h)} · ${c?`${c.a}/${c.t} answered`:'no calls'}">${c?c.t:''}</td>`;
         const r=Math.round(c.a/c.t*100), col=hmColor(r);
         return `<td class="has" style="background:${col.bg};color:${col.fg}" title="${rowLabel(rk)} ${hTxt(h)} · ${c.a}/${c.t} answered">${r}<span class="pc">%</span></td>`;
       }).join('');
       const rr=rt?Math.round(ra/rt*100):null;
       return `<tr><th class="rowh">${rowLabel(rk)}</th>${tds}
-        <td class="has" style="background:${rr==null?'var(--surface-2)':hmColor(rr).bg};color:${rr==null?'var(--faint)':hmColor(rr).fg}" title="${rowLabel(rk)} · ${ra}/${rt} answered">${rr==null?'–':`${rr}<span class="pc">%</span>`}</td></tr>`;
+        <td class="has sumc" style="background:${rr==null?'var(--surface-2)':hmColor(rr).bg};color:${rr==null?'var(--faint)':hmColor(rr).fg}" title="${rowLabel(rk)} · ${ra}/${rt} answered, all hours">${rr==null?'–':`${rr}<span class="pc">%</span>`}</td></tr>`;
     }).join('')}</tbody></table>`;
 
   document.getElementById('ov-hm-legend').innerHTML=
     `<span>Low</span><span class="sw">${[ '#d9534f','#f0b453','#8fcf6b','#19a86a','#0f7a4f' ]
       .map(c=>`<i style="background:${c}"></i>`).join('')}</span><span>High</span>`;
-  document.getElementById('ov-hm-note').textContent =
-    `Answer rate % by ${byDow?'day of week':'date'} and hour (8am–7pm). `+
-    `Cells with under ${HM_MIN} calls are left grey.`;
+  document.getElementById('ov-hm-note').innerHTML =
+    `Coloured cells show <b>answer rate</b> during office hours (9am–7pm), by ${byDow?'day of week':'date'}. `+
+    `Outside those hours, and where fewer than ${HM_MIN} calls came in, the cell shows the <b>number of calls</b> instead.`;
 }
 
 let OV_SERIES=null;   // null = All; else 'answered' | one miss-type key
