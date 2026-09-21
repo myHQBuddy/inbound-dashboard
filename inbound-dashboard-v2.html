@@ -693,7 +693,10 @@ function statsFor(from,to){
 }
 
 // metric card builder — number + change badge + benchmark pill, no grey subtext
-function mcard({label,value,suffix,cur,prev,dir='good',isPct=false,color,onClick,bench=true}){
+// Cards show the value for the selected period only — no period-over-period
+// arrows. Comparison lives exclusively on the Trend Comparison tab, so the
+// cur/prev/dir/isPct args callers still pass are accepted and ignored.
+function mcard({label,value,suffix,color,onClick,bench=true}){
   const id = onClick ? `mc_${Math.random().toString(36).slice(2,9)}` : '';
   if(id) _cardHandlers[id]=onClick;
   return `<div class="mcard${onClick?' clickable':''}"${id?` data-mc="${id}"`:''}>
@@ -702,7 +705,7 @@ function mcard({label,value,suffix,cur,prev,dir='good',isPct=false,color,onClick
       ${color?`<span class="m-dot" style="background:${color}"></span>`:''}
     </div>
     <div class="m-val tnum">${value}${suffix?`<small>${suffix}</small>`:''}</div>
-    <div class="m-foot">${badge(cur,prev,dir,isPct)}${bench?benchPill():''}</div>
+    ${bench?`<div class="m-foot">${benchPill()}</div>`:''}
   </div>`;
 }
 let _cardHandlers={};
