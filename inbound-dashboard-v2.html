@@ -178,6 +178,10 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 .chip:hover{color:var(--ink);background:var(--surface-2)}
 .chip.on{color:var(--ink);background:var(--surface-2);border-color:var(--line-2)}
 .chip .c-dot{width:8px;height:8px;border-radius:2px;opacity:.45;transition:.12s}
+/* static key for the answer-rate line: a short rule, matching the plotted line */
+.linekey{display:inline-flex;align-items:center;gap:6px;margin-left:4px;
+  font:600 12px Inter,sans-serif;color:var(--muted);padding:4px 2px}
+.linekey i{width:14px;height:2px;background:var(--ink-2);border-radius:1px;display:block}
 .chip.on .c-dot,.chip:hover .c-dot{opacity:1}
 
 .card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
@@ -885,13 +889,26 @@ function renderOverview(p){
     ...MISS_TYPES.map(t=>({key:t.key,label:t.label,
       color:t.key==='Agent Missed'?'var(--v-agent)'
            :t.key==='Queue Missed - Within Hours'?'var(--v-queue)':'var(--v-aoh)'}))];
-  chipGroup(document.getElementById('ov-vol-chips'), chipItems, OV_SERIES,
+  const chipBox=document.getElementById('ov-vol-chips');
+  chipGroup(chipBox, chipItems, OV_SERIES,
     k=>{ OV_SERIES = (OV_SERIES===k?null:k); renderOverview(p); });
+  // static key for the answer-rate line (not a toggle — it's always the
+  // reference series, and it only shows when no single series is isolated)
+  if(!OV_SERIES){
+    const k=document.createElement('span');
+    k.className='linekey';
+    k.innerHTML='<i></i>Answer rate';
+    chipBox.appendChild(k);
+  }
 
   const buckets = single ? Array.from({length:24},(_,h)=>h)
                          : [...new Set(A.ib.map(r=>r.d))].sort();
-  const labelOf = b => single ? (b===0?'12a':b<12?b+'a':b===12?'12p':(b-12)+'p')
+  // Two-line hour labels ("9" over "AM") keep the full AM/PM wording readable
+  // without the width that "9 AM" on one line would need across 24 columns.
+  const labelOf = b => single ? [String(b%12===0?12:b%12), b<12?'AM':'PM']
                               : [_dowOf(b), _dm(b)];
+  const labelFull = b => single ? `${b%12===0?12:b%12} ${b<12?'AM':'PM'}`
+                                : `${_dowOf(b)} ${_dm(b)}`;
   const inBucket = (r,b) => single ? r.h===b : r.d===b;
   const cv=cssVar;
   // Answered is the quiet base of the stack; the misses carry the colour, so
@@ -904,16 +921,40 @@ function renderOverview(p){
   // Only the topmost visible segment gets rounded corners, so the stack reads
   // as one column instead of a pile of detached blocks.
   const lastIdx=sets.length-1;
-  makeChart('ov-vol-chart',{type:'bar',
-    data:{labels:buckets.map(labelOf), datasets:sets.map((s,i)=>({label:s.label,
+  // Answer rate per bucket, on its own 0–100 axis. A stacked volume chart can't
+  // show a rate — you'd be eyeballing a ratio of segment heights — so the line
+  // carries it directly. Buckets below a few calls are left null rather than
+  // plotted, since 1-of-1 as "100%" would be noise.
+  const AR_MIN=3;
+  const arData = buckets.map(b=>{
+    const tot=A.ib.filter(r=>inBucket(r,b)).length;
+    if(tot<AR_MIN) return null;
+    return Math.round(A.ans.filter(r=>inBucket(r,b)).length/tot*100);
+  });
+  const showAr = !OV_SERIES && arData.some(v=>v!=null);
+  const barSets = sets.map((s,i)=>({label:s.label, type:'bar', yAxisID:'y', order:2,
       data:buckets.map(b=>s.rows.filter(r=>inBucket(r,b)).length),
       backgroundColor:s.color,
       borderRadius:i===lastIdx?{topLeft:3,topRight:3}:0, borderSkipped:false,
-      barPercentage:.9, categoryPercentage:.88}))},
+      barPercentage:.9, categoryPercentage:.88}));
+  const arSet = {label:'Answer rate', type:'line', yAxisID:'yAr', order:1,
+      data:arData, spanGaps:true,
+      borderColor:cv('var(--ink-2)'), borderWidth:2,
+      pointRadius:single?0:2.5, pointHoverRadius:4,
+      pointBackgroundColor:cv('var(--surface)'), pointBorderColor:cv('var(--ink-2)'),
+      pointBorderWidth:1.5, tension:.35, fill:false};
+  makeChart('ov-vol-chart',{type:'bar',
+    data:{labels:buckets.map(labelOf),
+      datasets: showAr ? [...barSets, arSet] : barSets},
     options:{responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
       plugins:{legend:{display:false},datalabels:{display:false},
-        tooltip:{callbacks:{title:it=>single?`${it[0].label}`:`${it[0].label}`}}},
+        tooltip:{callbacks:{
+          // labels are two-line arrays, so rebuild the readable form
+          title:it=>labelFull(buckets[it[0].dataIndex]),
+          label:c=>c.dataset.type==='line'
+            ? (c.parsed.y==null?null:` Answer rate: ${c.parsed.y}%`)
+            : ` ${c.dataset.label}: ${c.parsed.y}`}}},
       // Light chrome: no axis borders, fewer gridlines, muted tick colour — the
       // grid should read as a quiet reference, not a cage around the data.
       scales:{x:{stacked:true,grid:{display:false},border:{display:false},
@@ -922,7 +963,13 @@ function renderOverview(p){
               y:{stacked:true,beginAtZero:true,border:{display:false},
                  grid:{color:cv('var(--line)'),drawTicks:false},
                  ticks:{precision:0,maxTicksLimit:5,color:cv('var(--muted)'),
-                        font:{size:10.5},padding:8}}}}});
+                        font:{size:10.5},padding:8}},
+              // rate axis: fixed 0–100 so the line's height always means the
+              // same thing, and gridless so it doesn't double up on y's lines
+              yAr:{display:showAr,position:'right',min:0,max:100,
+                 stacked:false,border:{display:false},grid:{display:false},
+                 ticks:{maxTicksLimit:5,color:cv('var(--muted)'),font:{size:10.5},
+                        padding:6,callback:v=>v+'%'}}}}});
 
   // ── answer-rate heatmap: rows = day (or day-of-week), cols = hour ──
   renderHeatmap(A, p);
