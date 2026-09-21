@@ -549,7 +549,7 @@ function activePeriod(){
   const f = FILTER;
   if (f.mode==='daily'){
     const d=f.date, p=shiftDate(d,-1);
-    return {from:d,to:d,label:`${_dowOf(d)} · ${_dmy(d)}`, prevFrom:p,prevTo:p,prevLabel:_dm(p)};
+    return {from:d,to:d,label:_dmy(d), prevFrom:p,prevTo:p,prevLabel:_dm(p)};
   }
   if (f.mode==='weekly'){
     const w=weekRange(f.week); const pv=weekRange(shiftDate(w.from,-7));
