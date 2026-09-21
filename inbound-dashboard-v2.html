@@ -181,8 +181,12 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 .chip .c-dot{width:8px;height:8px;border-radius:2px;opacity:.45;transition:.12s}
 
 /* weekday selector in Trend Comparison */
-.dow-bar{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:-4px 0 12px}
-.dow-lbl{font-size:11.5px;font-weight:600;color:var(--muted);margin-right:3px}
+.dow-bar{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:-4px 0 8px}
+.dow-bar+.dow-bar{margin-top:-2px}          /* stacked filter rows sit closer */
+.dow-bar:last-of-type{margin-bottom:12px}
+/* fixed-width label keeps stacked rows' chips aligned in a column */
+.dow-lbl{font-size:11.5px;font-weight:600;color:var(--muted);margin-right:3px;
+  min-width:46px}
 .dow{border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);
   font:600 11.5px Inter,sans-serif;padding:4px 10px;border-radius:7px;cursor:pointer;transition:.12s}
 .dow:hover{border-color:var(--brand);color:var(--brand)}
@@ -437,6 +441,8 @@ table.dt tr:hover td{background:var(--surface-2)}
         <div class="card-title">Leads Over Time</div>
         <div class="chips" id="ld-chips"></div>
       </div>
+      <!-- intent narrowing: New / Existing / Query -->
+      <div class="dow-bar" id="ld-intent"></div>
       <!-- weekday narrowing: drop the days you don't want on the line -->
       <div class="dow-bar" id="ld-dow"></div>
       <div class="card-note" id="ld-note">Dispositioned leads per day by product. Dashed lines are each product's average over the shown days.</div>
@@ -1237,6 +1243,23 @@ function leadStats(from,to){
 
 let LD_PROD=null;            // null = All (product chips above the chart)
 const LD_DOW=new Set();      // empty = every weekday; else only these on the line
+const LD_CT=new Set();       // empty = every caller intent; else New/Existing/Query
+// Caller-intent toggles for the leads line, so "new leads only" can be read
+// per product over time rather than only as a static split.
+function renderLdIntentBar(p){
+  const bar=document.getElementById('ld-intent');
+  bar.style.display='flex';
+  const mk=(k,l,on)=>`<button class="dow${on?' on':''}" data-i="${k==null?'':k}">${l}</button>`;
+  bar.innerHTML=`<span class="dow-lbl">Intent</span>`+mk(null,'All',LD_CT.size===0)+
+    INTENTS.map(it=>mk(it.key,it.label,LD_CT.has(it.key))).join('');
+  bar.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    const v=b.dataset.i||null;
+    if(v==null) LD_CT.clear();
+    else if(LD_CT.has(v)) LD_CT.delete(v);
+    else LD_CT.add(v);
+    renderLeads(p);
+  });
+}
 // Weekday toggles for the leads line. Hidden on a single-day view, where the
 // x-axis is hours and a weekday filter would mean nothing.
 function renderLdDowBar(p, single){
@@ -1278,6 +1301,7 @@ function renderLeads(p){
   const single=p.from===p.to;
   // Weekday toggles: drop whole days from the series so a weekday pattern
   // (or a weekend dip) can be excluded rather than distorting the averages.
+  renderLdIntentBar(p);
   renderLdDowBar(p, single);
   const labelOf = b => single ? (b===0?'12a':b<12?b+'a':b===12?'12p':(b-12)+'p') : [_dowOf(b),_dm(b)];
   const inB=(r,b)=> single ? r.h===b : r.d===b;
@@ -1288,8 +1312,10 @@ function renderLeads(p){
 
   // Per-product series plus a dashed average line for each, so every point can
   // be read against that product's own baseline rather than a shared one.
+  const ctOk = r => LD_CT.size===0 || LD_CT.has(r.ct);
   const series = shown.map(pr=>{
-    const data=buckets.map(b=>A.byProd[pr.key].filter(r=>inB(r,b)).length);
+    const rows=A.byProd[pr.key].filter(ctOk);
+    const data=buckets.map(b=>rows.filter(r=>inB(r,b)).length);
     const mean=data.length?data.reduce((a,v)=>a+v,0)/data.length:0;
     return {pr, data, mean:Math.round(mean)};
   });
@@ -1329,7 +1355,8 @@ function renderLeads(p){
   document.getElementById('ld-note').textContent =
     (single ? 'Dispositioned leads by hour for the selected day. '
             : 'Dispositioned leads per day by product. Dashed lines are each product\'s average over the shown days. ')
-    + (LD_DOW.size ? `Showing ${[...LD_DOW].join(', ')} only.` : '');
+    + (LD_CT.size ? `${[...LD_CT].join(' + ')} only. ` : '')
+    + (LD_DOW.size ? `${[...LD_DOW].join(', ')} only.` : '');
 
   // ── intent by product ──
   // Same treatment as the volume chart: share printed inside each segment, the
