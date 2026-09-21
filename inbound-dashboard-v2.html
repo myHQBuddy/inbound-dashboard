@@ -618,7 +618,19 @@ function cssVar(v){
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || v;
 }
 const CHARTS={};
+// The datalabels plugin ships as a UMD bundle but Chart.js v4 requires an
+// explicit register; without it every `datalabels` config is silently ignored.
+// Registered once, lazily, so it is always in place before the first chart.
+let _dlReg=false;
+function ensureDataLabels(){
+  if(_dlReg || typeof ChartDataLabels==='undefined') return;
+  Chart.register(ChartDataLabels);
+  // Off by default: only the charts that opt in should draw labels.
+  Chart.defaults.set('plugins.datalabels',{display:false});
+  _dlReg=true;
+}
 function makeChart(id,cfg){ const el=document.getElementById(id); if(!el)return null;
+  ensureDataLabels();
   if(CHARTS[id])CHARTS[id].destroy();
   const css=getComputedStyle(document.body);
   Chart.defaults.color=css.getPropertyValue('--muted').trim();
@@ -937,10 +949,12 @@ function renderOverview(p){
   // and add the bucket total, anchored above the top of the stack.
   barSets[lastIdx].datalabels = {labels:{
     share: barSets[lastIdx].datalabels,
-    total: {display:ctx=>totals[ctx.dataIndex]>0,
+    // When one series is isolated the bar no longer reaches the bucket total,
+    // so print that series' own count instead of a total it doesn't represent.
+    total: {display:ctx=>(OV_SERIES?ctx.dataset.data[ctx.dataIndex]:totals[ctx.dataIndex])>0,
       anchor:'end', align:'end', offset:3, clamp:true,
       color:cv('var(--ink-2)'), font:{size:10.5,weight:'700'},
-      formatter:(v,ctx)=>fmtN(totals[ctx.dataIndex])}}};
+      formatter:(v,ctx)=>fmtN(OV_SERIES?v:totals[ctx.dataIndex])}}};
   makeChart('ov-vol-chart',{type:'bar',
     data:{labels:buckets.map(labelOf), datasets:barSets},
     options:{responsive:true,maintainAspectRatio:false,
