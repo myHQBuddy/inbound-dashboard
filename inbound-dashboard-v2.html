@@ -205,7 +205,18 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 .fstage .f-side{font-size:12px;color:var(--muted);min-width:96px;text-align:right}
 .fstage .f-side b{color:var(--ink);font-weight:700;font-size:13.5px}
 
-/* DID day-by-day grid */
+/* answer-rate heatmap */
+table.hm{border-collapse:separate;border-spacing:4px;font-size:11px;margin:2px 0 0}
+table.hm th{font-size:10.5px;font-weight:600;color:var(--muted);padding:1px 3px;text-align:center;white-space:nowrap}
+table.hm th.rowh{text-align:right;padding-right:9px;min-width:38px}
+table.hm td{width:38px;height:30px;text-align:center;border-radius:7px;
+  font-weight:700;font-variant-numeric:tabular-nums;font-size:11.5px;
+  cursor:default;transition:transform .1s}
+table.hm td.has:hover{transform:scale(1.09);box-shadow:var(--shadow)}
+table.hm td.nil{background:var(--surface-2);color:var(--faint);font-weight:500}
+.hm-legend{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted)}
+.hm-legend .sw{display:flex;gap:2px}
+.hm-legend .sw i{width:16px;height:11px;border-radius:2px;display:block}
 table.didgrid{border-collapse:separate;border-spacing:3px;font-size:11px}
 table.didgrid th{font-size:10px;font-weight:600;color:var(--muted);padding:2px 4px;text-align:center;white-space:nowrap}
 table.didgrid th.did-h{text-align:left;position:sticky;left:0;background:var(--surface);z-index:1;padding-right:10px}
@@ -328,17 +339,18 @@ table.dt tr:hover td{background:var(--surface-2)}
       </div>
       <div class="chart-wrap tall"><canvas id="ov-vol-chart"></canvas></div>
     </div>
-    <div class="row2">
-      <div class="card">
-        <div class="card-h"><div class="card-title">Answer Rate by Hour</div></div>
-        <div class="card-note">Office hours 9am–7pm highlighted. Bar height = calls, colour = answer rate.</div>
-        <div class="chart-wrap"><canvas id="ov-hour-chart"></canvas></div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-h">
+        <div class="card-title">Answer Rate Heatmap</div>
+        <div class="hm-legend" id="ov-hm-legend"></div>
       </div>
-      <div class="card">
-        <div class="card-h"><div class="card-title">Missed by Campaign / Queue</div></div>
-        <div class="card-note">Which queue the missed calls dropped in. Click a row for the numbers.</div>
-        <div id="ov-miss"></div>
-      </div>
+      <div class="card-note" id="ov-hm-note">Answer rate by day and hour. Darker green is better; red needs coverage.</div>
+      <div style="overflow-x:auto"><div id="ov-heatmap"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><div class="card-title">Missed by Campaign / Queue</div></div>
+      <div class="card-note">Which queue the missed calls dropped in. Click a row for the numbers.</div>
+      <div id="ov-miss"></div>
     </div>
   </div>
   <div class="panel" id="panel-callbacks">
@@ -727,6 +739,63 @@ const missRows = arr => arr.filter(r=>r.cn)
 // ══════════════════════════════════════════════════════════════════════════════
 //  OVERVIEW
 // ══════════════════════════════════════════════════════════════════════════════
+// ── Answer-rate heatmap ────────────────────────────────────────────────────
+// Rows adapt to the period: a single day shows just that day; a short range
+// shows each date; a long range collapses to day-of-week so the grid stays
+// readable. Colour is a 5-step green→red ramp; cells with too few calls to be
+// meaningful are shown neutral rather than given a misleading colour.
+const HM_HOURS=Array.from({length:12},(_,i)=>i+8);   // 8am..7pm
+const HM_MIN=3;                                      // min calls for a coloured cell
+function hmColor(rate){
+  if(rate>=95) return {bg:'#0f7a4f', fg:'#fff'};
+  if(rate>=85) return {bg:'#19a86a', fg:'#fff'};
+  if(rate>=70) return {bg:'#8fcf6b', fg:'#123'};
+  if(rate>=50) return {bg:'#f0b453', fg:'#3a2400'};
+  return {bg:'#d9534f', fg:'#fff'};
+}
+function renderHeatmap(A,p){
+  const box=document.getElementById('ov-heatmap');
+  const dates=[...new Set(A.ib.map(r=>r.d))].sort();
+  // choose row grouping
+  let rows, rowLabel, rowKeyOf, byDow=false;
+  if(dates.length<=31){
+    rows=dates.slice().reverse(); rowLabel=d=>`${_dowOf(d)} ${_dm(d)}`; rowKeyOf=r=>r.d;
+  } else {
+    byDow=true;
+    rows=['Mon','Tue','Wed','Thu','Fri','Sat','Sun']; rowLabel=d=>d; rowKeyOf=r=>r.w;
+  }
+  // bucket
+  const cell={};
+  A.ib.forEach(r=>{ if(r.h<HM_HOURS[0]||r.h>HM_HOURS[HM_HOURS.length-1]) return;
+    const k=rowKeyOf(r)+'|'+r.h; const c=cell[k]||(cell[k]={t:0,a:0});
+    c.t++; if(r.st==='answered')c.a++; });
+
+  if(!A.ib.length){ box.innerHTML='<div class="empty">No inbound calls in this period.</div>'; return; }
+
+  const hLbl=h=>h<12?h+'a':h===12?'12p':(h-12)+'p';
+  box.innerHTML=`<table class="hm"><thead><tr><th class="rowh"></th>
+      ${HM_HOURS.map(h=>`<th>${hLbl(h)}</th>`).join('')}<th style="padding-left:8px">All</th></tr></thead>
+    <tbody>${rows.map(rk=>{
+      let rt=0,ra=0;
+      const tds=HM_HOURS.map(h=>{ const c=cell[rk+'|'+h];
+        if(!c||c.t<HM_MIN) return `<td class="nil" title="${c?`${c.a}/${c.t} answered`:'no calls'}">${c?c.t:''}</td>`;
+        rt+=c.t; ra+=c.a;
+        const r=Math.round(c.a/c.t*100), col=hmColor(r);
+        return `<td class="has" style="background:${col.bg};color:${col.fg}" title="${rowLabel(rk)} ${hLbl(h)} · ${c.a}/${c.t} answered">${r}</td>`;
+      }).join('');
+      const rr=rt?Math.round(ra/rt*100):null;
+      return `<tr><th class="rowh">${rowLabel(rk)}</th>${tds}
+        <td class="has" style="background:${rr==null?'var(--surface-2)':hmColor(rr).bg};color:${rr==null?'var(--faint)':hmColor(rr).fg};padding-left:8px">${rr==null?'–':rr}</td></tr>`;
+    }).join('')}</tbody></table>`;
+
+  document.getElementById('ov-hm-legend').innerHTML=
+    `<span>Low</span><span class="sw">${[ '#d9534f','#f0b453','#8fcf6b','#19a86a','#0f7a4f' ]
+      .map(c=>`<i style="background:${c}"></i>`).join('')}</span><span>High</span>`;
+  document.getElementById('ov-hm-note').textContent =
+    `Answer rate % by ${byDow?'day of week':'date'} and hour (8am–7pm). `+
+    `Cells with under ${HM_MIN} calls are left grey.`;
+}
+
 let OV_SERIES=null;   // null = All; else 'answered' | one miss-type key
 function renderOverview(p){
   const A=statsFor(p.from,p.to), B=statsFor(p.prevFrom,p.prevTo);
@@ -782,23 +851,8 @@ function renderOverview(p){
       scales:{x:{stacked:true,grid:{display:false},ticks:{maxRotation:0,autoSkip:true,font:{size:10.5}}},
               y:{stacked:true,beginAtZero:true,grid:{color:cv('var(--line)')},ticks:{precision:0,font:{size:10.5}}}}}});
 
-  // ── hourly answer-rate chart ──
-  const HRS=Array.from({length:14},(_,i)=>i+7);   // 7am..8pm
-  const hTot=HRS.map(h=>A.ib.filter(r=>r.h===h).length);
-  const hAns=HRS.map(h=>A.ans.filter(r=>r.h===h).length);
-  const rateCol=(a,t,off)=>{ if(!t) return cv('var(--line)');
-    const r=a/t*100; if(!off) return cv('var(--faint)');
-    return r>=90?cv('var(--good)'):r>=75?cv('var(--warn)'):cv('var(--bad)'); };
-  makeChart('ov-hour-chart',{type:'bar',
-    data:{labels:HRS.map(h=>h<12?h+'a':h===12?'12p':(h-12)+'p'),
-      datasets:[{data:hTot, backgroundColor:HRS.map((h,i)=>rateCol(hAns[i],hTot[i],h>=9&&h<=18)),
-        borderRadius:4,borderSkipped:false,barPercentage:.8}]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},datalabels:{display:false},
-        tooltip:{callbacks:{label:it=>{const i=it.dataIndex;
-          return ` ${fmtN(hTot[i])} calls · ${pct(hAns[i],hTot[i])}% answered`;}}}},
-      scales:{x:{grid:{display:false},ticks:{font:{size:10.5}}},
-              y:{beginAtZero:true,grid:{color:cv('var(--line)')},ticks:{precision:0,font:{size:10.5}}}}}});
+  // ── answer-rate heatmap: rows = day (or day-of-week), cols = hour ──
+  renderHeatmap(A, p);
 
   // ── missed by campaign / queue (the type split already lives in the cards above) ──
   const byCamp={};
