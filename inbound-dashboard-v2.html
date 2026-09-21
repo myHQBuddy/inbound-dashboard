@@ -23,7 +23,7 @@
   --new:#7c3aed; --exist:#0f9d63; --query:#c77800;
   /* Volume chart: answered is a quiet base so the eye goes to the misses,
      which ramp by severity rather than being four unrelated hues. */
-  --v-ans:#cfe0d8; --v-agent:#c0485a; --v-queue:#e0954a; --v-aoh:#c3c9d8;
+  --v-ans:#5fb894; --v-agent:#c0485a; --v-queue:#e0954a; --v-aoh:#c3c9d8;
   --shadow-sm:0 1px 2px rgba(19,26,46,.06);
   --shadow:0 2px 4px rgba(19,26,46,.05),0 10px 26px -14px rgba(19,26,46,.20);
   --r:14px; --r-sm:10px;
@@ -37,7 +37,7 @@
   --bad:#f4818e; --bad-soft:#2f1720;
   --am:#7b81ff; --vo:#3fd18c; --od:#f2b45a;
   --new:#a982f7; --exist:#3fd18c; --query:#f2b45a;
-  --v-ans:#33574a; --v-agent:#e0697a; --v-queue:#e8a963; --v-aoh:#4d5570;
+  --v-ans:#3d8f73; --v-agent:#e0697a; --v-queue:#e8a963; --v-aoh:#4d5570;
   --shadow-sm:0 1px 2px rgba(0,0,0,.3);
   --shadow:0 2px 4px rgba(0,0,0,.3),0 12px 30px -14px rgba(0,0,0,.6);
 }}
@@ -50,7 +50,7 @@
   --bad:#f4818e; --bad-soft:#2f1720;
   --am:#7b81ff; --vo:#3fd18c; --od:#f2b45a;
   --new:#a982f7; --exist:#3fd18c; --query:#f2b45a;
-  --v-ans:#33574a; --v-agent:#e0697a; --v-queue:#e8a963; --v-aoh:#4d5570;
+  --v-ans:#3d8f73; --v-agent:#e0697a; --v-queue:#e8a963; --v-aoh:#4d5570;
   --shadow-sm:0 1px 2px rgba(0,0,0,.3);
   --shadow:0 2px 4px rgba(0,0,0,.3),0 12px 30px -14px rgba(0,0,0,.6);
 }
@@ -177,8 +177,7 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
   display:inline-flex;align-items:center;gap:6px}
 .chip:hover{color:var(--ink);background:var(--surface-2)}
 .chip.on{color:var(--ink);background:var(--surface-2);border-color:var(--line-2)}
-.chip .c-dot{width:8px;height:8px;border-radius:2px;opacity:.45;transition:.12s;
-  box-shadow:inset 0 0 0 1px rgba(19,26,46,.14)}   /* keeps the pale swatch visible */
+.chip .c-dot{width:8px;height:8px;border-radius:2px;opacity:.45;transition:.12s}
 .chip.on .c-dot,.chip:hover .c-dot{opacity:1}
 
 .card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
