@@ -778,10 +778,19 @@ function hmColor(rate){
 }
 function renderHeatmap(A,p){
   const box=document.getElementById('ov-heatmap');
-  const dates=[...new Set(A.ib.map(r=>r.d))].sort();
+  // Monthly mode is a cross-month comparison: every month in the dataset gets a
+  // row, so the selected month doesn't restrict the grid the way it does the
+  // rest of the tab. Each cell is that hour's answer rate averaged over the
+  // whole month.
+  const byMonth = FILTER.mode==='monthly';
+  const src = byMonth ? REC.filter(r=>r.dr==='inbound' && r.d) : A.ib;
+  const dates=[...new Set(src.map(r=>r.d))].sort();
   // choose row grouping
   let rows, rowLabel, rowKeyOf, byDow=false;
-  if(dates.length<=31){
+  if(byMonth){
+    rows=[...new Set(dates.map(d=>d.slice(0,7)))].sort().reverse();
+    rowLabel=m=>monthRange(m).label; rowKeyOf=r=>r.d.slice(0,7);
+  } else if(dates.length<=31){
     rows=dates.slice().reverse(); rowLabel=d=>`${_dowOf(d)} ${_dm(d)}`; rowKeyOf=r=>r.d;
   } else {
     byDow=true;
@@ -789,15 +798,15 @@ function renderHeatmap(A,p){
   }
   // bucket every hour of the day
   const cell={};
-  A.ib.forEach(r=>{ const k=rowKeyOf(r)+'|'+r.h; const c=cell[k]||(cell[k]={t:0,a:0});
+  src.forEach(r=>{ const k=rowKeyOf(r)+'|'+r.h; const c=cell[k]||(cell[k]={t:0,a:0});
     c.t++; if(r.st==='answered')c.a++; });
 
-  if(!A.ib.length){ box.innerHTML='<div class="empty">No inbound calls in this period.</div>'; return; }
+  if(!src.length){ box.innerHTML='<div class="empty">No inbound calls in this period.</div>'; return; }
 
   const hTxt=h=>`${h%12===0?12:h%12}${h<12?'am':'pm'}`;               // tooltips (plain)
   const hLbl=h=>`${h%12===0?12:h%12}<span class="ap">${h<12?'AM':'PM'}</span>`;  // header
   box.innerHTML=`<table class="hm">
-    <colgroup><col class="c-row">${HM_HOURS.map(h=>`<col class="${isOffice(h)?'c-off':'c-aoh'}">`).join('')}<col class="c-sum"></colgroup>
+    <colgroup><col class="c-row" style="width:${byMonth?74:68}px">${HM_HOURS.map(h=>`<col class="${isOffice(h)?'c-off':'c-aoh'}"${isOffice(h)||!byMonth?'':' style="width:26px"'}>`).join('')}<col class="c-sum"></colgroup>
     <thead><tr><th class="rowh"></th>
       ${HM_HOURS.map(h=>`<th class="${isOffice(h)?'off':'aoh'}">${isOffice(h)?hLbl(h):(h%12===0?12:h%12)}</th>`).join('')}
       <th class="sumh">Answer rate<br><span class="sub2">all hours</span></th></tr></thead>
@@ -823,7 +832,10 @@ function renderHeatmap(A,p){
     `<span>Low</span><span class="sw">${[ '#d9534f','#f0b453','#8fcf6b','#19a86a','#0f7a4f' ]
       .map(c=>`<i style="background:${c}"></i>`).join('')}</span><span>High</span>`;
   document.getElementById('ov-hm-note').innerHTML =
-    `Coloured cells show <b>answer rate</b> during office hours (9am–7pm), by ${byDow?'day of week':'date'}. `+
+    (byMonth
+      ? `<b>All months</b> shown for comparison — each cell is that hour's average answer rate across the whole month, so this grid ignores the selected month. `
+      : '')+
+    `Coloured cells show <b>answer rate</b> during office hours (9am–7pm), by ${byMonth?'month':byDow?'day of week':'date'}. `+
     `The narrow columns either side are the unstaffed hours (6–8am before, 7pm–5am after) — `+
     `those, and any hour with fewer than ${HM_MIN} calls, show the <b>number of calls</b> instead.`;
 }
