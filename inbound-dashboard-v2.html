@@ -21,6 +21,9 @@
   --bad:#d63a4a; --bad-soft:#fdeaec;
   --am:#3a41d6; --vo:#0f9d63; --od:#c77800;
   --new:#7c3aed; --exist:#0f9d63; --query:#c77800;
+  /* Volume chart: answered is a quiet base so the eye goes to the misses,
+     which ramp by severity rather than being four unrelated hues. */
+  --v-ans:#cfe0d8; --v-agent:#c0485a; --v-queue:#e0954a; --v-aoh:#c3c9d8;
   --shadow-sm:0 1px 2px rgba(19,26,46,.06);
   --shadow:0 2px 4px rgba(19,26,46,.05),0 10px 26px -14px rgba(19,26,46,.20);
   --r:14px; --r-sm:10px;
@@ -34,6 +37,7 @@
   --bad:#f4818e; --bad-soft:#2f1720;
   --am:#7b81ff; --vo:#3fd18c; --od:#f2b45a;
   --new:#a982f7; --exist:#3fd18c; --query:#f2b45a;
+  --v-ans:#33574a; --v-agent:#e0697a; --v-queue:#e8a963; --v-aoh:#4d5570;
   --shadow-sm:0 1px 2px rgba(0,0,0,.3);
   --shadow:0 2px 4px rgba(0,0,0,.3),0 12px 30px -14px rgba(0,0,0,.6);
 }}
@@ -46,6 +50,7 @@
   --bad:#f4818e; --bad-soft:#2f1720;
   --am:#7b81ff; --vo:#3fd18c; --od:#f2b45a;
   --new:#a982f7; --exist:#3fd18c; --query:#f2b45a;
+  --v-ans:#33574a; --v-agent:#e0697a; --v-queue:#e8a963; --v-aoh:#4d5570;
   --shadow-sm:0 1px 2px rgba(0,0,0,.3);
   --shadow:0 2px 4px rgba(0,0,0,.3),0 12px 30px -14px rgba(0,0,0,.6);
 }
@@ -165,18 +170,22 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 
 /* chip row (single-click select-to-show) */
 .chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-.chip{border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);
-  font:600 12px Inter,sans-serif;padding:5px 11px;border-radius:999px;cursor:pointer;transition:.12s;
+/* Quiet legend-style toggles: a chart's key shouldn't out-shout the chart.
+   Selection reads as weight + a solid swatch, not a filled pill. */
+.chip{border:1px solid transparent;background:transparent;color:var(--muted);
+  font:600 12px Inter,sans-serif;padding:4px 9px;border-radius:7px;cursor:pointer;transition:.12s;
   display:inline-flex;align-items:center;gap:6px}
-.chip:hover{border-color:var(--brand);color:var(--brand)}
-.chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
-.chip .c-dot{width:8px;height:8px;border-radius:50%}
+.chip:hover{color:var(--ink);background:var(--surface-2)}
+.chip.on{color:var(--ink);background:var(--surface-2);border-color:var(--line-2)}
+.chip .c-dot{width:8px;height:8px;border-radius:2px;opacity:.45;transition:.12s;
+  box-shadow:inset 0 0 0 1px rgba(19,26,46,.14)}   /* keeps the pale swatch visible */
+.chip.on .c-dot,.chip:hover .c-dot{opacity:1}
 
 .card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 .card-title{font-size:14.5px;font-weight:700;letter-spacing:-.01em}
 .card-note{font-size:11.5px;color:var(--muted);margin:-6px 0 12px;line-height:1.5}
-.chart-wrap{position:relative;height:300px}
-.chart-wrap.tall{height:360px}
+.chart-wrap{position:relative;height:280px}
+.chart-wrap.tall{height:300px}
 .row2{display:grid;gap:16px;grid-template-columns:1fr 1fr}
 @media(max-width:860px){.row2{grid-template-columns:1fr}}
 
@@ -570,7 +579,9 @@ function chipGroup(container, items, current, onPick){
   container.innerHTML='';
   const mk=(key,label,color,on)=>{ const b=document.createElement('button');
     b.className='chip'+(on?' on':'');
-    b.innerHTML=(color?`<span class="c-dot" style="background:${on?'#fff':color}"></span>`:'')+label;
+    // the selected chip no longer has a dark fill, so the swatch keeps its own
+    // colour in both states (opacity in CSS carries the on/off distinction)
+    b.innerHTML=(color?`<span class="c-dot" style="background:${color}"></span>`:'')+label;
     b.onclick=()=>onPick(key); return b; };
   container.appendChild(mk(null,'All',null,current==null));
   items.forEach(it=>container.appendChild(mk(it.key,it.label,it.color,current===it.key)));
@@ -870,8 +881,11 @@ function renderOverview(p){
   // ── volume chart: daily bars when range spans days, hourly when single day ──
   const single = p.from===p.to;
   document.getElementById('ov-vol-title').textContent = single ? 'Calls by Hour' : 'Daily Call Volume';
-  const chipItems=[{key:'answered',label:'Answered',color:'var(--good)'},
-    ...MISS_TYPES.map(t=>({key:t.key,label:t.label,color:t.color}))];
+  // swatches must match the bars, which use the muted chart palette
+  const chipItems=[{key:'answered',label:'Answered',color:'var(--v-ans)'},
+    ...MISS_TYPES.map(t=>({key:t.key,label:t.label,
+      color:t.key==='Agent Missed'?'var(--v-agent)'
+           :t.key==='Queue Missed - Within Hours'?'var(--v-queue)':'var(--v-aoh)'}))];
   chipGroup(document.getElementById('ov-vol-chips'), chipItems, OV_SERIES,
     k=>{ OV_SERIES = (OV_SERIES===k?null:k); renderOverview(p); });
 
@@ -881,19 +895,35 @@ function renderOverview(p){
                               : [_dowOf(b), _dm(b)];
   const inBucket = (r,b) => single ? r.h===b : r.d===b;
   const cv=cssVar;
-  const allSets=[{key:'answered',label:'Answered',color:cv('var(--good)'),rows:A.ans},
-    ...MISS_TYPES.map(t=>({key:t.key,label:t.label,color:cv(t.color),rows:A.byType[t.key]}))];
+  // Answered is the quiet base of the stack; the misses carry the colour, so
+  // the eye lands on the part that needs attention rather than on the bulk.
+  const V_COL={'answered':'var(--v-ans)','Agent Missed':'var(--v-agent)',
+    'Queue Missed - Within Hours':'var(--v-queue)','Queue Missed - After Hours':'var(--v-aoh)'};
+  const allSets=[{key:'answered',label:'Answered',color:cv('var(--v-ans)'),rows:A.ans},
+    ...MISS_TYPES.map(t=>({key:t.key,label:t.label,color:cv(V_COL[t.key]),rows:A.byType[t.key]}))];
   const sets = OV_SERIES ? allSets.filter(s=>s.key===OV_SERIES) : allSets;
+  // Only the topmost visible segment gets rounded corners, so the stack reads
+  // as one column instead of a pile of detached blocks.
+  const lastIdx=sets.length-1;
   makeChart('ov-vol-chart',{type:'bar',
-    data:{labels:buckets.map(labelOf), datasets:sets.map(s=>({label:s.label,
+    data:{labels:buckets.map(labelOf), datasets:sets.map((s,i)=>({label:s.label,
       data:buckets.map(b=>s.rows.filter(r=>inBucket(r,b)).length),
-      backgroundColor:s.color, borderRadius:4, borderSkipped:false, barPercentage:.82, categoryPercentage:.86}))},
+      backgroundColor:s.color,
+      borderRadius:i===lastIdx?{topLeft:3,topRight:3}:0, borderSkipped:false,
+      barPercentage:.9, categoryPercentage:.88}))},
     options:{responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
       plugins:{legend:{display:false},datalabels:{display:false},
         tooltip:{callbacks:{title:it=>single?`${it[0].label}`:`${it[0].label}`}}},
-      scales:{x:{stacked:true,grid:{display:false},ticks:{maxRotation:0,autoSkip:true,font:{size:10.5}}},
-              y:{stacked:true,beginAtZero:true,grid:{color:cv('var(--line)')},ticks:{precision:0,font:{size:10.5}}}}}});
+      // Light chrome: no axis borders, fewer gridlines, muted tick colour — the
+      // grid should read as a quiet reference, not a cage around the data.
+      scales:{x:{stacked:true,grid:{display:false},border:{display:false},
+                 ticks:{maxRotation:0,autoSkip:true,autoSkipPadding:14,
+                        color:cv('var(--muted)'),font:{size:10.5},padding:4}},
+              y:{stacked:true,beginAtZero:true,border:{display:false},
+                 grid:{color:cv('var(--line)'),drawTicks:false},
+                 ticks:{precision:0,maxTicksLimit:5,color:cv('var(--muted)'),
+                        font:{size:10.5},padding:8}}}}});
 
   // ── answer-rate heatmap: rows = day (or day-of-week), cols = hour ──
   renderHeatmap(A, p);
