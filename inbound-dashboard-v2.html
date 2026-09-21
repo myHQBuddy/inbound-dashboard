@@ -109,6 +109,8 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 .selctl,.datectl{font:600 13px Inter,sans-serif;padding:8px 10px;border:0;
   border-radius:9px;background:transparent;color:var(--ink);cursor:pointer;max-width:250px}
 .selctl:hover,.datectl:hover{background:var(--surface-2)}
+/* static range readout for "All" — same rhythm as the selects, but inert */
+.allrange{font:600 13px Inter,sans-serif;padding:8px 6px;color:var(--ink-2)}
 .selctl:focus,.datectl:focus{outline:2px solid var(--brand-soft);background:var(--surface-2)}
 .pick .dash{color:var(--faint);font-size:12px}
 .spacer{flex:1}
@@ -357,6 +359,7 @@ table.dt tr:hover td{background:var(--surface-2)}
       <button data-mode="daily" class="on">Daily</button>
       <button data-mode="weekly">Weekly</button>
       <button data-mode="monthly">Monthly</button>
+      <button data-mode="all">All</button>
       <button data-mode="custom">Custom</button>
     </div>
     <div class="pickzone">
@@ -366,6 +369,8 @@ table.dt tr:hover td{background:var(--surface-2)}
       <div class="pick" id="pick-custom"><svg class="p-ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3.2" width="12" height="11" rx="2"/><path d="M2 6.6h12M5.4 1.8v2.6M10.6 1.8v2.6"/></svg>
         <input type="date" class="datectl" id="cust-from"><span class="dash">–</span>
         <input type="date" class="datectl" id="cust-to"></div>
+      <!-- "all" has nothing to pick, so it states the range it resolved to -->
+      <div class="pick" id="pick-all"><svg class="p-ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3.2" width="12" height="11" rx="2"/><path d="M2 6.6h12M5.4 1.8v2.6M10.6 1.8v2.6"/><rect class="fill" x="4" y="8.4" width="8" height="3.2" rx=".7"/></svg><span class="allrange" id="all-range"></span></div>
     </div>
   </div>
 </div>
@@ -561,6 +566,13 @@ function activePeriod(){
     const m=monthRange(f.month); const pv=monthRange(prevMonth(f.month));
     return {from:m.from,to:m.to,label:m.label, prevFrom:pv.from,prevTo:pv.to,prevLabel:pv.short};
   }
+  if (f.mode==='all'){
+    // Whole dataset. There's no earlier window to compare against, so the
+    // previous period is the same range — change badges resolve to zero
+    // rather than to a misleading figure.
+    return {from:DATA_MIN, to:DATA_MAX, label:`${_dm(DATA_MIN)} – ${_dmy(DATA_MAX)}`,
+      prevFrom:DATA_MIN, prevTo:DATA_MAX, prevLabel:'—'};
+  }
   // custom — previous = same-length window immediately before
   const from=f.from||DATA_MIN, to=f.to||DATA_MAX;
   const days=Math.round((_pd(to)-_pd(from))/86400000)+1;
@@ -705,8 +717,10 @@ function makeChart(id,cfg){ const el=document.getElementById(id); if(!el)return 
   document.querySelectorAll('#mode-seg button').forEach(b=>b.onclick=()=>{
     document.querySelectorAll('#mode-seg button').forEach(x=>x.classList.remove('on'));
     b.classList.add('on'); FILTER.mode=b.dataset.mode;
-    ['daily','weekly','monthly','custom'].forEach(m=>
+    ['daily','weekly','monthly','custom','all'].forEach(m=>
       document.getElementById('pick-'+m).classList.toggle('on', m===FILTER.mode));
+    if(FILTER.mode==='all')
+      document.getElementById('all-range').textContent=`${_dmy(DATA_MIN)} – ${_dmy(DATA_MAX)}`;
     moveSegIndicator(); render();
   });
   moveSegIndicator();
@@ -1286,15 +1300,22 @@ function renderLeads(p){
       pointRadius:buckets.length>45?0:3, pointHoverRadius:5,
       pointBackgroundColor:cv('var(--surface)'), pointBorderColor:cv(s.pr.color),
       pointBorderWidth:2, fill:false, order:1});
-    // flat reference line at this product's mean
+    // Flat reference line at this product's mean, with the value printed at
+    // the right-hand end so the baseline can be read without hovering.
     sets.push({label:`${s.pr.label} avg`, data:buckets.map(()=>s.mean),
       borderColor:cv(s.pr.color), borderWidth:1.2, borderDash:[5,4],
-      pointRadius:0, pointHoverRadius:0, fill:false, tension:0, order:2, isAvg:true});
+      pointRadius:0, pointHoverRadius:0, fill:false, tension:0, order:2, isAvg:true,
+      datalabels:{
+        display:ctx=>ctx.dataIndex===ctx.dataset.data.length-1,   // last point only
+        align:'right', anchor:'end', offset:2, clamp:true,
+        color:cv(s.pr.color), font:{size:10.5,weight:'700'},
+        formatter:()=>s.mean}});
   });
   makeChart('ld-trend-chart',{type:'line',
     data:{labels:buckets.map(labelOf), datasets:sets},
     options:{responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
+      layout:{padding:{right:26}},          // room for the average value labels
       plugins:{legend:{display:false},datalabels:{display:false},
         tooltip:{filter:it=>!it.dataset.isAvg,      // averages aren't per-point facts
           callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y}`}}},
