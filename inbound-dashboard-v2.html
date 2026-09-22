@@ -509,6 +509,20 @@ table.dt tr:hover td{background:var(--surface-2)}
   <div class="panel" id="panel-action">
     <div class="cards" id="ac-cards"></div>
     <div class="card" style="margin-bottom:16px">
+      <div class="card-h">
+        <div class="card-title">Agents on Calls Through the Day</div>
+        <div class="seg seg-sm" id="aa-seg">
+          <div class="seg-ind" id="aa-seg-ind"></div>
+          <button data-aa="inbound" class="on">Inbound</button>
+          <button data-aa="callback">Callback</button>
+          <button data-aa="both">Both</button>
+        </div>
+      </div>
+      <div class="card-note" id="aa-note">How many agents were on a call in each 15-minute slot.
+        Deeper shading means more of the team was engaged at once.</div>
+      <div class="chart-wrap" style="height:210px"><canvas id="aa-chart"></canvas></div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
       <div class="card-h"><div class="card-title">DID Health — Pickup Rate by Day</div>
         <div class="chips" id="ac-did-chips"></div></div>
       <div class="card-note">Each row is an outbound caller ID. Cells show that day's pickup rate —
@@ -1549,8 +1563,81 @@ function didColor(rate){
 }
 let AC_DIDFILTER=null;   // null = all DIDs, 'risk' = only at-risk
 
+// ── Agents on calls through the day ──────────────────────────────────────────
+// Only answered calls carry an agent name, so this is coverage-while-talking,
+// not rostered staffing: an agent between calls doesn't appear. Averaged across
+// the days in range so a multi-day window shows a typical day rather than a sum.
+let AA_DIR='inbound';
+const AA_SLOT=15;                                   // minutes per slot
+const AA_FROM=9, AA_TO=21;                          // 9am–9pm covers the shift
+function renderAgentActivity(p){
+  const cv=cssVar;
+  const rows=recsIn(p.from,p.to).filter(r=>
+    r.st==='answered' && r.ag && r.ti &&
+    (AA_DIR==='both' ? (r.dr==='inbound'||r.dr==='callback') : r.dr===AA_DIR));
+  const days=[...new Set(rows.map(r=>r.d))];
+  const nDays=Math.max(1,days.length);
+  const s0=Math.floor(AA_FROM*60/AA_SLOT), s1=Math.floor(AA_TO*60/AA_SLOT);
+  // distinct agents per slot per day, then averaged over the days in range
+  const perDay={};
+  rows.forEach(r=>{
+    const [h,m]=r.ti.split(':').map(Number);
+    const s=Math.floor((h*60+m)/AA_SLOT);
+    if(s<s0||s>=s1) return;
+    ((perDay[r.d]=perDay[r.d]||{})[s]=perDay[r.d][s]||new Set()).add(r.ag);
+  });
+  const slots=[]; for(let s=s0;s<s1;s++) slots.push(s);
+  const data=slots.map(s=>{
+    let t=0; days.forEach(d=>{ t+=(perDay[d]&&perDay[d][s])?perDay[d][s].size:0; });
+    return +(t/nDays).toFixed(nDays>1?1:0);
+  });
+  const peak=Math.max(0,...data);
+  const lbl=s=>{ const t=s*AA_SLOT, h=Math.floor(t/60), m=t%60;
+    return `${h%12===0?12:h%12}${m?':'+String(m).padStart(2,'0'):''} ${h<12?'AM':'PM'}`; };
+  makeChart('aa-chart',{type:'line',
+    data:{labels:slots.map(lbl),
+      datasets:[{data, stepped:'before', fill:true,
+        borderColor:cv('var(--brand)'), borderWidth:1.8,
+        backgroundColor:(()=>{const c=document.getElementById('aa-chart');
+          if(!c) return 'rgba(58,65,214,.14)';
+          const g=c.getContext('2d').createLinearGradient(0,0,0,210);
+          g.addColorStop(0,'rgba(58,65,214,.28)'); g.addColorStop(1,'rgba(58,65,214,.03)');
+          return g;})(),
+        pointRadius:0, pointHoverRadius:4, pointHoverBackgroundColor:cv('var(--brand)')}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},datalabels:{display:false},
+        tooltip:{callbacks:{
+          title:it=>it[0].label,
+          label:c=>` ${c.parsed.y} agent${c.parsed.y===1?'':'s'} on a call`+
+            (nDays>1?` (avg of ${nDays} days)`:'')}}},
+      scales:{x:{grid:{display:false},border:{display:false},
+                 ticks:{maxRotation:0,autoSkip:true,autoSkipPadding:22,
+                        color:cv('var(--muted)'),font:{size:10.5},padding:4}},
+              y:{beginAtZero:true,border:{display:false},
+                 grid:{color:cv('var(--line)'),drawTicks:false},
+                 ticks:{precision:0,maxTicksLimit:5,color:cv('var(--muted)'),
+                        font:{size:10.5},padding:8}}}}});
+  document.getElementById('aa-note').innerHTML =
+    `Agents on a ${AA_DIR==='both'?'call':AA_DIR+' call'} in each ${AA_SLOT}-minute slot, `+
+    `${nDays>1?`averaged across ${nDays} days`:'for this day'}. Peak <b>${peak}</b> at once. `+
+    `Only answered calls carry an agent, so this shows time on calls — not roster.`;
+  moveAaSeg();
+}
+function moveAaSeg(){
+  const btn=document.querySelector('#aa-seg button.on'), ind=document.getElementById('aa-seg-ind');
+  if(!btn||!ind) return;
+  ind.style.left=btn.offsetLeft+'px'; ind.style.width=btn.offsetWidth+'px';
+}
+document.querySelectorAll('#aa-seg button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#aa-seg button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); AA_DIR=b.dataset.aa;
+  renderAgentActivity(activePeriod());
+});
+
 function renderAction(p){
   _cardHandlers={}; const cv=cssVar;
+  renderAgentActivity(p);
   const out=recsIn(p.from,p.to).filter(r=>r.dr==='callback' && r.dd);
   const days=[...new Set(out.map(r=>r.d))].sort();
 
