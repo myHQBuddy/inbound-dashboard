@@ -190,17 +190,6 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 .chip.on{color:var(--ink);background:var(--surface-2);border-color:var(--line-2)}
 .chip .c-dot{width:8px;height:8px;border-radius:2px;opacity:.45;transition:.12s}
 
-/* per-agent coverage strips under the activity chart */
-.aa-legend{font-size:11px;color:var(--muted);margin:14px 0 8px;
-  padding-top:12px;border-top:1px solid var(--line)}
-.aa-row{display:flex;align-items:center;gap:10px;padding:3px 0}
-.aa-name{font-size:12px;font-weight:600;color:var(--ink);min-width:118px;flex-shrink:0;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.aa-strip{display:flex;gap:1px;flex:1;min-width:0}
-.aa-strip i{flex:1;height:13px;border-radius:2px;background:var(--surface-2);display:block}
-.aa-strip i.on{background:var(--brand);opacity:.82}
-.aa-n{font-size:12px;font-weight:700;color:var(--ink-2);min-width:46px;text-align:right;flex-shrink:0}
-
 /* callback ladder: one row per attempt, split connected / didn't pick up */
 .cbkey{display:flex;gap:14px;font-size:11.5px;color:var(--muted)}
 .cbkey span{display:inline-flex;align-items:center;gap:6px}
@@ -525,9 +514,6 @@ table.dt tr:hover td{background:var(--surface-2)}
       </div>
       <div class="card-note" id="aa-note">How many agents were on an inbound call in each 15-minute slot.</div>
       <div class="chart-wrap" style="height:210px"><canvas id="aa-chart"></canvas></div>
-      <div class="aa-legend">Each agent's own coverage — a mark where they took a call.
-        Calls handled on the right.</div>
-      <div id="aa-agents"></div>
     </div>
     <div class="card" style="margin-bottom:16px">
       <div class="card-h"><div class="card-title">DID Health — Pickup Rate by Day</div>
@@ -1587,22 +1573,19 @@ function renderAgentActivity(p){
   const nDays=Math.max(1,days.length);
   const s0=Math.floor(AA_FROM*60/AA_SLOT), s1=Math.floor(AA_TO*60/AA_SLOT);
   // distinct agents per slot per day, then averaged over the days in range
-  const perDay={}, bySlotAg={}, agCalls={};
+  const perDay={}, bySlotAg={};
   rows.forEach(r=>{
     const [h,m]=r.ti.split(':').map(Number);
     const s=Math.floor((h*60+m)/AA_SLOT);
     if(s<s0||s>=s1) return;
     ((perDay[r.d]=perDay[r.d]||{})[s]=perDay[r.d][s]||new Set()).add(r.ag);
-    (bySlotAg[s]=bySlotAg[s]||new Set()).add(r.ag);     // who ever worked this slot
-    agCalls[r.ag]=(agCalls[r.ag]||0)+1;
+    (bySlotAg[s]=bySlotAg[s]||new Set()).add(r.ag);     // named in the tooltip
   });
   const slots=[]; for(let s=s0;s<s1;s++) slots.push(s);
   const data=slots.map(s=>{
     let t=0; days.forEach(d=>{ t+=(perDay[d]&&perDay[d][s])?perDay[d][s].size:0; });
     return +(t/nDays).toFixed(nDays>1?1:0);
   });
-  // agents ordered by how much inbound they actually handled in this period
-  const agents=Object.entries(agCalls).sort((a,b)=>b[1]-a[1]);
   const peak=Math.max(0,...data);
   const lbl=s=>{ const t=s*AA_SLOT, h=Math.floor(t/60), m=t%60;
     return `${h%12===0?12:h%12}${m?':'+String(m).padStart(2,'0'):''} ${h<12?'AM':'PM'}`; };
@@ -1638,21 +1621,6 @@ function renderAgentActivity(p){
     `${nDays>1?`averaged across ${nDays} days`:'for this day'}. Peak <b>${peak}</b> at once. `+
     `Only answered calls carry an agent, so this shows time on calls — not roster.`;
 
-  // Per-agent strip: one row each, a mark in every slot they took a call in.
-  // Shows who covers which part of the day, which the totals above can't.
-  const byAg={};
-  rows.forEach(r=>{ const [h,m]=r.ti.split(':').map(Number);
-    const s=Math.floor((h*60+m)/AA_SLOT);
-    if(s>=s0&&s<s1) (byAg[r.ag]=byAg[r.ag]||new Set()).add(s); });
-  document.getElementById('aa-agents').innerHTML = agents.map(([ag,n])=>{
-    const set=byAg[ag]||new Set();
-    const cells=slots.map(s=>`<i class="${set.has(s)?'on':''}"></i>`).join('');
-    return `<div class="aa-row">
-      <span class="aa-name" title="${ag}">${ag}</span>
-      <span class="aa-strip">${cells}</span>
-      <span class="aa-n tnum">${fmtN(n)}</span>
-    </div>`;
-  }).join('');
 }
 function renderAction(p){
   _cardHandlers={}; const cv=cssVar;
