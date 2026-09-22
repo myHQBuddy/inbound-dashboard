@@ -452,14 +452,14 @@ table.dt tr:hover td{background:var(--surface-2)}
     </div>
     <div class="row2">
       <div class="card">
-        <div class="card-h"><div class="card-title">Caller Intent by Product</div></div>
-        <div class="card-note">New prospects vs existing clients vs queries, per product.</div>
-        <div class="chart-wrap"><canvas id="ld-intent-chart"></canvas></div>
+        <div class="card-h"><div class="card-title">Leads by Product</div></div>
+        <div class="card-note">Share of dispositioned leads. Click a segment for the calls.</div>
+        <div class="chart-wrap"><canvas id="ld-donut"></canvas></div>
       </div>
       <div class="card">
-        <div class="card-h"><div class="card-title">Product Split</div></div>
-        <div class="card-note">Share of dispositioned leads. Click a row for the calls.</div>
-        <div id="ld-split"></div>
+        <div class="card-h"><div class="card-title">New vs Existing by Product</div></div>
+        <div class="card-note">Counts side by side, with each bar's share of that product above it.</div>
+        <div class="chart-wrap"><canvas id="ld-intent-chart"></canvas></div>
       </div>
     </div>
   </div>
@@ -1296,11 +1296,10 @@ function renderLeads(p){
            color:'var(--brand)', onClick:()=>openModal('Leads Disposed',leadRows(A.leads),LEAD_COLS)}) +
     mcard({label:'New Leads', value:fmtN(A.newN), cur:A.newN, prev:B.newN, dir:'good',
            color:'var(--new)', onClick:()=>openModal('New Leads',leadRows(A.leads.filter(r=>r.ct==='New')),LEAD_COLS)}) +
+    // The per-product counts live in the donut below, not here — repeating them
+    // as cards would be the third copy of the same three numbers on one screen.
     mcard({label:'New Share', value:A.newShare, suffix:'%', cur:A.newShare, prev:B.newShare, dir:'good', isPct:true,
-           color:'var(--new)'}) +
-    PRODUCTS.map(pr=>mcard({label:pr.label+' Leads', value:fmtN(A.byProd[pr.key].length),
-      cur:A.byProd[pr.key].length, prev:B.byProd[pr.key].length, dir:'good', color:pr.color,
-      onClick:()=>openModal(pr.label+' Leads',leadRows(A.byProd[pr.key]),LEAD_COLS)})).join('');
+           color:'var(--new)'});
   wireCards(document.getElementById('ld-cards'));
 
   // ── leads over time ──
@@ -1372,50 +1371,58 @@ function renderLeads(p){
     + (LD_CT.size ? `${[...LD_CT].join(' + ')} only. ` : '')
     + (LD_DOW.size ? `${[...LD_DOW].join(', ')} only.` : '');
 
-  // ── intent by product ──
-  // Same treatment as the volume chart: share printed inside each segment, the
-  // product total above the bar, and no y-axis once both are on the chart.
+  // ── new vs existing by product (grouped bars) ──
+  // Grouped rather than stacked: the question is how New compares with Existing
+  // within a product, which side-by-side bars answer directly. Each bar carries
+  // its count and its share of that product.
   const intTot = PRODUCTS.map(pr=>A.byProd[pr.key].length);
-  const intMax = Math.max(1,...intTot);
   const I_COL={New:'var(--i-new)',Existing:'var(--i-exist)',Query:'var(--i-query)'};
-  const intSets = INTENTS.map((it,i)=>({label:it.label,
+  const intSets = INTENTS.map(it=>({label:it.label,
     data:PRODUCTS.map(pr=>A.byProd[pr.key].filter(r=>r.ct===it.key).length),
     backgroundColor:cv(I_COL[it.key]||it.color), borderSkipped:false,
-    borderRadius:i===INTENTS.length-1?{topLeft:3,topRight:3}:0,
-    barPercentage:.62, categoryPercentage:.9,
-    datalabels:{display:ctx=>{const v=ctx.dataset.data[ctx.dataIndex];
-        return v>0 && (v/intMax)>=.08; },
-      color:'#fff', font:{size:10.5,weight:'700'},
-      formatter:(v,ctx)=>{const t=intTot[ctx.dataIndex]; return t?Math.round(v/t*100)+'%':'';}}}));
-  intSets[intSets.length-1].datalabels={labels:{
-    share:intSets[intSets.length-1].datalabels,
-    total:{display:ctx=>intTot[ctx.dataIndex]>0, anchor:'end', align:'end',
-      offset:3, clamp:true, color:cv('var(--ink-2)'), font:{size:10.5,weight:'700'},
-      formatter:(v,ctx)=>fmtN(intTot[ctx.dataIndex])}}};
+    borderRadius:{topLeft:3,topRight:3},
+    barPercentage:.82, categoryPercentage:.68,
+    datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,
+      anchor:'end', align:'end', offset:2, clamp:true, textAlign:'center',
+      color:cv(I_COL[it.key]||it.color), font:{size:10,weight:'700'},
+      formatter:(v,ctx)=>{const t=intTot[ctx.dataIndex];
+        return t?`${fmtN(v)}\n${Math.round(v/t*100)}%`:fmtN(v);}}}));
   makeChart('ld-intent-chart',{type:'bar',
     data:{labels:PRODUCTS.map(pr=>pr.label), datasets:intSets},
     options:{responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
-      layout:{padding:{top:16}},
+      layout:{padding:{top:22}},
       plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:8,boxHeight:8,usePointStyle:true,
-        pointStyle:'circle',font:{size:11.5},padding:14,color:cv('var(--muted)')}}},
-      scales:{x:{stacked:true,grid:{display:false},border:{display:false},
+          pointStyle:'circle',font:{size:11.5},padding:14,color:cv('var(--muted)')}},
+        tooltip:{callbacks:{label:c=>{const t=intTot[c.dataIndex];
+          return ` ${c.dataset.label}: ${fmtN(c.parsed.y)}${t?` · ${Math.round(c.parsed.y/t*100)}% of ${c.label}`:''}`;}}}},
+      scales:{x:{grid:{display:false},border:{display:false},
                  ticks:{font:{size:11.5},color:cv('var(--ink-2)'),padding:4}},
-              y:{stacked:true,beginAtZero:true,display:false,grace:'10%'}}}});
+              y:{beginAtZero:true,border:{display:false},
+                 grid:{color:cv('var(--line)'),drawTicks:false},
+                 ticks:{precision:0,maxTicksLimit:5,color:cv('var(--muted)'),
+                        font:{size:10.5},padding:8}}}}});
 
-  // ── product split rows ──
-  const maxP=Math.max(1,...PRODUCTS.map(pr=>A.byProd[pr.key].length));
-  document.getElementById('ld-split').innerHTML = PRODUCTS.map((pr,i)=>{
-    const n=A.byProd[pr.key].length;
-    return `<div class="brow" data-ld="${i}">
-      <span class="b-dot" style="background:${pr.color}"></span>
-      <span class="b-name">${pr.label}</span>
-      <span class="b-bar"><span class="b-fill" style="width:${n/maxP*100}%;background:${pr.color}"></span></span>
-      <span class="b-num tnum">${fmtN(n)}</span>
-      <span class="b-pct tnum">${pct(n,A.total)}%</span></div>`;}).join('');
-  document.getElementById('ld-split').querySelectorAll('[data-ld]').forEach(el=>{
-    const pr=PRODUCTS[+el.dataset.ld];
-    el.onclick=()=>openModal(pr.label+' Leads',leadRows(A.byProd[pr.key]),LEAD_COLS); });
+  // ── leads by product (donut) ──
+  // Owns the product breakdown now that the per-product cards are gone: count
+  // and share in one place, with the ring showing proportion directly.
+  const dTot = PRODUCTS.map(pr=>A.byProd[pr.key].length);
+  const dSum = dTot.reduce((a,v)=>a+v,0);
+  makeChart('ld-donut',{type:'doughnut',
+    data:{labels:PRODUCTS.map(pr=>pr.label),
+      datasets:[{data:dTot, backgroundColor:PRODUCTS.map(pr=>cv(pr.color)),
+        borderColor:cv('var(--surface)'), borderWidth:2, hoverOffset:6}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'58%',
+      onClick:(e,els)=>{ if(!els.length) return;
+        const pr=PRODUCTS[els[0].index];
+        openModal(pr.label+' Leads',leadRows(A.byProd[pr.key]),LEAD_COLS); },
+      plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:8,boxHeight:8,
+          usePointStyle:true,pointStyle:'circle',font:{size:11.5},padding:14,
+          color:cv('var(--muted)')}},
+        tooltip:{callbacks:{label:c=>` ${c.label}: ${fmtN(c.parsed)} · ${pct(c.parsed,dSum)}%`}},
+        datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]/Math.max(1,dSum)>=.05,
+          color:'#fff', font:{size:11,weight:'700'}, textAlign:'center',
+          formatter:v=>`${fmtN(v)}\n${pct(v,dSum)}%`}}}});
 }
 // DID spam-risk thresholds (pickup rate): <30% = flagged risk, 30–40% = at risk
 const DID_BAD=30, DID_WARN=40;
