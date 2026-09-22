@@ -188,18 +188,21 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 .lad:last-child{border-bottom:0}
 .lad-main{display:flex;align-items:center;gap:12px}
 .lad-name{font-size:12.5px;font-weight:700;color:var(--ink);min-width:66px;flex-shrink:0}
-.lad-track{display:flex;height:28px;border-radius:6px;overflow:hidden;flex-shrink:0;
-  background:var(--surface-2);transition:width .25s}
+/* the bar scales inside its own lane, so a full-width row can't push the
+   right-hand summary off the card */
+.lad-lane{flex:1;min-width:0}
+.lad-track{display:flex;height:28px;border-radius:6px;overflow:hidden;
+  background:var(--surface-2);transition:width .25s;max-width:100%}
 .lad-s{display:flex;align-items:center;justify-content:center;overflow:hidden;
   font-size:11.5px;font-weight:700;font-variant-numeric:tabular-nums;transition:width .25s}
 .lad-s.c{background:var(--v-ans);color:#fff;cursor:pointer}
 .lad-s.c:hover{filter:brightness(1.1)}
 .lad-s.a{background:var(--line-2);color:var(--ink-2)}      /* called again: neutral */
-.lad-s.d{background:var(--warn);color:#fff}                /* abandoned: the exposure */
-.lad-side{font-size:11.5px;color:var(--muted);white-space:nowrap;margin-left:auto;
-  flex-shrink:0;text-align:right;line-height:1.3}
+.lad-s.o{background:var(--v-ans);opacity:.42;color:#fff;cursor:pointer}  /* reached another way */
+.lad-s.d{background:var(--warn);color:#fff;cursor:pointer} /* never reached: the exposure */
+.lad-side{font-size:11.5px;color:var(--muted);white-space:nowrap;
+  flex-shrink:0;text-align:right;min-width:74px}
 .lad-side b{color:var(--ink);font-weight:700;font-size:14px}
-.lad-side i{display:block;font-style:normal;font-size:10.5px;color:var(--faint)}
 /* per-row key, so each block's meaning is readable without the legend */
 .lad-sub{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted);
   margin:6px 0 0 78px;line-height:1.5}
@@ -207,6 +210,7 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 .lad-sub .sw{width:8px;height:8px;border-radius:2px;display:block;flex-shrink:0}
 .lad-sub .sw.c{background:var(--v-ans)}
 .lad-sub .sw.a{background:var(--line-2)}
+.lad-sub .sw.o{background:var(--v-ans);opacity:.42}
 .lad-sub .sw.d{background:var(--warn)}
 .lad-sub .drop{color:var(--warn);font-weight:600}
 
@@ -443,13 +447,15 @@ table.dt tr:hover td{background:var(--surface-2)}
       <div class="card-h">
         <div class="card-title">Callback Funnel — did they pick up?</div>
         <div class="cbkey">
-          <span><i style="background:var(--v-ans)"></i>Connected</span>
+          <span><i style="background:var(--v-ans)"></i>Picked up</span>
           <span><i style="background:var(--line-2)"></i>Called again</span>
-          <span><i style="background:var(--warn)"></i>Abandoned</span>
+          <span><i style="background:var(--v-ans);opacity:.42"></i>Reached another way</span>
+          <span><i style="background:var(--warn)"></i>Never reached</span>
         </div>
       </div>
-      <div class="card-note">Each bar is everyone who received that attempt, split by what happened to them.
-        <b>Abandoned</b> means they didn't pick up and were never called again — the recoverable loss.</div>
+      <div class="card-note">Each bar is everyone who received that attempt, split by what happened next.
+        <b>Never reached</b> means no connection at all since their most recent miss — not by callback,
+        and not by calling in themselves. That is the real loss; click any segment for the numbers.</div>
       <div id="cb-ladder"></div>
     </div>
     <div class="row2">
@@ -1190,7 +1196,8 @@ function renderCallbacks(p){
   // reached attempt N without connecting, so each row's denominator is genuinely
   // "still unreached at this point" rather than "stopped after N calls".
   const LAD=5;                                    // last row is "5+ calls"
-  const lad=Array.from({length:LAD},()=>({conn:0,noPick:0,again:0,dropped:0,rows:[],connRows:[]}));
+  const lad=Array.from({length:LAD},()=>({conn:0,noPick:0,again:0,dropped:0,otherwise:0,
+    rows:[],connRows:[],dropRows:[],otherRows:[]}));
   A.called.forEach(o=>{
     const cbs=(CB_ALL[o.cn]||[]).filter(c=>toMin(c.d,c.ti)>o.lastT);
     for(let i=0;i<cbs.length;i++){
@@ -1202,7 +1209,15 @@ function renderCallbacks(p){
       lad[b].rows.push(o);
       if(picked){ lad[b].conn++; lad[b].connRows.push(o); break; }
       lad[b].noPick++;
-      if(i+1<cbs.length) lad[b].again++; else lad[b].dropped++;
+      if(i+1<cbs.length){ lad[b].again++; }
+      else {
+        // Last dial in the sequence. Only a real loss if the caller was never
+        // reached at all since their last miss — they may have connected another
+        // way (typically calling back in themselves), in which case nothing was
+        // abandoned. o.reached is exactly "reached since the most recent miss".
+        if(o.reached){ lad[b].otherwise++; lad[b].otherRows.push(o); }
+        else { lad[b].dropped++; lad[b].dropRows.push(o); }
+      }
     }
   });
   // Each row shows the three-way fate of everyone who entered that attempt:
@@ -1216,28 +1231,32 @@ function renderCallbacks(p){
     const seg=(v)=>v/n*100;
     const label=i===LAD-1?`${LAD}+ calls`:`${ORD[i]} call`;
     const cell=(cls,v,title,key)=>v
-      ? `<span class="lad-s ${cls}" style="width:${seg(v)}%" title="${title}"${key!=null?` data-lad="${key}"`:''}>${seg(v)>7?fmtN(v):''}</span>`
+      ? `<span class="lad-s ${cls}" style="width:${seg(v)}%" title="${title}"${key?` data-lad="${key}"`:''}>${seg(v)>7?fmtN(v):''}</span>`
       : '';
     return `<div class="lad">
       <div class="lad-main">
         <span class="lad-name">${label}</span>
-        <span class="lad-track" style="width:${w}%">
-          ${cell('c',r.conn,`${fmtN(r.conn)} connected on this call`,i)}
+        <span class="lad-lane"><span class="lad-track" style="width:${w}%">
+          ${cell('c',r.conn,`${fmtN(r.conn)} picked up this call`,`c${i}`)}
           ${cell('a',r.again,`${fmtN(r.again)} didn't pick up and got another call`)}
-          ${cell('d',r.dropped,`${fmtN(r.dropped)} didn't pick up and were never tried again`)}
-        </span>
-        <span class="lad-side"><b>${pct(r.conn,n)}%</b> connected<i>${fmtN(n)} callers</i></span>
+          ${cell('o',r.otherwise,`${fmtN(r.otherwise)} didn't pick up but were reached another way`,`o${i}`)}
+          ${cell('d',r.dropped,`${fmtN(r.dropped)} never reached since their last miss`,`d${i}`)}
+        </span></span>
+        <span class="lad-side">out of <b>${fmtN(n)}</b></span>
       </div>
       <div class="lad-sub">
-        <span><i class="sw c"></i>${fmtN(r.conn)} connected</span>
-        <span><i class="sw a"></i>${fmtN(r.again)} called again</span>
-        ${r.dropped?`<span class="drop"><i class="sw d"></i>${fmtN(r.dropped)} abandoned</span>`:''}
+        <span><i class="sw c"></i>${pct(r.conn,n)}% picked up</span>
+        <span><i class="sw a"></i>${pct(r.again,n)}% called again</span>
+        ${r.otherwise?`<span><i class="sw o"></i>${pct(r.otherwise,n)}% reached another way</span>`:''}
+        ${r.dropped?`<span class="drop"><i class="sw d"></i>${pct(r.dropped,n)}% never reached</span>`:''}
       </div>
     </div>`;
   }).join('');
   document.getElementById('cb-ladder').querySelectorAll('[data-lad]').forEach(el=>{
-    const r=lad[+el.dataset.lad];
-    el.onclick=openList(`Connected on call ${+el.dataset.lad+1}`, r.connRows); });
+    const k=el.dataset.lad, i=+k.slice(1), r=lad[i], n=i===LAD-1?`${LAD}+`:`${i+1}`;
+    el.onclick = k[0]==='c' ? openList(`Picked up on call ${n}`, r.connRows)
+               : k[0]==='o' ? openList(`Reached another way after call ${n}`, r.otherRows)
+                            : openList(`Never reached — last call was ${n}`, r.dropRows); });
 
   // ── how many times did a client connect? ──
   const FREQ=5;
