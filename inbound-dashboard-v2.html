@@ -988,49 +988,35 @@ function renderHeatmap(A,p){
 // combination, so "answered + queue missed" or "all three miss types" is one
 // or two clicks rather than an impossible filter.
 const OV_SERIES=new Set();
-// Historical average to judge this period's volume against, excluding the period
-// itself so a day is never compared with its own contribution.
-//  · single day  → the average of other same-weekday dates (Monday vs Mondays)
-//  · month       → other months, truncated to the same day-count so a part-month
-//                  is compared like-for-like rather than against full months
-//  · other spans → the average of equal-length windows across the data
+// One benchmark rule for every mode: the historical average for each weekday,
+// summed over the dates in the selected period. A week's benchmark is therefore
+// exactly the sum of its seven days' benchmarks, so the number doesn't shift
+// when you switch Daily → Weekly → Monthly. It also handles part-periods and
+// weekday mix correctly (a week with two Sundays expects fewer calls).
+// Days inside the selected period are excluded from their own average.
+const _DOW_AVG_CACHE={};
+function dowAverages(excludeFrom,excludeTo){
+  const key=excludeFrom+'|'+excludeTo;
+  if(_DOW_AVG_CACHE[key]) return _DOW_AVG_CACHE[key];
+  const sum={},cnt={};
+  allDates.forEach(d=>{
+    if(d>=excludeFrom && d<=excludeTo) return;         // don't grade against itself
+    const w=_dowOf(d);
+    const n=(BY_DATE[d]||[]).reduce((a,r)=>a+(r.dr==='inbound'?1:0),0);
+    sum[w]=(sum[w]||0)+n; cnt[w]=(cnt[w]||0)+1;
+  });
+  const avg={}; DOW_ORDER.forEach(w=>{ avg[w]=cnt[w]?sum[w]/cnt[w]:null; });
+  return _DOW_AVG_CACHE[key]=avg;
+}
 function volumeTargets(p){
-  const inb=d=>(BY_DATE[d]||[]).reduce((n,r)=>n+(r.dr==='inbound'?1:0),0);
   const cur=allDates.filter(d=>d>=p.from&&d<=p.to);
   if(!cur.length) return {total:null,perDay:null,note:''};
-
-  if(p.from===p.to){                                   // one day vs same weekday
-    const dow=_dowOf(p.from);
-    const peers=allDates.filter(d=>d!==p.from&&_dowOf(d)===dow);
-    if(!peers.length) return {total:null,perDay:null,note:''};
-    const avg=Math.round(peers.reduce((s,d)=>s+inb(d),0)/peers.length);
-    return {total:avg, perDay:avg, note:`${dow}s`};
-  }
-
-  if(FILTER.mode==='monthly'){                         // vs same span of other months
-    const nDays=cur.length, mo=p.from.slice(0,7);
-    const others=[...new Set(allDates.map(d=>d.slice(0,7)))].filter(m=>m!==mo);
-    const sums=others.map(m=>{
-      const ds=allDates.filter(d=>d.slice(0,7)===m).slice(0,nDays);
-      return ds.length===nDays ? ds.reduce((s,d)=>s+inb(d),0) : null;
-    }).filter(v=>v!=null);
-    if(!sums.length) return {total:null,perDay:null,note:''};
-    const avg=Math.round(sums.reduce((a,v)=>a+v,0)/sums.length);
-    return {total:avg, perDay:Math.round(avg/nDays),
-            note:`first ${nDays}d of other months`};
-  }
-
-  // any other span: average of equal-length windows elsewhere in the data
-  const n=cur.length;
-  const wins=[];
-  for(let i=0;i+n<=allDates.length;i++){
-    const ds=allDates.slice(i,i+n);
-    if(ds[0]>=p.from&&ds[0]<=p.to) continue;           // skip overlap with itself
-    wins.push(ds.reduce((s,d)=>s+inb(d),0));
-  }
-  if(!wins.length) return {total:null,perDay:null,note:''};
-  const avg=Math.round(wins.reduce((a,v)=>a+v,0)/wins.length);
-  return {total:avg, perDay:Math.round(avg/n), note:`${n}-day avg`};
+  const avg=dowAverages(p.from,p.to);
+  let tot=0, n=0;
+  for(const d of cur){ const a=avg[_dowOf(d)]; if(a!=null){ tot+=a; n++; } }
+  if(!n) return {total:null,perDay:null,note:''};
+  return {total:Math.round(tot), perDay:Math.round(tot/n),
+          note: p.from===p.to ? `${_dowOf(p.from)}s` : `${n}-day mix`};
 }
 
 function renderOverview(p){
