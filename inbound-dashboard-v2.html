@@ -1146,17 +1146,14 @@ function renderCallbacks(p){
   const calledPct=pct(A.calledN,A.unique), calledPctB=pct(B.calledN,B.unique);
 
   document.getElementById('cb-cards').innerHTML =
-    mcard({label:'Missed Numbers', value:fmtN(A.unique), cur:A.unique, prev:B.unique, dir:'bad',
-           color:'var(--muted)', onClick:openList('Missed Numbers',A.rows)}) +
+    mcard({label:'Unique Missed', value:fmtN(A.unique), cur:A.unique, prev:B.unique, dir:'bad',
+           color:'var(--muted)', onClick:openList('Unique Missed Numbers',A.rows)}) +
     mcard({label:'Called Back', value:calledPct, suffix:'%', cur:calledPct, prev:calledPctB, dir:'good', isPct:true,
            color:'var(--brand)', onClick:openList('Called Back',A.called)}) +
     mcard({label:'Reached', value:reachPct, suffix:'%', cur:reachPct, prev:reachPctB, dir:'good', isPct:true,
            color:'var(--good)', onClick:openList('Reached',A.reached)}) +
     mcard({label:'Not Reached', value:fmtN(A.notReached.length), cur:A.notReached.length, prev:B.notReached.length, dir:'bad',
-           color:'var(--bad)', onClick:openList('Not Reached — attempts since last miss',A.notReached)}) +
-    mcard({label:'No Attempt Yet', value:fmtN(A.noAttempt.length), cur:A.noAttempt.length, prev:B.noAttempt.length, dir:'bad',
-           color:'var(--warn)', onClick:openList('No Callback Since Last Miss',A.noAttempt)}) +
-    mcard({label:'Avg Attempts', value:A.avgAtt, cur:A.avgAtt, prev:B.avgAtt, dir:'good', color:'var(--brand-2)'});
+           color:'var(--bad)', onClick:openList('Not Reached — attempts since last miss',A.notReached)});
   wireCards(document.getElementById('cb-cards'));
 
   // ── funnel ──
