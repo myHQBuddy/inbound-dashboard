@@ -1672,19 +1672,20 @@ function renderAction(p){
   const atRisk=list.filter(o=>o.rate<DID_WARN);
   const shown = AC_DIDFILTER==='risk' ? atRisk : list;
 
-  // cards
+  // Worklist cards: the four attempt bands partition the unreached numbers, so
+  // every open number sits in exactly one of them and nothing falls through.
   const cbStats=callbackStats(p.from,p.to);
-  const stuck=cbStats.notReached.filter(o=>o.attempts>=10);
-  const low=cbStats.notReached.filter(o=>o.attempts>0&&o.attempts<3);
-  const none=cbStats.noAttempt;
+  const none=cbStats.noAttempt;                                            // 0 attempts
+  const low=cbStats.notReached.filter(o=>o.attempts>0&&o.attempts<3);      // 1–2
+  const mid=cbStats.notReached.filter(o=>o.attempts>=3&&o.attempts<10);    // 3–9
+  const stuck=cbStats.notReached.filter(o=>o.attempts>=10);                // 10+
   document.getElementById('ac-cards').innerHTML =
-    mcard({label:'Active DIDs', value:fmtN(list.length), cur:list.length, prev:list.length, dir:'good', color:'var(--brand)', bench:false}) +
-    mcard({label:'DIDs at Spam Risk', value:fmtN(atRisk.length), cur:atRisk.length, prev:atRisk.length, dir:'bad',
-           color:'var(--bad)', bench:false}) +
-    mcard({label:'No Callback Yet', value:fmtN(none.length), cur:none.length, prev:none.length, dir:'bad', color:'var(--warn)', bench:false,
-           onClick:()=>openModal('No Callback Since Last Miss',none,CB_COLS)}) +
+    mcard({label:'0 Callbacks Made', value:fmtN(none.length), cur:none.length, prev:none.length, dir:'bad', color:'var(--bad)', bench:false,
+           onClick:()=>openModal('0 Callbacks Since Last Miss',none,CB_COLS)}) +
     mcard({label:'Under 3 Attempts', value:fmtN(low.length), cur:low.length, prev:low.length, dir:'bad', color:'var(--warn)', bench:false,
-           onClick:()=>openModal('Under 3 Attempts, Not Reached',low,CB_COLS)}) +
+           onClick:()=>openModal('1–2 Attempts, Not Reached',low,CB_COLS)}) +
+    mcard({label:'Under 10 Attempts', value:fmtN(mid.length), cur:mid.length, prev:mid.length, dir:'bad', color:'var(--brand)', bench:false,
+           onClick:()=>openModal('3–9 Attempts, Not Reached',mid,CB_COLS)}) +
     mcard({label:'10+ Attempts, Unreached', value:fmtN(stuck.length), cur:stuck.length, prev:stuck.length, dir:'bad',
            color:'var(--bad)', bench:false, onClick:()=>openModal('10+ Attempts, Still Not Reached',stuck,CB_COLS)});
   wireCards(document.getElementById('ac-cards'));
