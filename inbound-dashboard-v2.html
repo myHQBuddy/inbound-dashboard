@@ -1200,8 +1200,10 @@ function renderCallbacks(p){
            color:'var(--muted)', onClick:openList('Unique Missed Numbers',A.rows)}) +
     mcard({label:'Called Back', value:calledPct, suffix:'%', cur:calledPct, prev:calledPctB, dir:'good', isPct:true,
            color:'var(--brand)', onClick:openList('Called Back',A.called)}) +
-    mcard({label:'Reached', value:reachPct, suffix:'%', cur:reachPct, prev:reachPctB, dir:'good', isPct:true,
-           color:'var(--good)', onClick:openList('Reached',A.reached)}) +
+    // Same formula as v1's Trend-tab "Reconnection rate" — keep the name aligned
+    // so the weekly series carries over without restatement.
+    mcard({label:'Reconnection Rate', value:reachPct, suffix:'%', cur:reachPct, prev:reachPctB, dir:'good', isPct:true,
+           color:'var(--good)', onClick:openList('Reconnected — reached since their last miss',A.reached)}) +
     mcard({label:'Not Reached', value:fmtN(A.notReached.length), cur:A.notReached.length, prev:B.notReached.length, dir:'bad',
            color:'var(--bad)', onClick:openList('Not Reached — attempts since last miss',A.notReached)});
   wireCards(document.getElementById('cb-cards'));
