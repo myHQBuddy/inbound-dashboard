@@ -445,15 +445,14 @@ table.dt tr:hover td{background:var(--surface-2)}
       <div class="card-h">
         <div class="card-title">Callback Funnel — did they pick up?</div>
         <div class="cbkey">
-          <span><i style="background:var(--v-ans)"></i>Picked up</span>
+          <span><i style="background:var(--v-ans)"></i>Reached</span>
           <span><i style="background:var(--line-2)"></i>Called again</span>
           <span><i style="background:var(--warn)"></i>Never attempted again</span>
         </div>
       </div>
-      <div class="card-note">Each bar is everyone who received that attempt, split by what happened next.
-        <b>Picked up</b> includes callers reached another way, such as ringing in themselves.
-        <b>Never attempted again</b> is the amber block — nobody called them after that attempt and they
-        were never reached. Click any segment for the numbers.</div>
+      <div class="card-note"><b>Reached</b> means contact was made after that call — they picked it up,
+        or rang in themselves before the next attempt. <b>Never attempted again</b> is the amber block:
+        nobody called them after that attempt and no contact was ever made. Click any segment for the numbers.</div>
       <div id="cb-ladder"></div>
     </div>
     <div class="row2">
@@ -1236,14 +1235,14 @@ function renderCallbacks(p){
       <div class="lad-main">
         <span class="lad-name">${label}</span>
         <span class="lad-lane"><span class="lad-track" style="width:${w}%">
-          ${cell('c',r.conn,`${fmtN(r.conn)} reached — picked up, or called in themselves`,`c${i}`)}
+          ${cell('c',r.conn,`${fmtN(r.conn)} reached — picked up this call, or rang in themselves`,`c${i}`)}
           ${cell('a',r.again,`${fmtN(r.again)} didn't pick up and got another call`)}
           ${cell('d',r.dropped,`${fmtN(r.dropped)} never attempted again after this call`,`d${i}`)}
         </span></span>
         <span class="lad-side">out of <b>${fmtN(n)}</b></span>
       </div>
       <div class="lad-sub">
-        <span><i class="sw c"></i>${pct(r.conn,n)}% picked up</span>
+        <span><i class="sw c"></i>${pct(r.conn,n)}% reached</span>
         <span><i class="sw a"></i>${pct(r.again,n)}% called again</span>
         ${r.dropped?`<span class="drop"><i class="sw d"></i>${pct(r.dropped,n)}% never attempted again after ${ordLbl}</span>`:''}
       </div>
