@@ -1578,7 +1578,7 @@ let AC_DIDFILTER=null;   // null = all DIDs, 'risk' = only at-risk
 // Outreach Sprint, the city campaigns — so including it would mix the outreach
 // floor into a chart about inbound coverage.
 const AA_SLOT=15;                                   // minutes per slot
-const AA_FROM=9, AA_TO=21;                          // 9am–9pm covers the shift
+const AA_FROM=9, AA_TO=19;                          // office hours: 9am–7pm
 function renderAgentActivity(p){
   const cv=cssVar;
   const rows=recsIn(p.from,p.to).filter(r=>
@@ -1634,7 +1634,7 @@ function renderAgentActivity(p){
                  ticks:{precision:0,maxTicksLimit:5,color:cv('var(--muted)'),
                         font:{size:10.5},padding:8}}}}});
   document.getElementById('aa-note').innerHTML =
-    `Agents on an inbound call in each ${AA_SLOT}-minute slot, `+
+    `Agents on an inbound call in each ${AA_SLOT}-minute slot across office hours (9am–7pm), `+
     `${nDays>1?`averaged across ${nDays} days`:'for this day'}. Peak <b>${peak}</b> at once. `+
     `Only answered calls carry an agent, so this shows time on calls — not roster.`;
 
