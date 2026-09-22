@@ -455,6 +455,15 @@ table.dt tr:hover td{background:var(--surface-2)}
       <div class="chart-wrap tall"><canvas id="ov-vol-chart"></canvas></div>
     </div>
     <div class="card" style="margin-bottom:16px">
+      <div class="card-h"><div class="card-title">Day-by-Day Trend</div></div>
+      <!-- metric narrowing -->
+      <div class="dow-bar" id="ov-tr-metrics"></div>
+      <!-- weekday narrowing -->
+      <div class="dow-bar" id="ov-tr-dow"></div>
+      <div class="card-note" id="ov-tr-note">Each metric as a line over the period, with its average as a dashed reference.</div>
+      <div class="chart-wrap tall"><canvas id="ov-tr-chart"></canvas></div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
       <div class="card-h">
         <div class="card-title">Answer Rate Heatmap</div>
         <div class="hm-legend" id="ov-hm-legend"></div>
@@ -1030,6 +1039,77 @@ function volumeTargets(p){
           note: p.from===p.to ? `${_dowOf(p.from)}s` : `${n}-day mix`};
 }
 
+// ── Day-by-day trend: same shape as the Leads chart, for call volume ─────────
+// Lines per metric with a dashed average each, plus weekday toggles that also
+// recompute those averages — so excluding weekends moves the baseline too.
+const OV_TR_METRICS=[
+  {key:'total',    label:'Total Calls',   color:'var(--brand)',   get:s=>s.total},
+  {key:'answered', label:'Answered',      color:'var(--l-ok)',    get:s=>s.answered},
+  {key:'agent',    label:'Agent Missed',  color:'var(--v-agent)', get:s=>s.byType['Agent Missed'].length},
+  {key:'queue',    label:'Queue Missed',  color:'var(--warn)',    get:s=>s.byType['Queue Missed - Within Hours'].length},
+  {key:'aoh',      label:'AOH Missed',    color:'var(--v-aoh)',   get:s=>s.byType['Queue Missed - After Hours'].length},
+];
+const OV_TR_ON=new Set(['total','answered']);   // sensible default, not all five
+const OV_TR_DOW=new Set();
+function renderOvTrend(p){
+  const cv=cssVar;
+  const bar=(id,items,sel,onPick,lbl)=>{
+    const el=document.getElementById(id);
+    const mk=(k,l,on)=>`<button class="dow${on?' on':''}" data-k="${k==null?'':k}">${l}</button>`;
+    el.innerHTML=`<span class="dow-lbl">${lbl}</span>`+
+      (lbl==='Days'?mk(null,'All',sel.size===0):'')+
+      items.map(it=>mk(it.key,it.label,sel.has(it.key))).join('');
+    el.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+      const v=b.dataset.k||null;
+      if(v==null) sel.clear();
+      else if(sel.has(v)){ if(lbl!=='Metrics'||sel.size>1) sel.delete(v); }
+      else sel.add(v);
+      onPick();
+    });
+  };
+  bar('ov-tr-metrics', OV_TR_METRICS, OV_TR_ON, ()=>renderOvTrend(p), 'Metrics');
+  bar('ov-tr-dow', DOW_ORDER.map(d=>({key:d,label:d})), OV_TR_DOW, ()=>renderOvTrend(p), 'Days');
+
+  let dates=allDates.filter(d=>d>=p.from&&d<=p.to);
+  if(OV_TR_DOW.size) dates=dates.filter(d=>OV_TR_DOW.has(_dowOf(d)));
+  const stats=dates.map(d=>statsFor(d,d));
+  const shown=OV_TR_METRICS.filter(m=>OV_TR_ON.has(m.key));
+  const sets=[];
+  shown.forEach(m=>{
+    const data=stats.map(s=>m.get(s));
+    const mean=data.length?Math.round(data.reduce((a,v)=>a+v,0)/data.length):0;
+    sets.push({label:m.label, data, borderColor:cv(m.color), backgroundColor:cv(m.color),
+      borderWidth:2.2, tension:.35, fill:false, order:1,
+      pointRadius:dates.length>45?0:3, pointHoverRadius:5,
+      pointBackgroundColor:cv('var(--surface)'), pointBorderColor:cv(m.color), pointBorderWidth:2});
+    sets.push({label:`${m.label} avg`, data:dates.map(()=>mean), isAvg:true, order:2,
+      borderColor:cv(m.color), borderWidth:1.2, borderDash:[5,4],
+      pointRadius:0, pointHoverRadius:0, fill:false, tension:0,
+      datalabels:{display:ctx=>ctx.dataIndex===ctx.dataset.data.length-1,
+        align:'right', anchor:'end', offset:2, clamp:true,
+        color:cv(m.color), font:{size:10.5,weight:'700'}, formatter:()=>mean}});
+  });
+  makeChart('ov-tr-chart',{type:'line',
+    data:{labels:dates.map(d=>[_dowOf(d),_dm(d)]), datasets:sets},
+    options:{responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      layout:{padding:{right:28}},
+      plugins:{legend:{display:false},
+        tooltip:{filter:it=>!it.dataset.isAvg,
+          callbacks:{title:it=>`${_dowOf(dates[it[0].dataIndex])} ${_dm(dates[it[0].dataIndex])}`,
+                     label:c=>` ${c.dataset.label}: ${fmtN(c.parsed.y)}`}}},
+      scales:{x:{grid:{display:false},border:{display:false},
+                 ticks:{maxRotation:0,autoSkip:true,autoSkipPadding:12,
+                        color:cv('var(--muted)'),font:{size:10.5},padding:4}},
+              y:{beginAtZero:true,border:{display:false},
+                 grid:{color:cv('var(--line)'),drawTicks:false},
+                 ticks:{precision:0,maxTicksLimit:6,color:cv('var(--muted)'),
+                        font:{size:10.5},padding:8}}}}});
+  document.getElementById('ov-tr-note').innerHTML =
+    `Dashed lines are each metric's average over the ${dates.length} day${dates.length===1?'':'s'} shown`+
+    (OV_TR_DOW.size?` (${[...OV_TR_DOW].join(', ')} only)`:'')+`.`;
+}
+
 function renderOverview(p){
   const A=statsFor(p.from,p.to), B=statsFor(p.prevFrom,p.prevTo);
   _cardHandlers={};
@@ -1166,6 +1246,11 @@ function renderOverview(p){
 
   // ── answer-rate heatmap: rows = day (or day-of-week), cols = hour ──
   renderHeatmap(A, p);
+
+  // Day-by-day trend needs more than one day to say anything.
+  const trCard=document.getElementById('ov-tr-chart').closest('.card');
+  if(single){ trCard.style.display='none'; }
+  else { trCard.style.display=''; renderOvTrend(p); }
 
 }
 // ── all-time per-number indexes (built once): callbacks + connect times ──
