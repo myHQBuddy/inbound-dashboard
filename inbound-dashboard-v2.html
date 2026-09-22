@@ -192,6 +192,18 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 .chip.on{color:var(--ink);background:var(--surface-2);border-color:var(--line-2)}
 .chip .c-dot{width:8px;height:8px;border-radius:2px;opacity:.45;transition:.12s}
 
+/* "which attempt reached them" rows — own styles rather than reusing .brow,
+   whose flex track collapsed to an empty bar inside this card */
+.fq{display:flex;align-items:center;gap:11px;padding:8px 0;border-bottom:1px solid var(--line);
+  cursor:pointer;transition:.12s}
+.fq:last-child{border-bottom:0}
+.fq:hover{background:var(--surface-2);border-radius:8px;padding-left:7px;padding-right:7px}
+.fq-name{font-size:12.5px;font-weight:600;color:var(--ink);width:104px;flex-shrink:0}
+.fq-track{flex:1;min-width:40px;height:9px;border-radius:99px;background:var(--surface-2);overflow:hidden}
+.fq-fill{display:block;height:100%;border-radius:99px;min-width:3px;transition:width .25s}
+.fq-n{font-size:14px;font-weight:700;color:var(--ink);width:42px;text-align:right;flex-shrink:0}
+.fq-p{font-size:11.5px;color:var(--muted);width:38px;text-align:right;flex-shrink:0}
+
 /* callback ladder: one row per attempt, split connected / didn't pick up */
 .cbkey{display:flex;gap:14px;font-size:11.5px;color:var(--muted)}
 .cbkey span{display:inline-flex;align-items:center;gap:6px}
@@ -474,8 +486,8 @@ table.dt tr:hover td{background:var(--surface-2)}
         <div class="chart-wrap"><canvas id="cb-speed-chart"></canvas></div>
       </div>
       <div class="card">
-        <div class="card-h"><div class="card-title">How many times did a client connect?</div></div>
-        <div class="card-note" id="cb-freq-note">Of the callers who connected at least once — how many were reached again.</div>
+        <div class="card-h"><div class="card-title">Which attempt reached them?</div></div>
+        <div class="card-note" id="cb-freq-note">Of the callers we did reach, the attempt that got through.</div>
         <div id="cb-freq"></div>
       </div>
     </div>
@@ -1296,32 +1308,37 @@ function renderCallbacks(p){
     el.onclick = k[0]==='c' ? openList(`Reached on the ${n} call`, r.connRows)
                             : openList(`Never attempted again after the ${n} call`, r.dropRows); });
 
-  // ── how many times did a client connect? ──
-  const FREQ=5;
+  // ── which attempt reached them? ──
+  // For every caller we did reach, find the attempt that got through: the first
+  // answered callback, or "rang in" when they called back before we connected.
+  // Answers where the effort actually pays off.
+  const FREQ=6;                                   // 1st…5th, then "rang in"
+  const RANG=FREQ-1;
   const freq=Array.from({length:FREQ},()=>[]);
-  A.rows.forEach(o=>{
+  A.reached.forEach(o=>{
     const cbs=(CB_ALL[o.cn]||[]).filter(c=>toMin(c.d,c.ti)>o.lastT);
-    const n=cbs.filter(c=>c.st==='answered' && c.ct!=='Voice Mail').length;
-    if(n>0) freq[Math.min(n,FREQ)-1].push(o);
+    const idx=cbs.findIndex(c=>c.st==='answered' && c.ct!=='Voice Mail');
+    if(idx<0) freq[RANG].push(o);                 // reached without a callback connecting
+    else freq[Math.min(idx,RANG-1)].push(o);
   });
   const freqTot=freq.reduce((a,g)=>a+g.length,0);
   const fMax=Math.max(1,...freq.map(g=>g.length));
   document.getElementById('cb-freq-note').textContent =
-    `Of ${fmtN(freqTot)} callers who connected at least once — how many were reached again on a later call.`;
-  const FREQ_LBL=['Connected once','Connected twice','Connected 3 times','Connected 4 times','Connected 5+ times'];
-  // One connect is the baseline; being reached repeatedly is progressively more
-  // notable, so the ramp runs cool-to-warm rather than fading one colour out.
-  const FREQ_COL=['var(--l-ok)','var(--brand)','var(--i-new)','var(--warn)','var(--l-bad)'];
+    `Of ${fmtN(freqTot)} callers reached, the attempt that got through.`;
+  const FREQ_LBL=['1st attempt','2nd attempt','3rd attempt','4th attempt','5th+ attempt','They rang in'];
+  // Earlier is better, so the ramp warms as it takes more attempts.
+  const FREQ_COL=['var(--l-ok)','var(--l-ok)','var(--l-mid)','var(--warn)','var(--l-bad)','var(--brand)'];
   document.getElementById('cb-freq').innerHTML = freq.map((g,i)=>
-    `<div class="brow" data-fq="${i}">
-      <span class="b-dot" style="background:${cv(FREQ_COL[i])}"></span>
-      <span class="b-name" style="min-width:132px">${FREQ_LBL[i]}</span>
-      <span class="b-bar"><span class="b-fill" style="width:${Math.max(2,g.length/fMax*100)}%;background:${cv(FREQ_COL[i])}"></span></span>
-      <span class="b-num tnum">${fmtN(g.length)}</span>
-      <span class="b-pct tnum">${pct(g.length,freqTot)}%</span>
+    `<div class="fq" data-fq="${i}">
+      <span class="fq-name">${FREQ_LBL[i]}</span>
+      <span class="fq-track"><span class="fq-fill" style="width:${g.length/fMax*100}%;background:${cv(FREQ_COL[i])}"></span></span>
+      <span class="fq-n tnum">${fmtN(g.length)}</span>
+      <span class="fq-p tnum">${pct(g.length,freqTot)}%</span>
     </div>`).join('');
   document.getElementById('cb-freq').querySelectorAll('[data-fq]').forEach(el=>{
-    el.onclick=openList(FREQ_LBL[+el.dataset.fq], freq[+el.dataset.fq]); });
+    const i=+el.dataset.fq;
+    el.onclick=openList(i===RANG?'Rang in before we reached them'
+                                :`Reached on the ${FREQ_LBL[i]}`, freq[i]); });
 
   // ── speed of first callback: 10-min steps inside hour 1, then coarser ──
   const SPEED=[
