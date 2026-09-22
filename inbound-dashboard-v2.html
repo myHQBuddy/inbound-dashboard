@@ -180,6 +180,27 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 .chip.on{color:var(--ink);background:var(--surface-2);border-color:var(--line-2)}
 .chip .c-dot{width:8px;height:8px;border-radius:2px;opacity:.45;transition:.12s}
 
+/* callback ladder: one row per attempt, split connected / didn't pick up */
+.cbkey{display:flex;gap:14px;font-size:11.5px;color:var(--muted)}
+.cbkey span{display:inline-flex;align-items:center;gap:6px}
+.cbkey i{width:9px;height:9px;border-radius:2px;display:block}
+.lad{padding:9px 0;border-bottom:1px solid var(--line)}
+.lad:last-child{border-bottom:0}
+.lad-main{display:flex;align-items:center;gap:12px}
+.lad-name{font-size:12.5px;font-weight:700;color:var(--ink);min-width:74px;flex-shrink:0}
+.lad-track{display:flex;height:26px;border-radius:6px;overflow:hidden;flex-shrink:0;
+  background:var(--surface-2);transition:width .2s}
+.lad-c,.lad-n{display:flex;align-items:center;justify-content:center;
+  font-size:11.5px;font-weight:700;font-variant-numeric:tabular-nums;overflow:hidden}
+.lad-c{background:var(--v-ans);color:#fff;cursor:pointer;transition:filter .12s}
+.lad-c:hover{filter:brightness(1.08)}
+.lad-n{background:var(--bad-soft);color:var(--bad)}
+.lad-side{font-size:11.5px;color:var(--muted);white-space:nowrap;margin-left:auto;flex-shrink:0}
+.lad-side b{color:var(--ink);font-weight:700;font-size:13px}
+.lad-sub{font-size:11px;color:var(--muted);margin:5px 0 0 86px;line-height:1.5}
+.lad-sub b{color:var(--ink-2);font-weight:700}
+.lad-sub b.drop{color:var(--warn)}
+
 /* weekday selector in Trend Comparison */
 .dow-bar{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:-4px 0 8px}
 .dow-bar+.dow-bar{margin-top:-2px}          /* stacked filter rows sit closer */
@@ -222,15 +243,6 @@ table.trend tr.avg-row td:first-child{color:var(--brand)}
 .brow .b-pct{font-size:11.5px;color:var(--muted);min-width:38px;text-align:right}
 
 /* funnel */
-.funnel{display:grid;gap:10px}
-.fstage{display:flex;align-items:center;gap:14px;cursor:pointer;padding:9px 10px;border-radius:10px;transition:.12s}
-.fstage:hover{background:var(--surface-2)}
-.fstage .f-name{font-size:13px;font-weight:600;color:var(--ink);min-width:150px;flex-shrink:0}
-.fstage .f-track{flex:1;height:30px;background:var(--surface-2);border-radius:8px;overflow:hidden;position:relative;min-width:60px}
-.fstage .f-fill{height:100%;border-radius:8px;display:flex;align-items:center;padding-left:11px;
-  color:#fff;font-size:12.5px;font-weight:700;min-width:2px;transition:width .3s}
-.fstage .f-side{font-size:12px;color:var(--muted);min-width:96px;text-align:right}
-.fstage .f-side b{color:var(--ink);font-weight:700;font-size:13.5px}
 
 /* answer-rate heatmap */
 /* Fluid grid: the table fills the card rather than scrolling. table-layout:fixed
@@ -419,9 +431,16 @@ table.dt tr:hover td{background:var(--surface-2)}
   <div class="panel" id="panel-callbacks">
     <div class="cards" id="cb-cards"></div>
     <div class="card" style="margin-bottom:16px">
-      <div class="card-h"><div class="card-title">Reconnect Funnel</div></div>
-      <div class="card-note">Of the numbers missed in this period: how many were called back, and how many were actually reached.</div>
-      <div id="cb-funnel"></div>
+      <div class="card-h">
+        <div class="card-title">Callback Funnel — did they pick up?</div>
+        <div class="cbkey">
+          <span><i style="background:var(--v-ans)"></i>Connected</span>
+          <span><i style="background:var(--bad-soft)"></i>Didn't pick up</span>
+        </div>
+      </div>
+      <div class="card-note">Each row is the unique callers who received that attempt. The line beneath
+        shows what happened to the ones who didn't pick up — how many got another call, and how many were dropped.</div>
+      <div id="cb-ladder"></div>
     </div>
     <div class="row2">
       <div class="card">
@@ -430,10 +449,9 @@ table.dt tr:hover td{background:var(--surface-2)}
         <div class="chart-wrap"><canvas id="cb-speed-chart"></canvas></div>
       </div>
       <div class="card">
-        <div class="card-h"><div class="card-title">Connect Rate by Attempt</div></div>
-        <div class="card-note">Of the numbers still unreached going into each attempt, the share that
-          connected on it. A falling curve means later attempts are worth less than earlier ones.</div>
-        <div class="chart-wrap"><canvas id="cb-attempt-chart"></canvas></div>
+        <div class="card-h"><div class="card-title">How many times did a client connect?</div></div>
+        <div class="card-note" id="cb-freq-note">Of the callers who connected at least once — how many were reached again.</div>
+        <div id="cb-freq"></div>
       </div>
     </div>
   </div>
@@ -1157,22 +1175,71 @@ function renderCallbacks(p){
            color:'var(--bad)', onClick:openList('Not Reached — attempts since last miss',A.notReached)});
   wireCards(document.getElementById('cb-cards'));
 
-  // ── funnel ──
-  const stages=[
-    {name:'Missed numbers', n:A.unique,            color:cv('var(--muted)'), rows:A.rows},
-    {name:'Called back',    n:A.calledN,           color:cv('var(--brand)'), rows:A.called},
-    {name:'Reached',        n:A.reachedN,          color:cv('var(--good)'),  rows:A.reached},
-    {name:'Still not reached', n:A.notReached.length, color:cv('var(--bad)'), rows:A.notReached},
-  ];
-  const base=Math.max(1,A.unique);
-  document.getElementById('cb-funnel').innerHTML='<div class="funnel">'+stages.map((s,i)=>
-    `<div class="fstage" data-fs="${i}">
-      <span class="f-name">${s.name}</span>
-      <span class="f-track"><span class="f-fill" style="width:${Math.max(2,s.n/base*100)}%;background:${s.color}">${s.n/base>0.12?fmtN(s.n):''}</span></span>
-      <span class="f-side"><b>${fmtN(s.n)}</b> · ${pct(s.n,base)}%</span>
-    </div>`).join('')+'</div>';
-  document.getElementById('cb-funnel').querySelectorAll('[data-fs]').forEach(el=>{
-    const s=stages[+el.dataset.fs]; el.onclick=openList(s.name,s.rows); });
+  // ── callback ladder: who picked up on each attempt, and what happened next ──
+  // Walks the callback sequence per number. A caller enters row N only if they
+  // reached attempt N without connecting, so each row's denominator is genuinely
+  // "still unreached at this point" rather than "stopped after N calls".
+  const LAD=5;                                    // last row is "5+ calls"
+  const lad=Array.from({length:LAD},()=>({conn:0,noPick:0,again:0,dropped:0,rows:[],connRows:[]}));
+  A.called.forEach(o=>{
+    const cbs=(CB_ALL[o.cn]||[]).filter(c=>toMin(c.d,c.ti)>o.lastT);
+    for(let i=0;i<cbs.length;i++){
+      const b=Math.min(i,LAD-1);
+      const picked = cbs[i].st==='answered' && cbs[i].ct!=='Voice Mail';
+      // 5+ row aggregates every attempt from the 5th on, so only count a caller
+      // once there — on their first 5th-or-later attempt.
+      if(b===LAD-1 && i>LAD-1) { if(picked) break; else continue; }
+      lad[b].rows.push(o);
+      if(picked){ lad[b].conn++; lad[b].connRows.push(o); break; }
+      lad[b].noPick++;
+      if(i+1<cbs.length) lad[b].again++; else lad[b].dropped++;
+    }
+  });
+  const ladMax=Math.max(1,...lad.map(r=>r.rows.length));
+  document.getElementById('cb-ladder').innerHTML = lad.map((r,i)=>{
+    if(!r.rows.length) return '';
+    const n=r.rows.length, w=n/ladMax*100;
+    const cW=r.conn/n*100, nW=r.noPick/n*100;
+    const label=i===LAD-1?`${LAD}+ calls`:`${i+1}${['st','nd','rd','th','th'][i]} call`;
+    return `<div class="lad">
+      <div class="lad-main">
+        <span class="lad-name">${label}</span>
+        <span class="lad-track" style="width:${Math.max(6,w)}%">
+          ${r.conn?`<span class="lad-c" style="width:${cW}%" data-lad="${i}">${cW>9?fmtN(r.conn):''}</span>`:''}
+          ${r.noPick?`<span class="lad-n" style="width:${nW}%">${nW>9?fmtN(r.noPick):''}</span>`:''}
+        </span>
+        <span class="lad-side"><b>${pct(r.conn,n)}%</b> connected · ${fmtN(n)} callers</span>
+      </div>
+      ${r.noPick?`<div class="lad-sub">of ${fmtN(r.noPick)} who didn't pick up —
+        <b>${fmtN(r.again)}</b> got another call${r.dropped?` · <b class="drop">${fmtN(r.dropped)}</b> not tried again`:''}</div>`:''}
+    </div>`;
+  }).join('');
+  document.getElementById('cb-ladder').querySelectorAll('[data-lad]').forEach(el=>{
+    const r=lad[+el.dataset.lad];
+    el.onclick=openList(`Connected on call ${+el.dataset.lad+1}`, r.connRows); });
+
+  // ── how many times did a client connect? ──
+  const FREQ=5;
+  const freq=Array.from({length:FREQ},()=>[]);
+  A.rows.forEach(o=>{
+    const cbs=(CB_ALL[o.cn]||[]).filter(c=>toMin(c.d,c.ti)>o.lastT);
+    const n=cbs.filter(c=>c.st==='answered' && c.ct!=='Voice Mail').length;
+    if(n>0) freq[Math.min(n,FREQ)-1].push(o);
+  });
+  const freqTot=freq.reduce((a,g)=>a+g.length,0);
+  const fMax=Math.max(1,...freq.map(g=>g.length));
+  document.getElementById('cb-freq-note').textContent =
+    `Of ${fmtN(freqTot)} callers who connected at least once — how many were reached again on a later call.`;
+  const FREQ_LBL=['Connected once','Connected twice','Connected 3 times','Connected 4 times','Connected 5+ times'];
+  document.getElementById('cb-freq').innerHTML = freq.map((g,i)=>
+    `<div class="brow" data-fq="${i}">
+      <span class="b-name" style="min-width:142px">${FREQ_LBL[i]}</span>
+      <span class="b-bar"><span class="b-fill" style="width:${g.length/fMax*100}%;background:${cv('var(--brand)')};opacity:${1-i*0.16}"></span></span>
+      <span class="b-num tnum">${fmtN(g.length)}</span>
+      <span class="b-pct tnum">${pct(g.length,freqTot)}%</span>
+    </div>`).join('');
+  document.getElementById('cb-freq').querySelectorAll('[data-fq]').forEach(el=>{
+    el.onclick=openList(FREQ_LBL[+el.dataset.fq], freq[+el.dataset.fq]); });
 
   // ── speed of first callback: 10-min steps inside hour 1, then coarser ──
   const SPEED=[
@@ -1201,50 +1268,6 @@ function renderCallbacks(p){
   document.querySelector('#cb-speed-chart').closest('.card').querySelector('.card-note').innerHTML =
     `First callback after the miss. <b>${pct(within1h,withGap.length)}%</b> went out inside the first hour (green bars).`;
 
-  // ── connect rate by attempt number ──
-  // Survival curve, not a histogram of final attempt counts. A number is counted
-  // in every bucket it SURVIVED TO, stopping at the attempt that connected, so
-  // bucket N reads "given N-1 attempts already failed, how often does the Nth
-  // connect?". Grouping by total attempts instead would mostly measure when the
-  // team stopped dialling — a number ends up in bucket 4 because it connected
-  // there and calling ceased, which forces that bucket towards 100%.
-  const MAXA=5;                       // last bucket is "5+"
-  const att=Array.from({length:MAXA},()=>({conn:0,total:0}));
-  A.called.forEach(o=>{
-    // Which attempt connected: the first answered callback, or — if reached via
-    // an inbound call instead — treat the last dial as the end of the sequence.
-    const cbs=(CB_ALL[o.cn]||[]).filter(c=>toMin(c.d,c.ti)>o.lastT);
-    const cbIdx=cbs.findIndex(c=>c.st==='answered' && c.ct!=='Voice Mail');
-    const connIdx = !o.reached ? -1 : (cbIdx>=0 ? cbIdx : cbs.length-1);
-    const maxA = connIdx>=0 ? connIdx+1 : cbs.length;   // stop once connected
-    for(let i=0;i<maxA;i++){
-      const b=Math.min(i,MAXA-1);
-      att[b].total++;
-      if(connIdx===i) att[b].conn++;
-    }
-  });
-  const attRate=att.map(a=>a.total?Math.round(a.conn/a.total*100):0);
-  makeChart('cb-attempt-chart',{type:'bar',
-    data:{labels:att.map((_,i)=>i===MAXA-1?`${MAXA}+`:`${i+1}`),
-      datasets:[{data:attRate, backgroundColor:cv('var(--brand)'),
-        borderRadius:{topLeft:3,topRight:3}, borderSkipped:false, barPercentage:.72,
-        datalabels:{display:ctx=>att[ctx.dataIndex].total>0,
-          anchor:'end', align:'end', offset:2, clamp:true,
-          color:cv('var(--ink-2)'), font:{size:10.5,weight:'700'},
-          formatter:(v,ctx)=>`${v}%`}}]},
-    options:{responsive:true,maintainAspectRatio:false,
-      interaction:{mode:'index',intersect:false},
-      layout:{padding:{top:18}},
-      plugins:{legend:{display:false},
-        tooltip:{callbacks:{
-          title:it=>`Attempt ${it[0].label}`,
-          label:c=>{const a=att[c.dataIndex];
-            return ` ${a.conn} of ${a.total} reached here · ${c.parsed.y}%`;},
-          afterBody:it=>it[0].dataIndex===0?'':'of numbers still unreached at this point'}}},
-      scales:{x:{grid:{display:false},border:{display:false},
-                 title:{display:true,text:'callback attempt',color:cv('var(--muted)'),font:{size:10.5}},
-                 ticks:{font:{size:11},color:cv('var(--ink-2)')}},
-              y:{beginAtZero:true,display:false,grace:'14%'}}}});
 }
 const PRODUCTS=[{key:'AM',label:'AM',color:'var(--am)'},
                 {key:'VO',label:'VO',color:'var(--vo)'},
