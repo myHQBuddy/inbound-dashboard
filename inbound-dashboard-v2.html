@@ -431,7 +431,8 @@ table.dt tr:hover td{background:var(--surface-2)}
       </div>
       <div class="card">
         <div class="card-h"><div class="card-title">Connect Rate by Attempt</div></div>
-        <div class="card-note">Share of numbers reached on their 1st, 2nd, 3rd… callback attempt.</div>
+        <div class="card-note">Of the numbers still unreached going into each attempt, the share that
+          connected on it. A falling curve means later attempts are worth less than earlier ones.</div>
         <div class="chart-wrap"><canvas id="cb-attempt-chart"></canvas></div>
       </div>
     </div>
@@ -1201,22 +1202,49 @@ function renderCallbacks(p){
     `First callback after the miss. <b>${pct(within1h,withGap.length)}%</b> went out inside the first hour (green bars).`;
 
   // ── connect rate by attempt number ──
-  const MAXA=6;
-  const buckets=Array.from({length:MAXA},(_,i)=>i+1);
-  const atN=buckets.map(k=> k<MAXA ? A.called.filter(o=>o.attempts===k) : A.called.filter(o=>o.attempts>=MAXA));
-  const atReach=atN.map(g=>g.filter(o=>o.reached).length);
+  // Survival curve, not a histogram of final attempt counts. A number is counted
+  // in every bucket it SURVIVED TO, stopping at the attempt that connected, so
+  // bucket N reads "given N-1 attempts already failed, how often does the Nth
+  // connect?". Grouping by total attempts instead would mostly measure when the
+  // team stopped dialling — a number ends up in bucket 4 because it connected
+  // there and calling ceased, which forces that bucket towards 100%.
+  const MAXA=5;                       // last bucket is "5+"
+  const att=Array.from({length:MAXA},()=>({conn:0,total:0}));
+  A.called.forEach(o=>{
+    // Which attempt connected: the first answered callback, or — if reached via
+    // an inbound call instead — treat the last dial as the end of the sequence.
+    const cbs=(CB_ALL[o.cn]||[]).filter(c=>toMin(c.d,c.ti)>o.lastT);
+    const cbIdx=cbs.findIndex(c=>c.st==='answered' && c.ct!=='Voice Mail');
+    const connIdx = !o.reached ? -1 : (cbIdx>=0 ? cbIdx : cbs.length-1);
+    const maxA = connIdx>=0 ? connIdx+1 : cbs.length;   // stop once connected
+    for(let i=0;i<maxA;i++){
+      const b=Math.min(i,MAXA-1);
+      att[b].total++;
+      if(connIdx===i) att[b].conn++;
+    }
+  });
+  const attRate=att.map(a=>a.total?Math.round(a.conn/a.total*100):0);
   makeChart('cb-attempt-chart',{type:'bar',
-    data:{labels:buckets.map(k=>k<MAXA?`${k}`:`${MAXA}+`),
-      datasets:[
-        {label:'Reached',data:atReach,backgroundColor:cv('var(--good)'),borderRadius:5,borderSkipped:false,stack:'s'},
-        {label:'Not reached',data:atN.map((g,i)=>g.length-atReach[i]),backgroundColor:cv('var(--bad-soft)'),borderRadius:5,borderSkipped:false,stack:'s'}]},
+    data:{labels:att.map((_,i)=>i===MAXA-1?`${MAXA}+`:`${i+1}`),
+      datasets:[{data:attRate, backgroundColor:cv('var(--brand)'),
+        borderRadius:{topLeft:3,topRight:3}, borderSkipped:false, barPercentage:.72,
+        datalabels:{display:ctx=>att[ctx.dataIndex].total>0,
+          anchor:'end', align:'end', offset:2, clamp:true,
+          color:cv('var(--ink-2)'), font:{size:10.5,weight:'700'},
+          formatter:(v,ctx)=>`${v}%`}}]},
     options:{responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
-      plugins:{legend:{display:false},datalabels:{display:false},
-        tooltip:{callbacks:{afterBody:it=>{const i=it[0].dataIndex;
-          return `Connect rate ${pct(atReach[i],atN[i].length)}%`;}}}},
-      scales:{x:{stacked:true,grid:{display:false},title:{display:true,text:'callback attempts made',font:{size:10.5}},ticks:{font:{size:10.5}}},
-              y:{stacked:true,beginAtZero:true,grid:{color:cv('var(--line)')},ticks:{precision:0,font:{size:10.5}}}}}});
+      layout:{padding:{top:18}},
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{
+          title:it=>`Attempt ${it[0].label}`,
+          label:c=>{const a=att[c.dataIndex];
+            return ` ${a.conn} of ${a.total} reached here · ${c.parsed.y}%`;},
+          afterBody:it=>it[0].dataIndex===0?'':'of numbers still unreached at this point'}}},
+      scales:{x:{grid:{display:false},border:{display:false},
+                 title:{display:true,text:'callback attempt',color:cv('var(--muted)'),font:{size:10.5}},
+                 ticks:{font:{size:11},color:cv('var(--ink-2)')}},
+              y:{beginAtZero:true,display:false,grace:'14%'}}}});
 }
 const PRODUCTS=[{key:'AM',label:'AM',color:'var(--am)'},
                 {key:'VO',label:'VO',color:'var(--vo)'},
