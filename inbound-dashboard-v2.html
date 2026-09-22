@@ -446,11 +446,6 @@ table.dt tr:hover td{background:var(--surface-2)}
       <div class="card-note" id="ov-hm-note">Answer rate by day and hour. Darker green is better; red needs coverage.</div>
       <div style="overflow-x:auto"><div id="ov-heatmap"></div></div>
     </div>
-    <div class="card">
-      <div class="card-h"><div class="card-title">Missed by Campaign / Queue</div></div>
-      <div class="card-note">Which queue the missed calls dropped in. Click a row for the numbers.</div>
-      <div id="ov-miss"></div>
-    </div>
   </div>
   <div class="panel" id="panel-callbacks">
     <div class="cards" id="cb-cards"></div>
@@ -1156,27 +1151,6 @@ function renderOverview(p){
   // ── answer-rate heatmap: rows = day (or day-of-week), cols = hour ──
   renderHeatmap(A, p);
 
-  // ── missed by campaign / queue (the type split already lives in the cards above) ──
-  const byCamp={};
-  A.miss.forEach(r=>{ const c=campOf(r); (byCamp[c]=byCamp[c]||[]).push(r); });
-  const camps=Object.entries(byCamp).sort((a,b)=>b[1].length-a[1].length).slice(0,8);
-  const maxC=Math.max(1,...camps.map(([,v])=>v.length));
-  const box=document.getElementById('ov-miss');
-  if(!camps.length){ box.innerHTML='<div class="empty">No missed calls in this period.</div>'; }
-  else {
-    box.innerHTML = camps.map(([name,rows],i)=>
-      `<div class="brow" data-camp="${i}">
-        <span class="b-dot" style="background:var(--brand)"></span>
-        <span class="b-name" title="${name}">${name}</span>
-        <span class="b-bar"><span class="b-fill" style="width:${rows.length/maxC*100}%;background:var(--brand)"></span></span>
-        <span class="b-num tnum">${fmtN(rows.length)}</span>
-        <span class="b-pct tnum">${pct(rows.length,A.missed)}%</span>
-      </div>`).join('');
-    box.querySelectorAll('[data-camp]').forEach(el=>{
-      const [name,rows]=camps[+el.dataset.camp];
-      el.onclick=()=>openModal('Missed — '+name, missRows(rows), MISS_COLS);
-    });
-  }
 }
 // ── all-time per-number indexes (built once): callbacks + connect times ──
 // "Reached" must look across ALL data, not just the filtered window, otherwise a
