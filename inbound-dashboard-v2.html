@@ -1303,18 +1303,35 @@ function renderCallbacks(p){
   const withGap=A.called.filter(o=>o.gapMin!=null);
   const speedN=SPEED.map(s=>withGap.filter(o=>s.test(o.gapMin)).length);
   const within1h=withGap.filter(o=>o.gapMin<60).length;
+  // Colour is a speed ramp, not a green/grey split: being slow is a problem, so
+  // the later buckets escalate rather than fading out as if they were absent.
+  const SPEED_COL=[
+    'var(--l-ok)','var(--l-ok)','var(--l-ok)','var(--l-ok)','var(--l-ok)',   // inside the hour
+    'var(--l-mid)','var(--warn)','var(--l-bad)'];                            // 1–4h, 4–24h, 1d+
   makeChart('cb-speed-chart',{type:'bar',
     data:{labels:SPEED.map(s=>s.label),
       datasets:[{data:speedN,
-        backgroundColor:SPEED.map((s,i)=>i<5?cv('var(--good)'):cv('var(--faint)')),
-        borderRadius:5,borderSkipped:false,barPercentage:.78}]},
+        backgroundColor:SPEED.map((s,i)=>cv(SPEED_COL[i]||'var(--l-bad)')),
+        borderRadius:{topLeft:3,topRight:3},borderSkipped:false,
+        barPercentage:.84,categoryPercentage:.88,
+        // count above each bar, share of called-back beneath it
+        datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,
+          anchor:'end',align:'end',offset:2,clamp:true,textAlign:'center',
+          color:cv('var(--ink-2)'),font:{size:10,weight:'700'},
+          formatter:v=>`${fmtN(v)}\n${pct(v,withGap.length)}%`}}]},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},datalabels:{display:false},
-        tooltip:{callbacks:{label:it=>` ${fmtN(it.parsed.y)} numbers · ${pct(it.parsed.y,withGap.length)}% of called back`}}},
-      scales:{x:{grid:{display:false},ticks:{font:{size:10.5}}},
-              y:{beginAtZero:true,grid:{color:cv('var(--line)')},ticks:{precision:0,font:{size:10.5}}}}}});
+      layout:{padding:{top:24}},
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{
+          title:it=>`First callback ${it[0].label} after the miss`,
+          label:it=>` ${fmtN(it.parsed.y)} numbers · ${pct(it.parsed.y,withGap.length)}% of called back`}}},
+      // counts sit on the bars, so the y-axis is redundant chrome
+      scales:{x:{grid:{display:false},border:{display:false},
+                 ticks:{font:{size:10.5},color:cv('var(--ink-2)'),padding:4}},
+              y:{beginAtZero:true,display:false,grace:'16%'}}}});
   document.querySelector('#cb-speed-chart').closest('.card').querySelector('.card-note').innerHTML =
-    `First callback after the miss. <b>${pct(within1h,withGap.length)}%</b> went out inside the first hour (green bars).`;
+    `How long after the miss the first callback went out. <b>${pct(within1h,withGap.length)}%</b> went out
+     inside the first hour; colour escalates as the delay grows.`;
 
 }
 const PRODUCTS=[{key:'AM',label:'AM',color:'var(--am)'},
