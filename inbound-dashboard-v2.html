@@ -184,22 +184,31 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 .cbkey{display:flex;gap:14px;font-size:11.5px;color:var(--muted)}
 .cbkey span{display:inline-flex;align-items:center;gap:6px}
 .cbkey i{width:9px;height:9px;border-radius:2px;display:block}
-.lad{padding:9px 0;border-bottom:1px solid var(--line)}
+.lad{padding:11px 0;border-bottom:1px solid var(--line)}
 .lad:last-child{border-bottom:0}
 .lad-main{display:flex;align-items:center;gap:12px}
-.lad-name{font-size:12.5px;font-weight:700;color:var(--ink);min-width:74px;flex-shrink:0}
-.lad-track{display:flex;height:26px;border-radius:6px;overflow:hidden;flex-shrink:0;
-  background:var(--surface-2);transition:width .2s}
-.lad-c,.lad-n{display:flex;align-items:center;justify-content:center;
-  font-size:11.5px;font-weight:700;font-variant-numeric:tabular-nums;overflow:hidden}
-.lad-c{background:var(--v-ans);color:#fff;cursor:pointer;transition:filter .12s}
-.lad-c:hover{filter:brightness(1.08)}
-.lad-n{background:var(--bad-soft);color:var(--bad)}
-.lad-side{font-size:11.5px;color:var(--muted);white-space:nowrap;margin-left:auto;flex-shrink:0}
-.lad-side b{color:var(--ink);font-weight:700;font-size:13px}
-.lad-sub{font-size:11px;color:var(--muted);margin:5px 0 0 86px;line-height:1.5}
-.lad-sub b{color:var(--ink-2);font-weight:700}
-.lad-sub b.drop{color:var(--warn)}
+.lad-name{font-size:12.5px;font-weight:700;color:var(--ink);min-width:66px;flex-shrink:0}
+.lad-track{display:flex;height:28px;border-radius:6px;overflow:hidden;flex-shrink:0;
+  background:var(--surface-2);transition:width .25s}
+.lad-s{display:flex;align-items:center;justify-content:center;overflow:hidden;
+  font-size:11.5px;font-weight:700;font-variant-numeric:tabular-nums;transition:width .25s}
+.lad-s.c{background:var(--v-ans);color:#fff;cursor:pointer}
+.lad-s.c:hover{filter:brightness(1.1)}
+.lad-s.a{background:var(--line-2);color:var(--ink-2)}      /* called again: neutral */
+.lad-s.d{background:var(--warn);color:#fff}                /* abandoned: the exposure */
+.lad-side{font-size:11.5px;color:var(--muted);white-space:nowrap;margin-left:auto;
+  flex-shrink:0;text-align:right;line-height:1.3}
+.lad-side b{color:var(--ink);font-weight:700;font-size:14px}
+.lad-side i{display:block;font-style:normal;font-size:10.5px;color:var(--faint)}
+/* per-row key, so each block's meaning is readable without the legend */
+.lad-sub{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted);
+  margin:6px 0 0 78px;line-height:1.5}
+.lad-sub span{display:inline-flex;align-items:center;gap:5px}
+.lad-sub .sw{width:8px;height:8px;border-radius:2px;display:block;flex-shrink:0}
+.lad-sub .sw.c{background:var(--v-ans)}
+.lad-sub .sw.a{background:var(--line-2)}
+.lad-sub .sw.d{background:var(--warn)}
+.lad-sub .drop{color:var(--warn);font-weight:600}
 
 /* weekday selector in Trend Comparison */
 .dow-bar{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:-4px 0 8px}
@@ -435,11 +444,12 @@ table.dt tr:hover td{background:var(--surface-2)}
         <div class="card-title">Callback Funnel — did they pick up?</div>
         <div class="cbkey">
           <span><i style="background:var(--v-ans)"></i>Connected</span>
-          <span><i style="background:var(--bad-soft)"></i>Didn't pick up</span>
+          <span><i style="background:var(--line-2)"></i>Called again</span>
+          <span><i style="background:var(--warn)"></i>Abandoned</span>
         </div>
       </div>
-      <div class="card-note">Each row is the unique callers who received that attempt. The line beneath
-        shows what happened to the ones who didn't pick up — how many got another call, and how many were dropped.</div>
+      <div class="card-note">Each bar is everyone who received that attempt, split by what happened to them.
+        <b>Abandoned</b> means they didn't pick up and were never called again — the recoverable loss.</div>
       <div id="cb-ladder"></div>
     </div>
     <div class="row2">
@@ -1195,23 +1205,34 @@ function renderCallbacks(p){
       if(i+1<cbs.length) lad[b].again++; else lad[b].dropped++;
     }
   });
+  // Each row shows the three-way fate of everyone who entered that attempt:
+  // connected, called again, or abandoned. Abandonment is the actionable number,
+  // so it gets its own block rather than a footnote.
   const ladMax=Math.max(1,...lad.map(r=>r.rows.length));
+  const ORD=['1st','2nd','3rd','4th'];
   document.getElementById('cb-ladder').innerHTML = lad.map((r,i)=>{
     if(!r.rows.length) return '';
-    const n=r.rows.length, w=n/ladMax*100;
-    const cW=r.conn/n*100, nW=r.noPick/n*100;
-    const label=i===LAD-1?`${LAD}+ calls`:`${i+1}${['st','nd','rd','th','th'][i]} call`;
+    const n=r.rows.length, w=Math.max(8,n/ladMax*100);
+    const seg=(v)=>v/n*100;
+    const label=i===LAD-1?`${LAD}+ calls`:`${ORD[i]} call`;
+    const cell=(cls,v,title,key)=>v
+      ? `<span class="lad-s ${cls}" style="width:${seg(v)}%" title="${title}"${key!=null?` data-lad="${key}"`:''}>${seg(v)>7?fmtN(v):''}</span>`
+      : '';
     return `<div class="lad">
       <div class="lad-main">
         <span class="lad-name">${label}</span>
-        <span class="lad-track" style="width:${Math.max(6,w)}%">
-          ${r.conn?`<span class="lad-c" style="width:${cW}%" data-lad="${i}">${cW>9?fmtN(r.conn):''}</span>`:''}
-          ${r.noPick?`<span class="lad-n" style="width:${nW}%">${nW>9?fmtN(r.noPick):''}</span>`:''}
+        <span class="lad-track" style="width:${w}%">
+          ${cell('c',r.conn,`${fmtN(r.conn)} connected on this call`,i)}
+          ${cell('a',r.again,`${fmtN(r.again)} didn't pick up and got another call`)}
+          ${cell('d',r.dropped,`${fmtN(r.dropped)} didn't pick up and were never tried again`)}
         </span>
-        <span class="lad-side"><b>${pct(r.conn,n)}%</b> connected · ${fmtN(n)} callers</span>
+        <span class="lad-side"><b>${pct(r.conn,n)}%</b> connected<i>${fmtN(n)} callers</i></span>
       </div>
-      ${r.noPick?`<div class="lad-sub">of ${fmtN(r.noPick)} who didn't pick up —
-        <b>${fmtN(r.again)}</b> got another call${r.dropped?` · <b class="drop">${fmtN(r.dropped)}</b> not tried again`:''}</div>`:''}
+      <div class="lad-sub">
+        <span><i class="sw c"></i>${fmtN(r.conn)} connected</span>
+        <span><i class="sw a"></i>${fmtN(r.again)} called again</span>
+        ${r.dropped?`<span class="drop"><i class="sw d"></i>${fmtN(r.dropped)} abandoned</span>`:''}
+      </div>
     </div>`;
   }).join('');
   document.getElementById('cb-ladder').querySelectorAll('[data-lad]').forEach(el=>{
