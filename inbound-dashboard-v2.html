@@ -523,11 +523,6 @@ table.dt tr:hover td{background:var(--surface-2)}
         <b style="color:var(--warn)">amber 30–40%</b> is at risk. Click a row to see its daily numbers.</div>
       <div style="overflow-x:auto" id="ac-did"></div>
     </div>
-    <div class="card">
-      <div class="card-h"><div class="card-title">Follow-Through Worklist</div></div>
-      <div class="card-note">Numbers that need action, by how hard they've been chased since their most recent miss.</div>
-      <div id="ac-work"></div>
-    </div>
   </div>
   <div class="panel" id="panel-trends">
     <div class="card">
@@ -1688,24 +1683,6 @@ function renderAction(p){
          {key:'rate',label:'Pickup %',type:'num',get:r=>r.rate,fmt:v=>`${v}%`}]); });
   }
 
-  // ── worklist ──
-  const work=[
-    {name:'No callback made yet', rows:none,  color:cv('var(--warn)'), note:'start these'},
-    {name:'1–2 attempts, unreached', rows:low, color:cv('var(--warn)'), note:'push to 3+'},
-    {name:'3–9 attempts, unreached', rows:cbStats.notReached.filter(o=>o.attempts>=3&&o.attempts<10), color:cv('var(--brand)'), note:'keep trying'},
-    {name:'10+ attempts, unreached', rows:stuck, color:cv('var(--bad)'), note:'likely unreachable'},
-  ];
-  const wMax=Math.max(1,...work.map(w=>w.rows.length));
-  document.getElementById('ac-work').innerHTML=work.map((w,i)=>
-    `<div class="brow" data-wk="${i}">
-      <span class="b-dot" style="background:${w.color}"></span>
-      <span class="b-name" style="min-width:186px">${w.name}</span>
-      <span class="b-bar"><span class="b-fill" style="width:${w.rows.length/wMax*100}%;background:${w.color}"></span></span>
-      <span class="b-num tnum">${fmtN(w.rows.length)}</span>
-      <span class="b-pct">${w.note}</span></div>`).join('');
-  document.getElementById('ac-work').querySelectorAll('[data-wk]').forEach(el=>{
-    const w=work[+el.dataset.wk]; el.onclick=()=>openModal(w.name,
-      w.rows.slice().sort((a,b)=>b.attempts-a.attempts),CB_COLS); });
 }
 // full metric set for one period — powers both the trend chart and the table
 function fullStats(from,to){
