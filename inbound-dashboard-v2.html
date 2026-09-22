@@ -1279,10 +1279,14 @@ function renderCallbacks(p){
   document.getElementById('cb-freq-note').textContent =
     `Of ${fmtN(freqTot)} callers who connected at least once — how many were reached again on a later call.`;
   const FREQ_LBL=['Connected once','Connected twice','Connected 3 times','Connected 4 times','Connected 5+ times'];
+  // One connect is the baseline; being reached repeatedly is progressively more
+  // notable, so the ramp runs cool-to-warm rather than fading one colour out.
+  const FREQ_COL=['var(--l-ok)','var(--brand)','var(--i-new)','var(--warn)','var(--l-bad)'];
   document.getElementById('cb-freq').innerHTML = freq.map((g,i)=>
     `<div class="brow" data-fq="${i}">
-      <span class="b-name" style="min-width:142px">${FREQ_LBL[i]}</span>
-      <span class="b-bar"><span class="b-fill" style="width:${g.length/fMax*100}%;background:${cv('var(--brand)')};opacity:${1-i*0.16}"></span></span>
+      <span class="b-dot" style="background:${cv(FREQ_COL[i])}"></span>
+      <span class="b-name" style="min-width:132px">${FREQ_LBL[i]}</span>
+      <span class="b-bar"><span class="b-fill" style="width:${Math.max(2,g.length/fMax*100)}%;background:${cv(FREQ_COL[i])}"></span></span>
       <span class="b-num tnum">${fmtN(g.length)}</span>
       <span class="b-pct tnum">${pct(g.length,freqTot)}%</span>
     </div>`).join('');
