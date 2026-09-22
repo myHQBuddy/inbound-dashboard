@@ -250,6 +250,7 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 .dow.on{background:var(--brand);border-color:var(--brand);color:#fff}
 /* explanation shown where a filter row doesn't apply to the current view */
 .dow-off{font-size:11.5px;color:var(--faint);font-style:italic;padding:4px 2px}
+.hint{color:var(--faint)}   /* quiet interaction hint in a card note */
 /* pinned average row when a single weekday is isolated */
 table.trend tr.avg-row td{background:var(--brand-soft);font-weight:700;
   border-bottom:1px solid var(--line-2)}
@@ -1062,13 +1063,10 @@ function renderOvTrend(p){
     el.innerHTML=`<span class="dow-lbl">${lbl}</span>`+
       (lbl==='Days'?mk(null,'All',sel.size===0):'')+
       items.map(it=>mk(it.key,it.label,sel.has(it.key))).join('');
-    el.querySelectorAll('button').forEach(b=>b.onclick=()=>{
-      const v=b.dataset.k||null;
-      if(v==null) sel.clear();
-      else if(sel.has(v)){ if(lbl!=='Metrics'||sel.size>1) sel.delete(v); }
-      else sel.add(v);
-      onPick();
-    });
+    // Plain click selects just that one; ctrl/cmd-click (or shift) adds to or
+    // removes from the selection — so switching is one click, combining is two.
+    el.querySelectorAll('button').forEach(b=>b.onclick=e=>
+      pickToggle(sel, b.dataset.k||null, e, onPick, lbl==='Metrics'));
   };
   bar('ov-tr-metrics', OV_TR_METRICS, OV_TR_ON, ()=>renderOvTrend(p), 'Metrics');
   bar('ov-tr-dow', DOW_ORDER.map(d=>({key:d,label:d})), OV_TR_DOW, ()=>renderOvTrend(p), 'Days');
@@ -1110,7 +1108,8 @@ function renderOvTrend(p){
                         font:{size:10.5},padding:8}}}}});
   document.getElementById('ov-tr-note').innerHTML =
     `Dashed lines are each metric's average over the ${dates.length} day${dates.length===1?'':'s'} shown`+
-    (OV_TR_DOW.size?` (${[...OV_TR_DOW].join(', ')} only)`:'')+`.`;
+    (OV_TR_DOW.size?` (${[...OV_TR_DOW].join(', ')} only)`:'')+
+    `. <span class="hint">Ctrl/⌘-click to pick more than one.</span>`;
 }
 
 function renderOverview(p){
@@ -1508,13 +1507,24 @@ function renderLdIntentBar(p){
   const mk=(k,l,on)=>`<button class="dow${on?' on':''}" data-i="${k==null?'':k}">${l}</button>`;
   bar.innerHTML=`<span class="dow-lbl">Intent</span>`+mk(null,'All',LD_CT.size===0)+
     INTENTS.map(it=>mk(it.key,it.label,LD_CT.has(it.key))).join('');
-  bar.querySelectorAll('button').forEach(b=>b.onclick=()=>{
-    const v=b.dataset.i||null;
-    if(v==null) LD_CT.clear();
-    else if(LD_CT.has(v)) LD_CT.delete(v);
-    else LD_CT.add(v);
-    renderLeads(p);
-  });
+  bar.querySelectorAll('button').forEach(b=>b.onclick=e=>
+    pickToggle(LD_CT, b.dataset.i||null, e, ()=>renderLeads(p)));
+}
+// Shared selection behaviour: plain click isolates one, ctrl/cmd/shift-click
+// adds or removes, and clicking the only selected one clears back to All.
+// `mustKeepOne` is for groups where an empty selection would blank the chart.
+function pickToggle(sel, v, e, onPick, mustKeepOne){
+  const add=e.ctrlKey||e.metaKey||e.shiftKey;
+  if(v==null){ if(!mustKeepOne) sel.clear(); }
+  else if(add){
+    if(sel.has(v)){ if(!mustKeepOne || sel.size>1) sel.delete(v); }
+    else sel.add(v);
+  } else {
+    const only = sel.size===1 && sel.has(v);
+    sel.clear();
+    if(!only || mustKeepOne) sel.add(v);
+  }
+  onPick();
 }
 // Weekday toggles for the leads line. Hidden on a single-day view, where the
 // x-axis is hours and a weekday filter would mean nothing.
@@ -1531,13 +1541,8 @@ function renderLdDowBar(p, single){
   const mk=(k,l,on)=>`<button class="dow${on?' on':''}" data-d="${k==null?'':k}">${l}</button>`;
   bar.innerHTML=`<span class="dow-lbl">Days</span>`+mk(null,'All',LD_DOW.size===0)+
     DOW_ORDER.map(d=>mk(d,d,LD_DOW.has(d))).join('');
-  bar.querySelectorAll('button').forEach(b=>b.onclick=()=>{
-    const v=b.dataset.d||null;
-    if(v==null) LD_DOW.clear();
-    else if(LD_DOW.has(v)) LD_DOW.delete(v);
-    else LD_DOW.add(v);
-    renderLeads(p);
-  });
+  bar.querySelectorAll('button').forEach(b=>b.onclick=e=>
+    pickToggle(LD_DOW, b.dataset.d||null, e, ()=>renderLeads(p)));
 }
 function renderLeads(p){
   const A=leadStats(p.from,p.to), B=leadStats(p.prevFrom,p.prevTo);
