@@ -719,7 +719,7 @@ function chipGroup(container, items, current, onPick){
     // the selected chip no longer has a dark fill, so the swatch keeps its own
     // colour in both states (opacity in CSS carries the on/off distinction)
     b.innerHTML=(color?`<span class="c-dot" style="background:${color}"></span>`:'')+label;
-    b.onclick=()=>onPick(key); return b; };
+    b.onclick=e=>onPick(key,e); return b; };   // event passed for ctrl-click
   container.appendChild(mk(null,'All',null,isOn(null)));
   items.forEach(it=>container.appendChild(mk(it.key,it.label,it.color,isOn(it.key))));
 }
@@ -1157,12 +1157,7 @@ function renderOverview(p){
            :t.key==='Queue Missed - Within Hours'?'var(--v-queue)':'var(--v-aoh)'}))];
   const chipBox=document.getElementById('ov-vol-chips');
   chipGroup(chipBox, chipItems, OV_SERIES,
-    k=>{
-      if(k==null) OV_SERIES.clear();              // "All" resets
-      else if(OV_SERIES.has(k)) OV_SERIES.delete(k);
-      else OV_SERIES.add(k);
-      renderOverview(p);
-    });
+    (k,e)=>pickToggle(OV_SERIES, k, e, ()=>renderOverview(p)));
 
   const buckets = single ? Array.from({length:24},(_,h)=>h)
                          : [...new Set(A.ib.map(r=>r.d))].sort();
@@ -1197,13 +1192,17 @@ function renderOverview(p){
   // A label needs room: skip it when the segment is too thin a slice of the
   // tallest bar to hold text, otherwise the chart fills with unreadable specks.
   const MIN_SHARE=.07;
+  // Bars also need horizontal room. Past ~45 buckets the numbers overlap into
+  // an unreadable smear, so labels come off entirely and the tooltip carries it.
+  const LABELS_FIT = buckets.length<=45;
   const barSets = sets.map((s,i)=>{
     const data=buckets.map(b=>s.rows.filter(r=>inBucket(r,b)).length);
     return {label:s.label, data, backgroundColor:s.color,
       borderRadius:i===lastIdx?{topLeft:3,topRight:3}:0, borderSkipped:false,
       barPercentage:.88, categoryPercentage:.9,
       datalabels:{
-        display:ctx=>{ const v=ctx.dataset.data[ctx.dataIndex];
+        display:ctx=>{ if(!LABELS_FIT) return false;
+          const v=ctx.dataset.data[ctx.dataIndex];
           return v>0 && (v/maxTot)>=MIN_SHARE; },
         color:s.key==='Queue Missed - After Hours'?cv('var(--ink-2)'):'#fff',
         font:{size:10.5,weight:'700'},
@@ -1216,7 +1215,7 @@ function renderOverview(p){
     share: barSets[lastIdx].datalabels,
     // With a subset shown the bar stops short of the bucket total, so print
     // the stacked figure instead of a total the bar doesn't represent.
-    total: {display:ctx=>(partial?shown[ctx.dataIndex]:totals[ctx.dataIndex])>0,
+    total: {display:ctx=>LABELS_FIT&&(partial?shown[ctx.dataIndex]:totals[ctx.dataIndex])>0,
       anchor:'end', align:'end', offset:3, clamp:true,
       color:cv('var(--ink-2)'), font:{size:10.5,weight:'700'},
       formatter:(v,ctx)=>fmtN(partial?shown[ctx.dataIndex]:totals[ctx.dataIndex])}}};
@@ -1238,13 +1237,17 @@ function renderOverview(p){
             const a=A.ans.filter(r=>inBucket(r,buckets[i])).length;
             const base=`All inbound ${t} · ${Math.round(a/t*100)}% answered`;
             return partial ? `Shown ${shown[i]} of ${t}\n${base}` : base; }}}},
-      // With every total printed above its bar and every share inside it, the
-      // y-axis and its gridlines are redundant chrome — drop them entirely.
+      // When labels fit, every total is printed above its bar and the y-axis is
+      // redundant chrome. With too many bars to label, the axis carries the
+      // scale instead — otherwise the chart would have no reference at all.
       scales:{x:{stacked:true,grid:{display:false},border:{display:false},
                  ticks:{maxRotation:0,autoSkip:true,autoSkipPadding:10,
                         color:cv('var(--muted)'),font:{size:10.5},padding:6}},
-              y:{stacked:true,beginAtZero:true,display:false,
-                 grace:'8%'}}}});
+              y:{stacked:true,beginAtZero:true,display:!LABELS_FIT,
+                 border:{display:false},grace:LABELS_FIT?'8%':'2%',
+                 grid:{color:cv('var(--line)'),drawTicks:false},
+                 ticks:{precision:0,maxTicksLimit:5,color:cv('var(--muted)'),
+                        font:{size:10.5},padding:8}}}}});
 
   // ── answer-rate heatmap: rows = day (or day-of-week), cols = hour ──
   renderHeatmap(A, p);
