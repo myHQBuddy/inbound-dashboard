@@ -216,6 +216,7 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 .lad-sub{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted);
   margin:6px 0 0 78px;line-height:1.5}
 .lad-sub span{display:inline-flex;align-items:center;gap:5px}
+.lad-sub b{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
 .lad-sub .sw{width:8px;height:8px;border-radius:2px;display:block;flex-shrink:0}
 .lad-sub .sw.c{background:var(--l-ok)}
 .lad-sub .sw.a{background:var(--l-mid);box-shadow:inset 0 0 0 1px rgba(19,26,46,.12)}
@@ -1238,23 +1239,25 @@ function renderCallbacks(p){
     const label=i===LAD-1?`${LAD}+ calls`:`${ORD[i]} call`;
     // named in the drop-off line: "never attempted again after the 2nd call"
     const ordLbl=i===LAD-1?`the ${LAD}th+ call`:`the ${ORD[i]} call`;
+    // % inside the segment, exact counts in the key below — the bar answers
+    // "what share", the line answers "how many".
     const cell=(cls,v,title,key)=>v
-      ? `<span class="lad-s ${cls}" style="width:${seg(v)}%" title="${title}"${key?` data-lad="${key}"`:''}>${seg(v)>7?fmtN(v):''}</span>`
+      ? `<span class="lad-s ${cls}" style="width:${seg(v)}%" title="${title}"${key?` data-lad="${key}"`:''}>${seg(v)>8?`${pct(v,n)}%`:''}</span>`
       : '';
     return `<div class="lad">
       <div class="lad-main">
         <span class="lad-name">${label}</span>
         <span class="lad-lane"><span class="lad-track" style="width:${w}%">
-          ${cell('c',r.conn,`${fmtN(r.conn)} reached — picked up this call, or rang in themselves`,`c${i}`)}
-          ${cell('a',r.again,`${fmtN(r.again)} weren't reached on this call and got another attempt`)}
-          ${cell('d',r.dropped,`${fmtN(r.dropped)} never attempted again after this call`,`d${i}`)}
+          ${cell('c',r.conn,`${fmtN(r.conn)} of ${fmtN(n)} reached — picked up this call, or rang in themselves`,`c${i}`)}
+          ${cell('a',r.again,`${fmtN(r.again)} of ${fmtN(n)} weren't reached on this call and got another attempt`)}
+          ${cell('d',r.dropped,`${fmtN(r.dropped)} of ${fmtN(n)} were never attempted again after this call`,`d${i}`)}
         </span></span>
         <span class="lad-side">out of <b>${fmtN(n)}</b></span>
       </div>
       <div class="lad-sub">
-        <span><i class="sw c"></i>${pct(r.conn,n)}% reached</span>
-        <span><i class="sw a"></i>${pct(r.again,n)}% called again, not reached</span>
-        ${r.dropped?`<span class="drop"><i class="sw d"></i>${pct(r.dropped,n)}% never attempted again after ${ordLbl}</span>`:''}
+        <span><i class="sw c"></i><b>${fmtN(r.conn)}</b> reached</span>
+        <span><i class="sw a"></i><b>${fmtN(r.again)}</b> called again, not reached</span>
+        ${r.dropped?`<span class="drop"><i class="sw d"></i><b>${fmtN(r.dropped)}</b> never attempted again after ${ordLbl}</span>`:''}
       </div>
     </div>`;
   }).join('');
