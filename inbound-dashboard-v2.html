@@ -259,7 +259,32 @@ table.trend tr.avg-row td:first-child{color:var(--brand)}
 
 .card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 .card-title{font-size:14.5px;font-weight:700;letter-spacing:-.01em}
-.card-note{font-size:11.5px;color:var(--muted);margin:-6px 0 12px;line-height:1.5}
+/* Explanatory notes live behind an "i" beside the card title rather than as a
+   paragraph above the chart: the text is reference material you want once, not
+   every time you look at the number. .card-note keeps holding the content (so
+   the code that rewrites it still works) but is hidden and shown in a popover. */
+.card-note{display:none}
+.info{position:relative;display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;
+  width:15px;height:15px;margin-left:7px;border-radius:50%;cursor:pointer;
+  border:1px solid var(--line-2);background:var(--surface-2);color:var(--muted);
+  font-size:10px;font-weight:700;font-style:normal;line-height:1;vertical-align:middle;
+  transition:background .12s,color .12s,border-color .12s}
+.info:hover,.info[aria-expanded="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+/* The popover is anchored to the icon and sized to the text, capped so a long
+   note wraps instead of stretching across the card. */
+.info-pop{position:absolute;top:calc(100% + 7px);left:50%;transform:translateX(-50%);
+  width:max-content;max-width:290px;z-index:40;
+  background:var(--surface);color:var(--ink-2);border:1px solid var(--line-2);
+  border-radius:10px;padding:9px 11px;font-size:11.5px;font-weight:400;line-height:1.55;
+  text-align:left;letter-spacing:0;text-transform:none;
+  box-shadow:var(--shadow);white-space:normal}
+.info-pop::before{content:"";position:absolute;bottom:100%;left:50%;margin-left:-5px;
+  border:5px solid transparent;border-bottom-color:var(--line-2)}
+/* Cards near the right edge flip the popover so it can't overflow the viewport. */
+.info-pop.flip-r{left:auto;right:-8px;transform:none}
+.info-pop.flip-r::before{left:auto;right:12px;margin-left:0}
+.info-pop.flip-l{left:-8px;transform:none}
+.info-pop.flip-l::before{left:16px;margin-left:0}
 .chart-wrap{position:relative;height:280px}
 .chart-wrap.tall{height:300px}
 .row2{display:grid;gap:16px;grid-template-columns:1fr 1fr}
@@ -870,6 +895,9 @@ function render(){
   else if(tab==='leads') renderLeads(p);
   else if(tab==='action') renderAction(p);
   else if(tab==='trends') renderTrends(p);
+  // Re-attach after every render: a title rewritten via textContent (the volume
+  // card does this) would otherwise drop its icon. wireInfoIcons is idempotent.
+  wireInfoIcons();
 }
 
 // last-updated stamp
@@ -2104,7 +2132,56 @@ function renderTrends(p){
     + 'Grouping follows the Daily / Weekly / Monthly filter above.';
 }
 
-render();
+// ══════════════════════════════════════════════════════════════════════════════
+//  CARD NOTES AS "i" POPOVERS
+// ══════════════════════════════════════════════════════════════════════════════
+// Each card's .card-note is hidden by CSS and surfaced through an "i" beside the
+// title. The note element stays in the DOM and stays the source of truth, so the
+// render functions that rewrite it (tr-note, ld-note, cb-freq-note, …) keep
+// working without knowing the popover exists — the text is read at open time.
+function closeInfo(){
+  document.querySelectorAll('.info-pop').forEach(el=>el.remove());
+  document.querySelectorAll('.info[aria-expanded="true"]')
+    .forEach(el=>el.setAttribute('aria-expanded','false'));
+}
+function wireInfoIcons(){
+  document.querySelectorAll('.card').forEach(card=>{
+    // Direct children only: cards are siblings rather than nested, but scoping
+    // keeps it that way if a card ever gains an inner one.
+    const note=card.querySelector(':scope > .card-note');
+    const title=card.querySelector(':scope > .card-h > .card-title');
+    if(!note || !title || title.querySelector('.info')) return;
+    const btn=document.createElement('span');
+    btn.className='info'; btn.textContent='i';
+    btn.setAttribute('role','button'); btn.setAttribute('tabindex','0');
+    btn.setAttribute('aria-label','About this chart');
+    btn.setAttribute('aria-expanded','false');
+    const open=e=>{
+      e.stopPropagation();
+      const wasOpen=btn.getAttribute('aria-expanded')==='true';
+      closeInfo();
+      if(wasOpen) return;
+      const pop=document.createElement('span');
+      pop.className='info-pop';
+      pop.innerHTML=note.innerHTML;          // read live, so updates are picked up
+      btn.appendChild(pop);
+      btn.setAttribute('aria-expanded','true');
+      // Keep the popover inside the viewport: flip it to whichever edge fits.
+      const r=pop.getBoundingClientRect();
+      if(r.right>innerWidth-8) pop.classList.add('flip-r');
+      else if(r.left<8) pop.classList.add('flip-l');
+    };
+    btn.onclick=open;
+    btn.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(e); } };
+    title.appendChild(btn);
+  });
+}
+// Click anywhere else closes an open note; clicks inside it (to select text)
+// do not.
+addEventListener('click', e=>{ if(!e.target.closest('.info')) closeInfo(); });
+addEventListener('keydown', e=>{ if(e.key==='Escape') closeInfo(); });
+
+render();                                  // render() attaches the info icons
 requestAnimationFrame(moveSegIndicator);   // ensure indicator sits right after layout
 </script>
 </body>
