@@ -278,6 +278,14 @@ table.trend tr.avg-row td:first-child{color:var(--brand)}
   border-radius:10px;padding:9px 11px;font-size:11.5px;font-weight:400;line-height:1.55;
   text-align:left;letter-spacing:0;text-transform:none;
   box-shadow:var(--shadow);white-space:normal}
+/* Notes are written as <ul> so each fact sits on its own line and can be
+   scanned rather than read. Custom bullet: a small dot that aligns with the
+   first line of text regardless of how many lines the point wraps to. */
+.info-pop ul{margin:0;padding:0;list-style:none}
+.info-pop li{position:relative;padding-left:12px;margin:0 0 5px}
+.info-pop li:last-child{margin-bottom:0}
+.info-pop li::before{content:"";position:absolute;left:1px;top:7px;
+  width:4px;height:4px;border-radius:50%;background:var(--muted)}
 .info-pop::before{content:"";position:absolute;bottom:100%;left:50%;margin-left:-5px;
   border:5px solid transparent;border-bottom-color:var(--line-2)}
 /* Cards near the right edge flip the popover so it can't overflow the viewport. */
@@ -339,17 +347,6 @@ table.hm td.thin{opacity:.45}
 .hm-legend{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted)}
 .hm-legend .sw{display:flex;gap:2px}
 .hm-legend .sw i{width:16px;height:11px;border-radius:2px;display:block}
-table.didgrid{border-collapse:separate;border-spacing:3px;font-size:11px}
-table.didgrid th{font-size:10px;font-weight:600;color:var(--muted);padding:2px 4px;text-align:center;white-space:nowrap}
-table.didgrid th.did-h{text-align:left;position:sticky;left:0;background:var(--surface);z-index:1;padding-right:10px}
-table.didgrid td.did-n{font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap;
-  position:sticky;left:0;background:var(--surface);z-index:1;padding-right:10px;cursor:pointer}
-table.didgrid td.did-n:hover{color:var(--brand)}
-table.didgrid td.cell{width:30px;height:26px;text-align:center;border-radius:6px;
-  font-weight:700;font-variant-numeric:tabular-nums;color:#fff}
-table.didgrid td.cell.none{background:var(--surface-2);color:var(--faint);font-weight:500}
-.did-avg{font-weight:700;font-size:12px;padding-left:8px;white-space:nowrap}
-
 /* trend comparison table */
 /* 14 columns have to fit the card: tight horizontal padding and no uppercase
    letter-spacing, which together cost more width than the labels themselves.
@@ -513,7 +510,8 @@ table.dt tbody tr:hover td{background:var(--surface-2)}
       <div class="dow-bar" id="ov-tr-metrics"></div>
       <!-- weekday narrowing -->
       <div class="dow-bar" id="ov-tr-dow"></div>
-      <div class="card-note" id="ov-tr-note">Each metric as a line over the period, with its average as a dashed reference.</div>
+      <!-- rewritten by renderOvTrend with the active metrics and day filter -->
+      <div class="card-note" id="ov-tr-note"><ul><li>Each metric as a line over the period, with its average as a dashed reference.</li></ul></div>
       <div class="chart-wrap tall"><canvas id="ov-tr-chart"></canvas></div>
     </div>
     <div class="card" style="margin-bottom:16px">
@@ -521,7 +519,8 @@ table.dt tbody tr:hover td{background:var(--surface-2)}
         <div class="card-title">Answer Rate Heatmap</div>
         <div class="hm-legend" id="ov-hm-legend"></div>
       </div>
-      <div class="card-note" id="ov-hm-note">Answer rate by day and hour. Darker green is better; red needs coverage.</div>
+      <!-- rewritten by the heatmap render, which knows the active grouping -->
+      <div class="card-note" id="ov-hm-note"><ul><li>Answer rate by day and hour. Darker green is better; red needs coverage.</li></ul></div>
       <div style="overflow-x:auto"><div id="ov-heatmap"></div></div>
     </div>
   </div>
@@ -536,21 +535,26 @@ table.dt tbody tr:hover td{background:var(--surface-2)}
           <span><i style="background:var(--l-bad)"></i>Never attempted again</span>
         </div>
       </div>
-      <div class="card-note"><b>Reached</b> means contact was made after that call — they picked it up,
-        or rang in themselves before the next attempt. <b>Never attempted again</b> is the amber block:
-        nobody called them after that attempt and no contact was ever made. Click any segment for the numbers.</div>
+      <div class="card-note"><ul>
+        <li><b>Reached</b> — contact was made after that call: they picked it up, or rang in themselves before the next attempt.</li>
+        <li><b>Called again, not reached</b> — we dialled again, but that attempt did not connect.</li>
+        <li><b>Never attempted again</b> — nobody called them after that attempt, and no contact was ever made.</li>
+        <li>Click any segment for the numbers behind it.</li>
+      </ul></div>
       <div id="cb-ladder"></div>
     </div>
     <div class="row2">
       <div class="card">
         <div class="card-h"><div class="card-title">Speed of First Callback</div>
           <div class="chips" id="cb-speed-chips"></div></div>
-        <div class="card-note">How quickly the first callback went out after the miss. The first hour is broken into 10-minute steps.</div>
+        <!-- rewritten by renderCallbacks with the active cohort and its figures -->
+        <div class="card-note"><ul><li>How long after a miss the first callback went out.</li></ul></div>
         <div class="chart-wrap"><canvas id="cb-speed-chart"></canvas></div>
       </div>
       <div class="card">
         <div class="card-h"><div class="card-title">Which attempt reached them?</div></div>
-        <div class="card-note" id="cb-freq-note">Of the callers we did reach, the attempt that got through.</div>
+        <!-- rewritten by renderCallbacks with the reached total -->
+        <div class="card-note" id="cb-freq-note"><ul><li>Of the callers we did reach, the attempt that got through.</li></ul></div>
         <div id="cb-freq"></div>
       </div>
     </div>
@@ -566,18 +570,27 @@ table.dt tbody tr:hover td{background:var(--surface-2)}
       <div class="dow-bar" id="ld-intent"></div>
       <!-- weekday narrowing: drop the days you don't want on the line -->
       <div class="dow-bar" id="ld-dow"></div>
-      <div class="card-note" id="ld-note">Dispositioned leads per day by product. Dashed lines are each product's average over the shown days.</div>
+      <!-- rewritten by renderLeads with the active product / intent / day filters -->
+      <div class="card-note" id="ld-note"><ul><li>Dispositioned leads per day by product.</li></ul></div>
       <div class="chart-wrap tall"><canvas id="ld-trend-chart"></canvas></div>
     </div>
     <div class="row2">
       <div class="card">
         <div class="card-h"><div class="card-title">Leads by Product</div></div>
-        <div class="card-note">Share of dispositioned leads. Click a segment for the calls.</div>
+        <div class="card-note"><ul>
+          <li>Share of dispositioned leads by product.</li>
+          <li>Counts calls, not people — one caller tagged twice counts twice.</li>
+          <li>Click a segment for the calls behind it.</li>
+        </ul></div>
         <div class="chart-wrap"><canvas id="ld-donut"></canvas></div>
       </div>
       <div class="card">
         <div class="card-h"><div class="card-title">New vs Existing by Product</div></div>
-        <div class="card-note">Counts side by side, with each bar's share of that product above it.</div>
+        <div class="card-note"><ul>
+          <li>New and Existing counts side by side, per product.</li>
+          <li>The figure above each bar is its share of that product.</li>
+          <li><b>New</b> is a first enquiry; <b>Existing</b> is a caller already on the books.</li>
+        </ul></div>
         <div class="chart-wrap"><canvas id="ld-intent-chart"></canvas></div>
       </div>
     </div>
@@ -588,16 +601,9 @@ table.dt tbody tr:hover td{background:var(--surface-2)}
       <div class="card-h">
         <div class="card-title">Agents on Inbound Calls Through the Day</div>
       </div>
-      <div class="card-note" id="aa-note">How many agents were on an inbound call in each 15-minute slot.</div>
+      <!-- rewritten by renderAgentActivity with the peak and day count -->
+      <div class="card-note" id="aa-note"><ul><li>How many agents were on an inbound call in each 15-minute slot.</li></ul></div>
       <div class="chart-wrap" style="height:210px"><canvas id="aa-chart"></canvas></div>
-    </div>
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-h"><div class="card-title">DID Health — Pickup Rate by Day</div>
-        <div class="chips" id="ac-did-chips"></div></div>
-      <div class="card-note">Each row is an outbound caller ID. Cells show that day's pickup rate —
-        <b style="color:var(--bad)">red under 30%</b> means the number is likely being flagged as spam,
-        <b style="color:var(--warn)">amber 30–40%</b> is at risk. Click a row to see its daily numbers.</div>
-      <div style="overflow-x:auto" id="ac-did"></div>
     </div>
   </div>
   <div class="panel" id="panel-trends">
@@ -607,7 +613,8 @@ table.dt tbody tr:hover td{background:var(--surface-2)}
       </div>
       <!-- day-of-week narrowing: only meaningful for the Day grouping -->
       <div class="dow-bar" id="tr-dow"></div>
-      <div class="card-note" id="tr-note">Every period, newest first.</div>
+      <!-- rewritten by renderTrends with the active grouping and scope -->
+      <div class="card-note" id="tr-note"><ul><li>Every period, newest first.</li></ul></div>
       <div style="overflow-x:auto" id="tr-table"></div>
     </div>
   </div>
@@ -1051,14 +1058,15 @@ function renderHeatmap(A,p){
   document.getElementById('ov-hm-legend').innerHTML=
     `<span>Low</span><span class="sw">${[ '#d9534f','#f0b453','#8fcf6b','#19a86a','#0f7a4f' ]
       .map(c=>`<i style="background:${c}"></i>`).join('')}</span><span>High</span>`;
-  document.getElementById('ov-hm-note').innerHTML =
+  document.getElementById('ov-hm-note').innerHTML = '<ul>'+
     (byMonth
-      ? `<b>All months</b> shown for comparison — each cell is that hour's average answer rate across the whole month, so this grid ignores the selected month. `
+      ? `<li><b>All months</b> are shown for comparison, so this grid ignores the selected month. Each cell is that hour's average answer rate across the whole month.</li>`
       : '')+
-    `Coloured cells show <b>answer rate</b> for every office hour (9am–7pm), by ${byMonth?'month':byDow?'day of week':'date'}; `+
-    `hours with fewer than ${HM_MIN} calls are faded to flag the thin base. `+
-    `The narrow columns either side are the unstaffed hours (6–8am before, 7pm–5am after), `+
-    `which show the <b>number of calls</b> instead.`;
+    `<li>Coloured cells are <b>answer rate</b> for each office hour (9 AM–7 PM), by ${byMonth?'month':byDow?'day of week':'date'}.</li>`+
+    `<li>Darker green is better; red needs coverage.</li>`+
+    `<li>Hours with fewer than ${HM_MIN} calls are faded — the rate is real but the base is thin.</li>`+
+    `<li>The narrow columns either side are unstaffed hours (6–8 AM before, 7 PM–5 AM after) and show the <b>number of calls</b> instead.</li>`+
+    '</ul>';
 }
 
 // Which series the volume chart shows. Empty set = all of them; otherwise any
@@ -1217,10 +1225,13 @@ function renderOvTrend(p){
                  grid:{color:cv('var(--line)'),drawTicks:false},
                  ticks:{precision:0,maxTicksLimit:6,color:cv('var(--muted)'),
                         font:{size:10.5},padding:8}}}}});
-  document.getElementById('ov-tr-note').innerHTML =
-    `Dashed lines are each metric's average over the ${dates.length} day${dates.length===1?'':'s'} shown`+
-    (OV_TR_DOW.size?` (${[...OV_TR_DOW].join(', ')} only)`:'')+
-    `. <span class="hint">Ctrl/⌘-click to pick more than one.</span>`;
+  document.getElementById('ov-tr-note').innerHTML = '<ul>'+
+    `<li>Each selected metric as a line over the ${dates.length} day${dates.length===1?'':'s'} shown`+
+    (OV_TR_DOW.size?` (${[...OV_TR_DOW].join(', ')} only)`:'')+`.</li>`+
+    `<li>Dashed lines are that metric's average, labelled with its value.</li>`+
+    `<li>Narrowing the days recomputes the averages, so excluding weekends moves the baseline too.</li>`+
+    `<li>Click a chip to show only it; <b>Ctrl/⌘-click</b> to pick more than one.</li>`+
+    '</ul>';
 }
 
 function renderOverview(p){
@@ -1533,8 +1544,12 @@ function renderCallbacks(p){
   });
   const freqTot=freq.reduce((a,g)=>a+g.length,0);
   const fMax=Math.max(1,...freq.map(g=>g.length));
-  document.getElementById('cb-freq-note').textContent =
-    `Of ${fmtN(freqTot)} callers reached, the attempt that got through.`;
+  document.getElementById('cb-freq-note').innerHTML = '<ul>'+
+    `<li>Of the <b>${fmtN(freqTot)}</b> callers we reached, which attempt got through.</li>`+
+    `<li>Counted from their most recent miss, so attempt 1 is the first callback after it.</li>`+
+    `<li><b>They rang in</b> means we never connected — the caller came back to us first.</li>`+
+    `<li>Click a row for the numbers behind it.</li>`+
+    '</ul>';
   const FREQ_LBL=['1st attempt','2nd attempt','3rd attempt','4th attempt','5th+ attempt','They rang in'];
   // Earlier is better, so the ramp warms as it takes more attempts.
   const FREQ_COL=['var(--l-ok)','var(--l-ok)','var(--l-mid)','var(--warn)','var(--l-bad)','var(--brand)'];
@@ -1603,10 +1618,13 @@ function renderCallbacks(p){
   const whLbl = CB_SPEED_WH.size!==1 ? 'all misses'          // none or both selected
     : CB_SPEED_WH.has('wh') ? 'misses inside working hours (9 AM–7 PM)'
     : 'misses outside working hours';
-  document.querySelector('#cb-speed-chart').closest('.card').querySelector('.card-note').innerHTML =
-    `How long after the miss the first callback went out, for <b>${whLbl}</b>
-     (${fmtN(withGap.length)} numbers). <b>${pct(within1h,withGap.length)}%</b> went out
-     inside the first hour; colour escalates as the delay grows.`;
+  document.querySelector('#cb-speed-chart').closest('.card').querySelector('.card-note').innerHTML = '<ul>'+
+    `<li>How long after a miss the <b>first</b> callback went out.</li>`+
+    `<li>Showing <b>${whLbl}</b> — ${fmtN(withGap.length)} numbers.</li>`+
+    `<li><b>${pct(within1h,withGap.length)}%</b> went out inside the first hour.</li>`+
+    `<li>Split on the hour of the <b>miss</b>, not the callback: a miss at 11 PM cannot be returned as fast as one at 11 AM.</li>`+
+    `<li>Colour escalates as the delay grows. Working hours are 9 AM–7 PM.</li>`+
+    '</ul>';
 
 }
 const PRODUCTS=[{key:'AM',label:'AM',color:'var(--am)'},
@@ -1762,11 +1780,15 @@ function renderLeads(p){
                  grid:{color:cv('var(--line)'),drawTicks:false},
                  ticks:{precision:0,maxTicksLimit:6,color:cv('var(--muted)'),
                         font:{size:10.5},padding:8}}}}});
-  document.getElementById('ld-note').textContent =
-    (single ? 'Dispositioned leads by hour for the selected day. '
-            : 'Dispositioned leads per day by product. Dashed lines are each product\'s average over the shown days. ')
-    + (LD_CT.size ? `${[...LD_CT].join(' + ')} only. ` : '')
-    + (LD_DOW.size ? `${[...LD_DOW].join(', ')} only.` : '');
+  document.getElementById('ld-note').innerHTML = '<ul>'+
+    (single ? '<li>Dispositioned leads by hour for the selected day.</li>'
+            : "<li>Dispositioned leads per day, by product.</li>"+
+              "<li>Dashed lines are each product's average over the days shown.</li>")
+    + '<li>A lead is an answered call tagged with a product (AM, VO or OD), so this counts calls rather than people.</li>'
+    + (LD_CT.size ? `<li>Filtered to <b>${[...LD_CT].join(' + ')}</b> only.</li>` : '')
+    + (LD_DOW.size ? `<li>Filtered to <b>${[...LD_DOW].join(', ')}</b> only.</li>` : '')
+    + '<li>Click a chip to isolate it; <b>Ctrl/⌘-click</b> to combine.</li>'
+    + '</ul>';
 
   // ── new vs existing by product (grouped bars) ──
   // Grouped rather than stacked: the question is how New compares with Existing
@@ -1821,14 +1843,6 @@ function renderLeads(p){
           color:'#fff', font:{size:11,weight:'700'}, textAlign:'center',
           formatter:v=>`${fmtN(v)}\n${pct(v,dSum)}%`}}}});
 }
-// DID spam-risk thresholds (pickup rate): <30% = flagged risk, 30–40% = at risk
-const DID_BAD=30, DID_WARN=40;
-function didColor(rate){
-  if(rate==null) return null;
-  return rate<DID_BAD ? 'var(--bad)' : rate<DID_WARN ? 'var(--warn)' : 'var(--good)';
-}
-let AC_DIDFILTER=null;   // null = all DIDs, 'risk' = only at-risk
-
 // ── Agents on calls through the day ──────────────────────────────────────────
 // Only answered calls carry an agent name, so this is coverage-while-talking,
 // not rostered staffing: an agent between calls doesn't appear. Averaged across
@@ -1889,29 +1903,18 @@ function renderAgentActivity(p){
                  grid:{color:cv('var(--line)'),drawTicks:false},
                  ticks:{precision:0,maxTicksLimit:5,color:cv('var(--muted)'),
                         font:{size:10.5},padding:8}}}}});
-  document.getElementById('aa-note').innerHTML =
-    `Agents on an inbound call in each ${AA_SLOT}-minute slot across office hours (9am–7pm), `+
-    `${nDays>1?`averaged across ${nDays} days`:'for this day'}. Peak <b>${peak}</b> at once. `+
-    `Only answered calls carry an agent, so this shows time on calls — not roster.`;
+  document.getElementById('aa-note').innerHTML = '<ul>'+
+    `<li>Agents on an <b>inbound</b> call in each ${AA_SLOT}-minute slot, 9 AM–7 PM. Callbacks are excluded.</li>`+
+    `<li>${nDays>1?`Averaged across ${nDays} days`:'For this day'}, so it shows a typical day rather than a total.</li>`+
+    `<li>Peak <b>${peak}</b> agents on calls at once.</li>`+
+    `<li>Only answered calls carry an agent name, so this is time on calls — not roster. An agent between calls does not appear.</li>`+
+    `<li>Hover a slot for the agent names.</li>`+
+    '</ul>';
 
 }
 function renderAction(p){
-  _cardHandlers={}; const cv=cssVar;
+  _cardHandlers={};
   renderAgentActivity(p);
-  const out=recsIn(p.from,p.to).filter(r=>r.dr==='callback' && r.dd);
-  const days=[...new Set(out.map(r=>r.d))].sort();
-
-  // ── per-DID daily pickup ──
-  const dids={};
-  out.forEach(r=>{ const o=dids[r.dd]||(dids[r.dd]={dd:r.dd,tot:0,ans:0,day:{}});
-    o.tot++; if(r.st==='answered')o.ans++;
-    const d=o.day[r.d]||(o.day[r.d]={t:0,a:0}); d.t++; if(r.st==='answered')d.a++; });
-  let list=Object.values(dids).filter(o=>o.tot>=20);
-  list.forEach(o=>{ o.rate=pct(o.ans,o.tot);
-    o.riskDays=days.filter(d=>{const c=o.day[d]; return c&&c.t>=5&&pct(c.a,c.t)<DID_BAD;}).length; });
-  list.sort((a,b)=>a.rate-b.rate);
-  const atRisk=list.filter(o=>o.rate<DID_WARN);
-  const shown = AC_DIDFILTER==='risk' ? atRisk : list;
 
   // Worklist cards: the four attempt bands partition the unreached numbers, so
   // every open number sits in exactly one of them and nothing falls through.
@@ -1934,35 +1937,6 @@ function renderAction(p){
            color:'var(--bad)', target:avgTarget(M.cbAtt10,p,stuck.length,{dir:'bad',noNote:true}),
            onClick:()=>openModal('10+ Attempts, Still Not Reached',stuck,CB_COLS)});
   wireCards(document.getElementById('ac-cards'));
-
-  chipGroup(document.getElementById('ac-did-chips'),
-    [{key:'risk',label:`At risk (${atRisk.length})`,color:cv('var(--bad)')}], AC_DIDFILTER,
-    k=>{ AC_DIDFILTER=(AC_DIDFILTER===k?null:k); renderAction(p); });
-
-  // ── DID day grid ──
-  const box=document.getElementById('ac-did');
-  if(!shown.length){ box.innerHTML='<div class="empty">No outbound DIDs with enough calls in this period.</div>'; }
-  else{
-    const show=days.slice(-31);
-    box.innerHTML=`<table class="didgrid"><thead><tr><th class="did-h">Caller ID</th>
-      ${show.map(d=>`<th>${_pd(d).getDate()}</th>`).join('')}<th>Avg</th></tr></thead><tbody>
-      ${shown.map(o=>`<tr><td class="did-n" data-did="${o.dd}">${o.dd}</td>
-        ${show.map(d=>{const c=o.day[d];
-          if(!c||c.t<3) return `<td class="cell none">·</td>`;
-          const r=pct(c.a,c.t);
-          return `<td class="cell" style="background:${didColor(r)}" title="${_dm(d)} · ${c.a}/${c.t} answered">${r}</td>`;}).join('')}
-        <td class="did-avg" style="color:${didColor(o.rate)}">${o.rate}%</td></tr>`).join('')}
-      </tbody></table>`;
-    box.querySelectorAll('[data-did]').forEach(el=>{ const o=dids[el.dataset.did];
-      el.onclick=()=>openModal(`${o.dd} — daily pickup`,
-        Object.entries(o.day).sort((a,b)=>a[0]<b[0]?1:-1)
-          .map(([d,c])=>({day:`${_dowOf(d)} ${_dm(d)}`, dialed:c.t, ans:c.a, rate:pct(c.a,c.t)})),
-        [{key:'day',label:'Day',type:'str',get:r=>r.day},
-         {key:'dialed',label:'Dialed',type:'num',get:r=>r.dialed},
-         {key:'ans',label:'Answered',type:'num',get:r=>r.ans},
-         {key:'rate',label:'Pickup %',type:'num',get:r=>r.rate,fmt:v=>`${v}%`}]); });
-  }
-
 }
 // full metric set for one period — powers both the trend chart and the table
 function fullStats(from,to){
@@ -2135,10 +2109,13 @@ function renderTrends(p){
     ? `The ${rows.length} ${unit}${rows.length===1?'':'s'} in the selected range`
     : TR_DOW ? `Every ${TR_DOW} in the data`
     : `Every ${unit} in the data`;
-  document.getElementById('tr-note').textContent =
-    `${scope}, newest first, with the average pinned on top. `
-    + 'Answer rate in the average row is weighted by volume, not a mean of the percentages. '
-    + 'Grouping follows the Daily / Weekly / Monthly filter above.';
+  document.getElementById('tr-note').innerHTML = '<ul>'+
+    `<li>${scope}, newest first, with the average pinned on top.</li>`+
+    `<li>Grouping follows the <b>Daily / Weekly / Monthly</b> filter above; only Custom narrows which rows appear.</li>`+
+    `<li>Rates in the average row are weighted by volume, not a mean of the percentages — a quiet Sunday cannot outvote a busy Monday.</li>`+
+    (group==='day'?`<li><b>Compare</b> narrows to a single weekday, so you can put every Monday side by side.</li>`:'')+
+    `<li>Columns are grouped into Call Volume, Missed Calls, Callback Follow-Up and Leads. Hover a header for its full definition.</li>`+
+    '</ul>';
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
