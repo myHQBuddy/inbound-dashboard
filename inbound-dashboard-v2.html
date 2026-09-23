@@ -341,20 +341,25 @@ table.didgrid td.cell.none{background:var(--surface-2);color:var(--faint);font-w
    of z-index. Borders are therefore drawn per cell, with spacing zeroed so the
    grid still reads as one surface. */
 table.trend{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px;table-layout:fixed}
-/* 12% + (11 x 6.3%) + (2 x 9.35%) = 100% */
-table.trend col.c-per{width:12%}                 /* period label */
-table.trend col.c-num{width:6.3%}                /* plain numeric columns */
-table.trend col.c-wide{width:9.35%}              /* columns carrying a (sub) count */
+/* 11% + (11 x 6.5%) + (2 x 8.75%) = 100%. The period column gives up width to
+   the metric columns, which are the ones whose headers were truncating. */
+table.trend col.c-per{width:11%}                 /* period label */
+table.trend col.c-num{width:6.5%}                /* plain numeric columns */
+table.trend col.c-wide{width:8.75%}              /* columns carrying a (sub) count */
 /* Everything centred: with fixed, equal columns the header and its numbers
    share one axis, so the grid reads as a grid rather than three alignments. */
-table.trend th{text-align:center;padding:9px 6px;font-size:10px;text-transform:uppercase;
-  letter-spacing:.02em;color:var(--muted);background:var(--surface-2);
+/* Headers wrap to two lines rather than ellipsising: at ~70px a column can't
+   fit "Reconnected" on one line, and a truncated header is useless. Wrapping
+   costs nothing because the band row already gave the header two rows of
+   height. Hyphens stay unbroken so "Rate 9-7" splits at the space, not mid-token. */
+table.trend th{text-align:center;padding:8px 4px;font-size:9.5px;text-transform:uppercase;
+  letter-spacing:.01em;color:var(--muted);background:var(--surface-2);
   position:sticky;z-index:1;
-  vertical-align:bottom;line-height:1.25;overflow:hidden;text-overflow:ellipsis}
+  vertical-align:bottom;line-height:1.2;white-space:normal;overflow-wrap:break-word;hyphens:none}
 /* Two sticky header rows: the group band sits on top, the column names below it.
    Each needs its own `top` or they'd stack on the same line when scrolling. */
-table.trend tr.gband th{top:0;height:26px;padding:6px 6px 4px}
-table.trend tr.chead th{top:26px;border-bottom:1px solid var(--line-2)}
+table.trend tr.gband th{top:0;height:26px;padding:6px 6px 4px;white-space:nowrap}
+table.trend tr.chead th{top:26px;height:30px;border-bottom:1px solid var(--line-2)}
 /* The band label is the group's name — larger and inked, since it's the thing
    that carries the meaning the short column names lean on. */
 table.trend th.gh{font-size:10.5px;font-weight:700;color:var(--ink-2);
@@ -1954,8 +1959,10 @@ const TR_COLS=[
   {g:'miss', label:'Queue',      title:'Queue missed — dropped in queue', get:s=>fmtN(s.queueMissed)},
   {g:'miss', label:'After Hours',title:'Missed outside working hours, 9 AM to 7 PM', get:s=>fmtN(s.aohMissed)},
   {g:'cb',   label:'Called Back',title:'Share of missed numbers called back, and how many numbers', wide:true, get:s=>`${s.calledBack}%<span class="sub">(${fmtN(s.uniqueMissed)})</span>`},
-  {g:'cb',   label:'Reconnected',title:'Reconnection rate — missed numbers actually reached', get:s=>`${s.reconnect}%`},
-  {g:'cb',   label:'Unreached',  title:'Missed numbers never reached',   get:s=>fmtN(s.notReached)},
+  // Two words rather than "Reconnected"/"Unreached": a single 11-character token
+  // can't wrap cleanly in a ~70px column, whereas a space gives it a break point.
+  {g:'cb',   label:'Reconnect Rate',title:'Reconnection rate — missed numbers actually reached', get:s=>`${s.reconnect}%`},
+  {g:'cb',   label:'Not Reached',title:'Missed numbers never reached',   get:s=>fmtN(s.notReached)},
   {g:'lead', label:'Disposed',   title:'Total leads disposed',           get:s=>fmtN(s.leads)},
   {g:'lead', label:'New Share',  title:'Share of leads that are new, and how many', wide:true, get:s=>`${s.newShare}%<span class="sub">(${fmtN(s.newLeads)})</span>`},
 ];
