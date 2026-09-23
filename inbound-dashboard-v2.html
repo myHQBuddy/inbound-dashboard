@@ -336,19 +336,40 @@ table.didgrid td.cell.none{background:var(--surface-2);color:var(--faint);font-w
    table-layout:fixed keeps every numeric column identical instead of letting
    content auto-size them — otherwise "Called back" ends up three times the
    width of "AOH" and the grid reads as ragged. */
-table.trend{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed}
-/* 13% + (11 x 6.2%) + (2 x 9.4%) = 100% */
-table.trend col.c-per{width:13%}                 /* period label */
-table.trend col.c-num{width:6.2%}                /* plain numeric columns */
-table.trend col.c-wide{width:9.4%}               /* columns carrying a (sub) count */
+/* `separate` rather than `collapse`: with collapse, cell backgrounds paint at
+   the table layer and scrolled rows show through the sticky header regardless
+   of z-index. Borders are therefore drawn per cell, with spacing zeroed so the
+   grid still reads as one surface. */
+table.trend{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px;table-layout:fixed}
+/* 12% + (11 x 6.3%) + (2 x 9.35%) = 100% */
+table.trend col.c-per{width:12%}                 /* period label */
+table.trend col.c-num{width:6.3%}                /* plain numeric columns */
+table.trend col.c-wide{width:9.35%}              /* columns carrying a (sub) count */
 /* Everything centred: with fixed, equal columns the header and its numbers
    share one axis, so the grid reads as a grid rather than three alignments. */
 table.trend th{text-align:center;padding:9px 6px;font-size:10px;text-transform:uppercase;
   letter-spacing:.02em;color:var(--muted);background:var(--surface-2);
-  border-bottom:1px solid var(--line-2);position:sticky;top:0;z-index:1;
+  position:sticky;z-index:1;
   vertical-align:bottom;line-height:1.25;overflow:hidden;text-overflow:ellipsis}
+/* Two sticky header rows: the group band sits on top, the column names below it.
+   Each needs its own `top` or they'd stack on the same line when scrolling. */
+table.trend tr.gband th{top:0;height:26px;padding:6px 6px 4px}
+table.trend tr.chead th{top:26px;border-bottom:1px solid var(--line-2)}
+/* The band label is the group's name — larger and inked, since it's the thing
+   that carries the meaning the short column names lean on. */
+table.trend th.gh{font-size:10.5px;font-weight:700;color:var(--ink-2);
+  letter-spacing:.06em;border-bottom:1px solid var(--line)}
+table.trend th.gp{background:var(--surface-2)}
+table.trend tr.gband th.gp{border-bottom:0}
 table.trend th:first-child{border-top-left-radius:9px}
-table.trend th:last-child{border-top-right-radius:9px}
+table.trend tr.gband th:last-child{border-top-right-radius:9px}
+/* Group outline: vertical rules on the band's first and last column, carried
+   down every row so each box reads as one unit top to bottom. */
+table.trend .gl{border-left:1px solid var(--line-2)}
+table.trend .gr{border-right:1px solid var(--line-2)}
+table.trend th.gh{border-left:1px solid var(--line-2);border-right:1px solid var(--line-2)}
+table.trend tbody tr:last-child .gl,
+table.trend tbody tr:last-child .gr{border-bottom-color:transparent}
 table.trend td{padding:10px 6px;text-align:center;border-bottom:1px solid var(--line);
   color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis}
@@ -1913,21 +1934,41 @@ function fullStats(from,to){
 // Headers are kept terse so all 14 columns fit without horizontal scroll —
 // the "%" suffix is dropped since every value in those cells already shows one.
 // `title` carries the full wording on hover.
-const TR_COLS=[
-  {label:'Inbound',      title:'Total inbound calls',            get:s=>fmtN(s.total), big:true},
-  {label:'Ans',          title:'Answered calls',                 get:s=>fmtN(s.answered)},
-  {label:'AR',           title:'Answer rate (all hours)', get:s=>`${s.ar}%`},
-  {label:'AR 9–7',       title:'Answer rate, working hours 9am–7pm', get:s=>`${s.arOff}%`},
-  {label:'Missed',       title:'Total missed calls',             get:s=>fmtN(s.agentMissed+s.queueMissed+s.aohMissed)},
-  {label:'Agent',        title:'Agent missed — rang, not picked up', get:s=>fmtN(s.agentMissed)},
-  {label:'Queue',        title:'Queue missed — dropped in queue', get:s=>fmtN(s.queueMissed)},
-  {label:'AOH',          title:'After-hours missed (outside 9am–7pm)', get:s=>fmtN(s.aohMissed)},
-  {label:'Called',       title:'Share of missed numbers called back', wide:true, get:s=>`${s.calledBack}%<span class="sub">(${fmtN(s.uniqueMissed)})</span>`},
-  {label:'Reconn',       title:'Reconnection rate — missed numbers actually reached', get:s=>`${s.reconnect}%`},
-  {label:'Unreached',    title:'Missed numbers never reached',   get:s=>fmtN(s.notReached)},
-  {label:'Leads',        title:'Total leads',                    get:s=>fmtN(s.leads)},
-  {label:'New',          title:'Share of leads that are new', wide:true, get:s=>`${s.newShare}%<span class="sub">(${fmtN(s.newLeads)})</span>`},
+// Columns are banded into four groups, each drawn inside its own outlined box:
+// Call Volume, Missed Calls, Callback Follow-Up, Leads. The band carries the
+// context, which lets each header be a short noun ("Rate" under Call Volume
+// rather than "AR") without losing meaning. `title` holds the full wording.
+const TR_GROUPS=[
+  {label:'Call Volume',       key:'vol'},
+  {label:'Missed Calls',      key:'miss'},
+  {label:'Callback Follow-Up',key:'cb'},
+  {label:'Leads',             key:'lead'},
 ];
+const TR_COLS=[
+  {g:'vol',  label:'Total',      title:'Total inbound calls',            get:s=>fmtN(s.total), big:true},
+  {g:'vol',  label:'Answered',   title:'Answered calls',                 get:s=>fmtN(s.answered)},
+  {g:'vol',  label:'Rate',       title:'Answer rate — all hours',        get:s=>`${s.ar}%`},
+  {g:'vol',  label:'Rate 9–7',   title:'Answer rate — working hours, 9 AM to 7 PM', get:s=>`${s.arOff}%`},
+  {g:'miss', label:'Total',      title:'Total missed calls',             get:s=>fmtN(s.agentMissed+s.queueMissed+s.aohMissed)},
+  {g:'miss', label:'Agent',      title:'Agent missed — rang, not picked up', get:s=>fmtN(s.agentMissed)},
+  {g:'miss', label:'Queue',      title:'Queue missed — dropped in queue', get:s=>fmtN(s.queueMissed)},
+  {g:'miss', label:'After Hours',title:'Missed outside working hours, 9 AM to 7 PM', get:s=>fmtN(s.aohMissed)},
+  {g:'cb',   label:'Called Back',title:'Share of missed numbers called back, and how many numbers', wide:true, get:s=>`${s.calledBack}%<span class="sub">(${fmtN(s.uniqueMissed)})</span>`},
+  {g:'cb',   label:'Reconnected',title:'Reconnection rate — missed numbers actually reached', get:s=>`${s.reconnect}%`},
+  {g:'cb',   label:'Unreached',  title:'Missed numbers never reached',   get:s=>fmtN(s.notReached)},
+  {g:'lead', label:'Disposed',   title:'Total leads disposed',           get:s=>fmtN(s.leads)},
+  {g:'lead', label:'New Share',  title:'Share of leads that are new, and how many', wide:true, get:s=>`${s.newShare}%<span class="sub">(${fmtN(s.newLeads)})</span>`},
+];
+// Group-edge classes: the outline round each band is drawn as left/right borders
+// on its first and last column, so it runs the full height of the table without
+// needing a wrapper element per group.
+const _TR_EDGE=new Map();
+TR_GROUPS.forEach(g=>{
+  const cols=TR_COLS.filter(c=>c.g===g.key);
+  if(cols.length){ _TR_EDGE.set(cols[0],'gl');
+    _TR_EDGE.set(cols[cols.length-1], (_TR_EDGE.get(cols[cols.length-1])||'')+' gr'); }
+});
+const grpEdge = c => (_TR_EDGE.get(c)||'').trim();
 let TR_GROUP='day';
 let TR_DOW=null;                 // null = every day; else 'Mon'…'Sun'
 
@@ -1998,14 +2039,21 @@ function renderTrends(){
   document.getElementById('tr-table').innerHTML=
     `<table class="trend">
      <colgroup><col class="c-per">${TR_COLS.map(c=>`<col class="${c.wide?'c-wide':'c-num'}">`).join('')}</colgroup>
-     <thead><tr><th>Period</th>${TR_COLS.map(c=>`<th title="${c.title||c.label}">${c.label}</th>`).join('')}</tr></thead>
+     <thead>
+       <tr class="gband"><th class="gp"></th>${TR_GROUPS.map(g=>{
+         const n=TR_COLS.filter(c=>c.g===g.key).length;
+         return `<th colspan="${n}" class="gh g-${g.key}">${g.label}</th>`;
+       }).join('')}</tr>
+       <tr class="chead"><th class="gp">Period</th>${TR_COLS.map(c=>
+         `<th class="${grpEdge(c)}" title="${c.title||c.label}">${c.label}</th>`).join('')}</tr>
+     </thead>
      <tbody>${avg?`<tr class="avg-row">
         <td>${avgLbl}</td>
-        ${TR_COLS.map(c=>`<td${c.big?' class="big"':''}>${c.get(avg)}</td>`).join('')}
+        ${TR_COLS.map(c=>`<td class="${grpEdge(c)}${c.big?' big':''}">${c.get(avg)}</td>`).join('')}
       </tr>`:''}
       ${rows.map(({pr,s})=>`<tr>
         <td>${pr.label}${pr.sub?`<span class="sub">${pr.sub}</span>`:''}</td>
-        ${TR_COLS.map(c=>`<td${c.big?' class="big"':''}>${c.get(s)}</td>`).join('')}
+        ${TR_COLS.map(c=>`<td class="${grpEdge(c)}${c.big?' big':''}">${c.get(s)}</td>`).join('')}
       </tr>`).join('')}</tbody></table>`;
   document.getElementById('tr-note').textContent = (TR_DOW
     ? `Every ${TR_DOW} in the data, newest first, with the ${TR_DOW} average pinned on top. `
