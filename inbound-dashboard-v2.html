@@ -515,7 +515,8 @@ table.dt tbody tr:hover td{background:var(--surface-2)}
     </div>
     <div class="row2">
       <div class="card">
-        <div class="card-h"><div class="card-title">Speed of First Callback</div></div>
+        <div class="card-h"><div class="card-title">Speed of First Callback</div>
+          <div class="chips" id="cb-speed-chips"></div></div>
         <div class="card-note">How quickly the first callback went out after the miss. The first hour is broken into 10-minute steps.</div>
         <div class="chart-wrap"><canvas id="cb-speed-chart"></canvas></div>
       </div>
@@ -1355,8 +1356,10 @@ function callbackStats(from,to){
   const miss=ib.filter(r=>r.st!=='answered' && r.cn);
   const byNum={};
   miss.forEach(r=>{ const t=toMin(r.d,r.ti);
-    const o=byNum[r.cn]||(byNum[r.cn]={cn:r.cn,lastT:-Infinity,lastStr:'',camp:''});
-    if(t>o.lastT){ o.lastT=t; o.lastStr=`${_dm(r.d)} ${fmtTime(r.ti)}`; o.camp=campOf(r); } });
+    const o=byNum[r.cn]||(byNum[r.cn]={cn:r.cn,lastT:-Infinity,lastStr:'',camp:'',lastH:null});
+    // lastH is the hour of that most recent miss — the Speed chart splits on it,
+    // since a miss at 11pm can't be answered as fast as one at 11am.
+    if(t>o.lastT){ o.lastT=t; o.lastStr=`${_dm(r.d)} ${fmtTime(r.ti)}`; o.camp=campOf(r); o.lastH=r.h; } });
   const rows=Object.values(byNum);
   rows.forEach(o=>{
     const cbs=(CB_ALL[o.cn]||[]).filter(c=>toMin(c.d,c.ti)>o.lastT);
@@ -1382,6 +1385,8 @@ const CB_COLS=[
   {key:'camp',label:'Campaign / Queue',type:'str',get:r=>r.camp},
 ];
 
+// Speed-of-first-callback filter. Empty = both, matching the "All" chip.
+const CB_SPEED_WH=new Set();
 function renderCallbacks(p){
   const A=callbackStats(p.from,p.to), B=callbackStats(p.prevFrom,p.prevTo);
   _cardHandlers={};
@@ -1519,7 +1524,17 @@ function renderCallbacks(p){
     {label:'4–24h',  test:g=>g>=240&&g<1440},
     {label:'1d+',    test:g=>g>=1440},
   ];
-  const withGap=A.called.filter(o=>o.gapMin!=null);
+  // Working / non-working split on the hour of the miss, not the callback: a
+  // miss at 11pm can't be returned as fast as one at 11am, and mixing the two
+  // makes the team look slower than it is. 9am–7pm matches office hours.
+  chipGroup(document.getElementById('cb-speed-chips'),
+    [{key:'wh', label:'Working Hours',     color:cv('var(--l-ok)')},
+     {key:'nwh',label:'Non-Working Hours', color:cv('var(--v-aoh)')}], CB_SPEED_WH,
+    (k,e)=>pickToggle(CB_SPEED_WH, k, e, ()=>renderCallbacks(p)));
+  const inWH = o => o.lastH!=null && o.lastH>=9 && o.lastH<=18;
+  const allGap=A.called.filter(o=>o.gapMin!=null);
+  const withGap = CB_SPEED_WH.size===0 ? allGap
+    : allGap.filter(o=>CB_SPEED_WH.has(inWH(o)?'wh':'nwh'));
   const speedN=SPEED.map(s=>withGap.filter(o=>s.test(o.gapMin)).length);
   const within1h=withGap.filter(o=>o.gapMin<60).length;
   // Colour is a speed ramp, not a green/grey split: being slow is a problem, so
@@ -1548,8 +1563,12 @@ function renderCallbacks(p){
       scales:{x:{grid:{display:false},border:{display:false},
                  ticks:{font:{size:10.5},color:cv('var(--ink-2)'),padding:4}},
               y:{beginAtZero:true,display:false,grace:'16%'}}}});
+  const whLbl = CB_SPEED_WH.size!==1 ? 'all misses'          // none or both selected
+    : CB_SPEED_WH.has('wh') ? 'misses inside working hours (9 AM–7 PM)'
+    : 'misses outside working hours';
   document.querySelector('#cb-speed-chart').closest('.card').querySelector('.card-note').innerHTML =
-    `How long after the miss the first callback went out. <b>${pct(within1h,withGap.length)}%</b> went out
+    `How long after the miss the first callback went out, for <b>${whLbl}</b>
+     (${fmtN(withGap.length)} numbers). <b>${pct(within1h,withGap.length)}%</b> went out
      inside the first hour; colour escalates as the delay grows.`;
 
 }
