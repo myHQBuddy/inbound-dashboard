@@ -325,11 +325,6 @@ table.didgrid td.cell{width:30px;height:26px;text-align:center;border-radius:6px
 table.didgrid td.cell.none{background:var(--surface-2);color:var(--faint);font-weight:500}
 .did-avg{font-weight:700;font-size:12px;padding-left:8px;white-space:nowrap}
 
-/* small segmented control (in-card) */
-.seg.seg-sm{border:1px solid var(--line);border-radius:10px;padding:3px;background:var(--surface-2)}
-.seg.seg-sm button{padding:6px 14px;font-size:12.5px}
-.seg.seg-sm .seg-ind{top:3px;bottom:3px}
-
 /* trend comparison table */
 /* 14 columns have to fit the card: tight horizontal padding and no uppercase
    letter-spacing, which together cost more width than the labels themselves.
@@ -580,16 +575,10 @@ table.dt tbody tr:hover td{background:var(--surface-2)}
     <div class="card">
       <div class="card-h">
         <div class="card-title">Trend Comparison</div>
-        <div class="seg seg-sm" id="tr-seg">
-          <div class="seg-ind" id="tr-seg-ind"></div>
-          <button data-g="day" class="on">Day</button>
-          <button data-g="week">Week</button>
-          <button data-g="month">Month</button>
-        </div>
       </div>
       <!-- day-of-week narrowing: only meaningful for the Day grouping -->
       <div class="dow-bar" id="tr-dow"></div>
-      <div class="card-note" id="tr-note">Every period, newest first. This table has its own grouping and ignores the filter above.</div>
+      <div class="card-note" id="tr-note">Every period, newest first.</div>
       <div style="overflow-x:auto" id="tr-table"></div>
     </div>
   </div>
@@ -1976,19 +1965,32 @@ TR_GROUPS.forEach(g=>{
     _TR_EDGE.set(cols[cols.length-1], (_TR_EDGE.get(cols[cols.length-1])||'')+' gr'); }
 });
 const grpEdge = c => (_TR_EDGE.get(c)||'').trim();
-let TR_GROUP='day';
 let TR_DOW=null;                 // null = every day; else 'Mon'…'Sun'
 
-// Self-contained: own Day/Week/Month grouping, every period newest-first,
-// all metrics as columns. Deliberately ignores the global filter.
-function trendPeriods(group){
+// Grouping follows the master filter rather than a control of its own: Daily
+// lists days, Weekly weeks, Monthly months. 'All' and 'Custom' have no natural
+// grouping, so they list days — Custom narrowed to the range it selects, which
+// is the one case where the table is scoped rather than showing all history.
+function trendGroup(){
+  const m=FILTER.mode;
+  return m==='weekly' ? 'week' : m==='monthly' ? 'month' : 'day';
+}
+// Every period newest-first, all metrics as columns. The table shows the whole
+// dataset rather than one selected period — its job is comparison — so only
+// Custom, which states an explicit range, restricts which rows appear.
+function trendPeriods(group,p){
+  const lim = FILTER.mode==='custom' && p
+    ? (from,to)=>to>=p.from && from<=p.to        // any overlap with the range
+    : ()=>true;
   if(group==='month')
-    return dataMonths().map(m=>{const r=monthRange(m); return {label:r.label, from:r.from, to:r.to};});
+    return dataMonths().map(m=>{const r=monthRange(m); return {label:r.label, from:r.from, to:r.to};})
+      .filter(r=>lim(r.from,r.to));
   if(group==='week')
-    return dataWeeks().map(w=>({label:`${_dm(w.from)} – ${_dm(w.to)}`, sub:`W${w.week}`, from:w.from, to:w.to}));
+    return dataWeeks().map(w=>({label:`${_dm(w.from)} – ${_dm(w.to)}`, sub:`W${w.week}`, from:w.from, to:w.to}))
+      .filter(r=>lim(r.from,r.to));
   // Day grouping, optionally narrowed to one weekday so a single day can be
   // compared across the dataset (every Monday, every Tuesday, …).
-  let ds=allDates.slice().reverse();
+  let ds=allDates.slice().reverse().filter(d=>lim(d,d));
   if(TR_DOW) ds=ds.filter(d=>_dowOf(d)===TR_DOW);
   // Short date + weekday sub-label. The year is only printed when it differs
   // from the most recent one, so it doesn't repeat down every row but a
@@ -1997,9 +1999,11 @@ function trendPeriods(group){
   return ds.map(d=>({label:d.slice(0,4)===curY?_dm(d):_dmy(d), sub:_dowOf(d), from:d, to:d}));
 }
 // Weekday selector — shown only for the Day grouping, where it means something.
-function renderDowBar(){
+// This is the one control the master filter can't replace: the filter picks one
+// specific Monday, this narrows the table to every Monday in the data.
+function renderDowBar(group,p){
   const bar=document.getElementById('tr-dow');
-  if(TR_GROUP!=='day'){ bar.style.display='none'; return; }
+  if(group!=='day'){ bar.style.display='none'; return; }
   bar.style.display='flex';
   const mk=(key,label)=>{
     const on = TR_DOW===key;
@@ -2010,16 +2014,24 @@ function renderDowBar(){
   bar.querySelectorAll('button').forEach(b=>b.onclick=()=>{
     const v=b.dataset.d||null;
     TR_DOW = (TR_DOW===v) ? null : v;      // clicking the active one clears it
-    _trRendered=null; renderTrends();
+    // `p` is threaded through so a custom range survives a weekday click.
+    _trRendered=null; renderTrends(p);
   });
 }
-let _trRendered=null;   // caches which grouping+weekday is currently drawn
-function renderTrends(){
-  const key=TR_GROUP+'|'+(TR_DOW||'');
-  if(_trRendered===key) { moveTrSeg(); return; }   // table ignores the global filter
+let _trRendered=null;   // caches which grouping+weekday+range is currently drawn
+function renderTrends(p){
+  const group=trendGroup();
+  // Weekday narrowing only means something for day rows; drop it on the way out
+  // so it isn't silently still applied when the filter returns to Daily.
+  if(group!=='day') TR_DOW=null;
+  // Cache key includes the custom range, since that's the only filter state
+  // that changes which rows the table shows.
+  const key=group+'|'+(TR_DOW||'')+'|'+
+    (FILTER.mode==='custom'&&p?`${p.from}~${p.to}`:'');
+  if(_trRendered===key) return;
   _trRendered=key;
-  renderDowBar();
-  const periods=trendPeriods(TR_GROUP);
+  renderDowBar(group,p);
+  const periods=trendPeriods(group,p);
   const rows=periods.map(pr=>({pr, s:fullStats(pr.from,pr.to)}));
   // Every grouping gets a baseline row on top: the question "is this period
   // good?" always needs something to sit against. Rate columns are recomputed
@@ -2041,8 +2053,8 @@ function renderTrends(){
   })() : null;
   // label for the baseline row — the name alone, no period count beside it
   const avgLbl = TR_DOW ? `${TR_DOW} average`
-    : TR_GROUP==='day' ? 'Daily average'
-    : TR_GROUP==='week' ? 'Weekly average' : 'Monthly average';
+    : group==='day' ? 'Daily average'
+    : group==='week' ? 'Weekly average' : 'Monthly average';
   document.getElementById('tr-table').innerHTML=
     `<table class="trend">
      <colgroup><col class="c-per">${TR_COLS.map(c=>`<col class="${c.wide?'c-wide':'c-num'}">`).join('')}</colgroup>
@@ -2062,24 +2074,16 @@ function renderTrends(){
         <td>${pr.label}${pr.sub?`<span class="sub">${pr.sub}</span>`:''}</td>
         ${TR_COLS.map(c=>`<td class="${grpEdge(c)}${c.big?' big':''}">${c.get(s)}</td>`).join('')}
       </tr>`).join('')}</tbody></table>`;
-  document.getElementById('tr-note').textContent = (TR_DOW
-    ? `Every ${TR_DOW} in the data, newest first, with the ${TR_DOW} average pinned on top. `
-    : 'Every period, newest first, with the average pinned on top. ')
+  const unit = group==='day'?'day':group==='week'?'week':'month';
+  const scope = FILTER.mode==='custom'
+    ? `The ${rows.length} ${unit}${rows.length===1?'':'s'} in the selected range`
+    : TR_DOW ? `Every ${TR_DOW} in the data`
+    : `Every ${unit} in the data`;
+  document.getElementById('tr-note').textContent =
+    `${scope}, newest first, with the average pinned on top. `
     + 'Answer rate in the average row is weighted by volume, not a mean of the percentages. '
-    + 'This table has its own grouping and ignores the filter above.';
-  moveTrSeg();
+    + 'Grouping follows the Daily / Weekly / Monthly filter above.';
 }
-function moveTrSeg(){
-  const btn=document.querySelector('#tr-seg button.on'), ind=document.getElementById('tr-seg-ind');
-  if(!btn||!ind) return;
-  ind.style.left=btn.offsetLeft+'px'; ind.style.width=btn.offsetWidth+'px';
-}
-document.querySelectorAll('#tr-seg button').forEach(b=>b.onclick=()=>{
-  document.querySelectorAll('#tr-seg button').forEach(x=>x.classList.remove('on'));
-  b.classList.add('on'); TR_GROUP=b.dataset.g;
-  if(TR_GROUP!=='day') TR_DOW=null;      // weekday narrowing only applies to Day
-  _trRendered=null; renderTrends();
-});
 
 render();
 requestAnimationFrame(moveSegIndicator);   // ensure indicator sits right after layout
