@@ -698,7 +698,7 @@ function badge(av,bv,dir='good',isPct=false){
 // Renders the comparison against the benchmark, coloured by whether it's met.
 function benchPill(t){
   if(!t || t.val==null || !isFinite(t.val)) return '';
-  const hit = t.cur>=t.val;
+  const hit = t.dir==='bad' ? t.cur<=t.val : t.cur>=t.val;
   return `<span class="bench ${hit?'ok':'miss'}"><span class="b-i"></span>${t.label}</span>`;
 }
 
@@ -1018,30 +1018,88 @@ const OV_SERIES=new Set();
 // when you switch Daily → Weekly → Monthly. It also handles part-periods and
 // weekday mix correctly (a week with two Sundays expects fewer calls).
 // Days inside the selected period are excluded from their own average.
+//
+// A metric is measured per date as a {n, d} pair — a numerator and a
+// denominator. Counts use d=1; rates carry their own denominator so the
+// benchmark is a properly weighted historical rate rather than an average of
+// daily percentages (which would let one quiet Sunday outvote a busy Monday).
+//
+// Per weekday we average n and d separately across all history outside the
+// selected window. Summing those averages over the selected dates gives the
+// benchmark, so a week's benchmark is exactly the sum of its seven days' and
+// nothing shifts when you switch Daily → Weekly → Monthly.
 const _DOW_AVG_CACHE={};
-function dowAverages(excludeFrom,excludeTo){
-  const key=excludeFrom+'|'+excludeTo;
+function dowAverages(metric, excludeFrom, excludeTo){
+  const key=metric.key+'|'+excludeFrom+'|'+excludeTo;
   if(_DOW_AVG_CACHE[key]) return _DOW_AVG_CACHE[key];
-  const sum={},cnt={};
-  allDates.forEach(d=>{
-    if(d>=excludeFrom && d<=excludeTo) return;         // don't grade against itself
-    const w=_dowOf(d);
-    const n=(BY_DATE[d]||[]).reduce((a,r)=>a+(r.dr==='inbound'?1:0),0);
-    sum[w]=(sum[w]||0)+n; cnt[w]=(cnt[w]||0)+1;
+  const sn={},sd={},cnt={};
+  allDates.forEach(dt=>{
+    if(dt>=excludeFrom && dt<=excludeTo) return;       // don't grade against itself
+    const w=_dowOf(dt), v=metric.of(dt);
+    sn[w]=(sn[w]||0)+v.n; sd[w]=(sd[w]||0)+v.d; cnt[w]=(cnt[w]||0)+1;
   });
-  const avg={}; DOW_ORDER.forEach(w=>{ avg[w]=cnt[w]?sum[w]/cnt[w]:null; });
+  const avg={};
+  DOW_ORDER.forEach(w=>{ avg[w]=cnt[w]?{n:sn[w]/cnt[w], d:sd[w]/cnt[w]}:null; });
   return _DOW_AVG_CACHE[key]=avg;
 }
-function volumeTargets(p){
+// Returns the benchmark for `metric` over period `p`, in the metric's own
+// units: a count, a per-day count, or a percentage.
+function dowBench(metric,p){
   const cur=allDates.filter(d=>d>=p.from&&d<=p.to);
-  if(!cur.length) return {total:null,perDay:null,note:''};
-  const avg=dowAverages(p.from,p.to);
-  let tot=0, n=0;
-  for(const d of cur){ const a=avg[_dowOf(d)]; if(a!=null){ tot+=a; n++; } }
-  if(!n) return {total:null,perDay:null,note:''};
-  return {total:Math.round(tot), perDay:Math.round(tot/n),
-          note: p.from===p.to ? `${_dowOf(p.from)}s` : `${n}-day mix`};
+  if(!cur.length) return null;
+  const avg=dowAverages(metric,p.from,p.to);
+  let n=0,d=0,days=0;
+  for(const dt of cur){ const a=avg[_dowOf(dt)]; if(a){ n+=a.n; d+=a.d; days++; } }
+  if(!days) return null;
+  const val = metric.rate ? (d?Math.round(n/d*100):null)
+            : metric.perDay ? Math.round(n/days)
+            : Math.round(n);
+  if(val==null || !isFinite(val)) return null;
+  return {val, days, note: p.from===p.to ? `${_dowOf(p.from)}s` : `${days}-day mix`};
 }
+// Card-ready benchmark: computes the average for this period and formats the
+// pill. `dir:'bad'` inverts the pass test, so fewer missed calls than average
+// reads as a hit. `pct` renders a percentage, `unit` appends e.g. "/day".
+function avgTarget(metric,p,cur,{dir='good',pct=false,unit='',noNote=false}={}){
+  const b=dowBench(metric,p);
+  if(!b) return null;
+  const shown = pct ? `${b.val}%` : `${fmtN(b.val)}${unit}`;
+  return {cur, val:b.val, dir,
+    label:`avg ${shown}${(noNote||!b.note)?'':` · ${b.note}`}`};
+}
+// Per-date measurements. Each is cheap because it reads BY_DATE directly, and
+// dowAverages caches the weekday table per metric + window.
+const _ibOf = d => (BY_DATE[d]||[]).filter(r=>r.dr==='inbound');
+const M = {
+  total:   {key:'total',   of:d=>({n:_ibOf(d).length, d:1})},
+  perDay:  {key:'total',   perDay:true, of:d=>({n:_ibOf(d).length, d:1})},
+  ar:      {key:'ar',      rate:true, of:d=>{const ib=_ibOf(d);
+             return {n:ib.filter(r=>r.st==='answered').length, d:ib.length};}},
+  arOff:   {key:'arOff',   rate:true, of:d=>{
+             const ib=_ibOf(d).filter(r=>r.h>=9&&r.h<=18);
+             return {n:ib.filter(r=>r.st==='answered').length, d:ib.length};}},
+  missed:  {key:'missed',  of:d=>({n:_ibOf(d).filter(r=>r.st!=='answered').length, d:1})},
+  leads:   {key:'leads',   of:d=>({n:leadStats(d,d).total, d:1})},
+  newLead: {key:'newLead', of:d=>({n:leadStats(d,d).newN, d:1})},
+  newShr:  {key:'newShr',  rate:true, of:d=>{const s=leadStats(d,d);
+             return {n:s.newN, d:s.total};}},
+};
+MISS_TYPES.forEach(t=>{ M['mt_'+t.key]={key:'mt_'+t.key,
+  of:d=>({n:_ibOf(d).filter(r=>r.st!=='answered'&&r.mt===t.key).length, d:1})}; });
+// Callback metrics need the all-time callback map per date, so they memoise a
+// single-day stat object and reuse it across every callback benchmark.
+const _CBD={};
+const _cbDay = d => _CBD[d]||(_CBD[d]=callbackStats(d,d));
+M.cbUniq  = {key:'cbUniq',  of:d=>({n:_cbDay(d).unique, d:1})};
+M.cbCalled= {key:'cbCalled',rate:true, of:d=>{const s=_cbDay(d);
+              return {n:s.calledN, d:s.unique};}};
+M.cbReach = {key:'cbReach', rate:true, of:d=>{const s=_cbDay(d);
+              return {n:s.reachedN, d:s.unique};}};
+M.cbNot   = {key:'cbNot',   of:d=>({n:_cbDay(d).notReached.length, d:1})};
+M.cbAtt0  = {key:'cbAtt0',  of:d=>({n:_cbDay(d).noAttempt.length, d:1})};
+M.cbAtt12 = {key:'cbAtt12', of:d=>({n:_cbDay(d).notReached.filter(o=>o.attempts>0&&o.attempts<3).length, d:1})};
+M.cbAtt39 = {key:'cbAtt39', of:d=>({n:_cbDay(d).notReached.filter(o=>o.attempts>=3&&o.attempts<10).length, d:1})};
+M.cbAtt10 = {key:'cbAtt10', of:d=>({n:_cbDay(d).notReached.filter(o=>o.attempts>=10).length, d:1})};
 
 // ── Day-by-day trend: same shape as the Leads chart, for call volume ─────────
 // Lines per metric with a dashed average each, plus weekday toggles that also
@@ -1120,28 +1178,29 @@ function renderOverview(p){
   // Volume benchmarks are the historical average for a comparable period: a
   // Monday is judged against other Mondays, a part-month against the same span
   // of earlier months. Rate benchmarks are fixed service levels.
-  const vt = volumeTargets(p);
   document.getElementById('ov-cards-vol').innerHTML =
     mcard({label:'Total Inbound Calls', value:fmtN(A.total), color:'var(--brand)',
-           target:vt.total==null?null:{cur:A.total, val:vt.total,
-             label:`avg ${fmtN(vt.total)}${vt.note?` · ${vt.note}`:''}`}}) +
+           target:avgTarget(M.total,p,A.total)}) +
     mcard({label:'Answer Rate (All Hours)', value:A.ar, suffix:'%', color:'var(--good)',
-           target:{cur:A.ar, val:85, label:'target 85%+'}}) +
+           target:avgTarget(M.ar,p,A.ar,{pct:true})}) +
     mcard({label:'Answer Rate (Working Hours)', value:A.arOff, suffix:'%', color:'var(--good)',
-           target:{cur:A.arOff, val:90, label:'target 90%+'}}) +
+           target:avgTarget(M.arOff,p,A.arOff,{pct:true})}) +
     mcard({label:'Inbound Calls / Day', value:fmtN(A.perDay), color:'var(--brand-2)',
-           target:vt.perDay==null?null:{cur:A.perDay, val:vt.perDay, label:`avg ${fmtN(vt.perDay)}/day`}});
+           target:avgTarget(M.perDay,p,A.perDay,{unit:'/day',noNote:true})});
 
   // ── row 2: missed breakdown (each clickable to its numbers) ──
   const mt = k => MISS_TYPES.find(t=>t.key===k);
   document.getElementById('ov-cards-miss').innerHTML =
     mcard({label:'Total Missed Calls', value:fmtN(A.missed), cur:A.missed, prev:B.missed, dir:'bad', color:'var(--bad)',
+           target:avgTarget(M.missed,p,A.missed,{dir:'bad',noNote:true}),
            onClick:()=>openModal('All Missed Calls', missRows(A.miss), MISS_COLS)}) +
     MISS_TYPES.map(t=>{
       const lbl = t.key==='Agent Missed' ? 'Agent Missed'
                 : t.key==='Queue Missed - Within Hours' ? 'Queue Missed' : 'AOH Missed';
-      return mcard({label:lbl, value:fmtN(A.byType[t.key].length),
-        cur:A.byType[t.key].length, prev:B.byType[t.key].length, dir:'bad', color:t.color,
+      const n=A.byType[t.key].length;
+      return mcard({label:lbl, value:fmtN(n),
+        cur:n, prev:B.byType[t.key].length, dir:'bad', color:t.color,
+        target:avgTarget(M['mt_'+t.key],p,n,{dir:'bad',noNote:true}),
         onClick:()=>openModal(`${lbl} — ${t.note}`, missRows(A.byType[t.key]), MISS_COLS)});
     }).join('');
   wireCards(document.getElementById('ov-cards-vol'));
@@ -1320,14 +1379,18 @@ function renderCallbacks(p){
 
   document.getElementById('cb-cards').innerHTML =
     mcard({label:'Unique Missed', value:fmtN(A.unique), cur:A.unique, prev:B.unique, dir:'bad',
+           target:avgTarget(M.cbUniq,p,A.unique,{dir:'bad',noNote:true}),
            color:'var(--muted)', onClick:openList('Unique Missed Numbers',A.rows)}) +
     mcard({label:'Called Back', value:calledPct, suffix:'%', cur:calledPct, prev:calledPctB, dir:'good', isPct:true,
+           target:avgTarget(M.cbCalled,p,calledPct,{pct:true,noNote:true}),
            color:'var(--brand)', onClick:openList('Called Back',A.called)}) +
     // Same formula as v1's Trend-tab "Reconnection rate" — keep the name aligned
     // so the weekly series carries over without restatement.
     mcard({label:'Reconnection Rate', value:reachPct, suffix:'%', cur:reachPct, prev:reachPctB, dir:'good', isPct:true,
+           target:avgTarget(M.cbReach,p,reachPct,{pct:true,noNote:true}),
            color:'var(--good)', onClick:openList('Reconnected — reached since their last miss',A.reached)}) +
     mcard({label:'Not Reached', value:fmtN(A.notReached.length), cur:A.notReached.length, prev:B.notReached.length, dir:'bad',
+           target:avgTarget(M.cbNot,p,A.notReached.length,{dir:'bad',noNote:true}),
            color:'var(--bad)', onClick:openList('Not Reached — attempts since last miss',A.notReached)});
   wireCards(document.getElementById('cb-cards'));
 
@@ -1553,12 +1616,15 @@ function renderLeads(p){
 
   document.getElementById('ld-cards').innerHTML =
     mcard({label:'Leads Disposed', value:fmtN(A.total), cur:A.total, prev:B.total, dir:'good',
+           target:avgTarget(M.leads,p,A.total,{noNote:true}),
            color:'var(--brand)', onClick:()=>openModal('Leads Disposed',leadRows(A.leads),LEAD_COLS)}) +
     mcard({label:'New Leads', value:fmtN(A.newN), cur:A.newN, prev:B.newN, dir:'good',
+           target:avgTarget(M.newLead,p,A.newN,{noNote:true}),
            color:'var(--new)', onClick:()=>openModal('New Leads',leadRows(A.leads.filter(r=>r.ct==='New')),LEAD_COLS)}) +
     // The per-product counts live in the donut below, not here — repeating them
     // as cards would be the third copy of the same three numbers on one screen.
     mcard({label:'New Share', value:A.newShare, suffix:'%', cur:A.newShare, prev:B.newShare, dir:'good', isPct:true,
+           target:avgTarget(M.newShr,p,A.newShare,{pct:true,noNote:true}),
            color:'var(--new)'});
   wireCards(document.getElementById('ld-cards'));
 
@@ -1784,14 +1850,18 @@ function renderAction(p){
   const mid=cbStats.notReached.filter(o=>o.attempts>=3&&o.attempts<10);    // 3–9
   const stuck=cbStats.notReached.filter(o=>o.attempts>=10);                // 10+
   document.getElementById('ac-cards').innerHTML =
-    mcard({label:'0 Callbacks Made', value:fmtN(none.length), cur:none.length, prev:none.length, dir:'bad', color:'var(--bad)', bench:false,
+    mcard({label:'0 Callbacks Made', value:fmtN(none.length), cur:none.length, prev:none.length, dir:'bad', color:'var(--bad)',
+           target:avgTarget(M.cbAtt0,p,none.length,{dir:'bad',noNote:true}),
            onClick:()=>openModal('0 Callbacks Since Last Miss',none,CB_COLS)}) +
-    mcard({label:'Under 3 Attempts', value:fmtN(low.length), cur:low.length, prev:low.length, dir:'bad', color:'var(--warn)', bench:false,
+    mcard({label:'Under 3 Attempts', value:fmtN(low.length), cur:low.length, prev:low.length, dir:'bad', color:'var(--warn)',
+           target:avgTarget(M.cbAtt12,p,low.length,{dir:'bad',noNote:true}),
            onClick:()=>openModal('1–2 Attempts, Not Reached',low,CB_COLS)}) +
-    mcard({label:'Under 10 Attempts', value:fmtN(mid.length), cur:mid.length, prev:mid.length, dir:'bad', color:'var(--brand)', bench:false,
+    mcard({label:'Under 10 Attempts', value:fmtN(mid.length), cur:mid.length, prev:mid.length, dir:'bad', color:'var(--brand)',
+           target:avgTarget(M.cbAtt39,p,mid.length,{dir:'bad',noNote:true}),
            onClick:()=>openModal('3–9 Attempts, Not Reached',mid,CB_COLS)}) +
     mcard({label:'10+ Attempts, Unreached', value:fmtN(stuck.length), cur:stuck.length, prev:stuck.length, dir:'bad',
-           color:'var(--bad)', bench:false, onClick:()=>openModal('10+ Attempts, Still Not Reached',stuck,CB_COLS)});
+           color:'var(--bad)', target:avgTarget(M.cbAtt10,p,stuck.length,{dir:'bad',noNote:true}),
+           onClick:()=>openModal('10+ Attempts, Still Not Reached',stuck,CB_COLS)});
   wireCards(document.getElementById('ac-cards'));
 
   chipGroup(document.getElementById('ac-did-chips'),
