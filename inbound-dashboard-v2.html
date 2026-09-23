@@ -361,11 +361,12 @@ table.didgrid td.cell.none{background:var(--surface-2);color:var(--faint);font-w
    of z-index. Borders are therefore drawn per cell, with spacing zeroed so the
    grid still reads as one surface. */
 table.trend{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px;table-layout:fixed}
-/* 11% + (11 x 6.5%) + (2 x 8.75%) = 100%. The period column gives up width to
-   the metric columns, which are the ones whose headers were truncating. */
-table.trend col.c-per{width:11%}                 /* period label */
-table.trend col.c-num{width:6.5%}                /* plain numeric columns */
-table.trend col.c-wide{width:8.75%}              /* columns carrying a (sub) count */
+/* 13.5% + (11 x 6.3%) + (2 x 8.6%) = 100%. The period column needs enough for
+   a week range ("23-29 Sep"); the metric columns can afford less now that their
+   headers wrap instead of needing to fit on one line. */
+table.trend col.c-per{width:13.5%}               /* period label */
+table.trend col.c-num{width:6.3%}                /* plain numeric columns */
+table.trend col.c-wide{width:8.6%}               /* columns carrying a (sub) count */
 /* Everything centred: with fixed, equal columns the header and its numbers
    share one axis, so the grid reads as a grid rather than three alignments. */
 /* Headers wrap to two lines rather than ellipsising: at ~70px a column can't
@@ -398,7 +399,9 @@ table.trend tbody tr:last-child .gr{border-bottom-color:transparent}
 table.trend td{padding:10px 6px;text-align:center;border-bottom:1px solid var(--line);
   color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis}
-table.trend td:first-child{color:var(--ink);font-weight:700}
+/* The period cell may wrap — a week range plus its "W36" tag is longer than a
+   plain number, and truncating the row's own name is worse than a second line. */
+table.trend td:first-child{color:var(--ink);font-weight:700;white-space:normal}
 table.trend tbody tr:hover td{background:var(--surface-2)}
 table.trend tbody tr:last-child td{border-bottom:0}
 table.trend .sub{color:var(--muted);font-size:11px;margin-left:3px}
@@ -642,6 +645,12 @@ function fmtTime(ti){ if(!ti) return ''; let [h,m]=ti.split(':').map(Number); co
 const _pd = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); };
 const _fl = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
 const _dm = d => { const [y,mo,da]=d.split('-'); return `${+da} ${MONTH_NM[+mo-1]}`; };
+// Week label: the month is only printed once when both ends share it, so
+// "23–29 Sep" rather than "23 Sep – 29 Sep". Saves ~7 characters in a narrow
+// column while staying unambiguous across a month boundary.
+const _wkLabel = (from,to) => from.slice(0,7)===to.slice(0,7)
+  ? `${+from.split('-')[2]}–${_dm(to)}`
+  : `${_dm(from)} – ${_dm(to)}`;
 const _dmy = d => { const [y,mo,da]=d.split('-'); return `${+da} ${MONTH_NM[+mo-1]} ${y}`; };
 const _dowOf = d => DOW3[_pd(d).getDay()];
 
@@ -2033,7 +2042,7 @@ function trendPeriods(group,p){
     return dataMonths().map(m=>{const r=monthRange(m); return {label:r.label, from:r.from, to:r.to};})
       .filter(r=>lim(r.from,r.to));
   if(group==='week')
-    return dataWeeks().map(w=>({label:`${_dm(w.from)} – ${_dm(w.to)}`, sub:`W${w.week}`, from:w.from, to:w.to}))
+    return dataWeeks().map(w=>({label:_wkLabel(w.from,w.to), sub:`W${w.week}`, from:w.from, to:w.to}))
       .filter(r=>lim(r.from,r.to));
   // Day grouping, optionally narrowed to one weekday so a single day can be
   // compared across the dataset (every Monday, every Tuesday, …).
