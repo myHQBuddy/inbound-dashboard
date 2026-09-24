@@ -408,13 +408,32 @@ table.trend td:first-child{color:var(--ink);font-weight:700;white-space:normal}
 table.trend tbody tr:hover td{background:var(--surface-2)}
 table.trend tbody tr:last-child td{border-bottom:0}
 table.trend .sub{color:var(--muted);font-size:11px;margin-left:3px}
-/* Movement marks. Only cells that moved more than routine noise get one, so the
-   table stays mostly unmarked and a mark carries weight. The number keeps its
-   normal colour — the arrow says "this moved", not "this value is bad". */
-table.trend .mv{display:inline-flex;vertical-align:middle;margin-left:3px}
-table.trend .mv .ar{width:7px;height:7px}
-table.trend .mv.up .ar{fill:var(--good)}
-table.trend .mv.down .ar{fill:var(--bad)}
+/* Movement marks: every metric that moved carries one, so the arrow is the
+   normal state of a cell and its colour is the signal. Kept muted so 13 of them
+   in a row don't fight the row tint, which is what you read first. */
+table.trend .mv{display:inline-flex;vertical-align:middle;margin-left:4px}
+table.trend .mv .ar{width:9px;height:9px}
+table.trend .mv.up .ar{fill:var(--good);opacity:.9}
+table.trend .mv.down .ar{fill:var(--bad);opacity:.9}
+/* Row verdict: a faint wash across the row, green for a better period than the
+   one before it, red for worse. This is the glance-level signal — the per-cell
+   arrows only answer "which metric moved?" once the row has caught your eye.
+   Kept very light so 13 columns of tint stay readable rather than shouting. */
+table.trend tbody tr.v-better td{background:var(--good-soft)}
+table.trend tbody tr.v-worse  td{background:var(--bad-soft)}
+/* Tinted rows sit after the generic hover rule and would otherwise swallow it,
+   so hover is restated here — blended with the surface to stay distinguishable. */
+table.trend tbody tr.v-better:hover td{background:color-mix(in srgb,var(--good-soft) 70%,var(--ink) 6%)}
+table.trend tbody tr.v-worse:hover  td{background:color-mix(in srgb,var(--bad-soft) 70%,var(--ink) 6%)}
+/* A left edge in the verdict colour: it reads as a row marker even where the
+   tint is too faint to register, and survives a row being hovered. */
+table.trend tbody tr.v-better td:first-child{box-shadow:inset 3px 0 0 var(--good)}
+table.trend tbody tr.v-worse  td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
+table.trend .vtag{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:5px;
+  font-size:9.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+  vertical-align:middle;background:var(--surface);}
+table.trend .vtag.better{color:var(--good)}
+table.trend .vtag.worse{color:var(--bad)}
 /* A period the data doesn't fully cover: shown, but greyed and never compared,
    so an in-progress week can't read as a collapse in volume. */
 table.trend tr.part td{color:var(--faint)}
@@ -2071,18 +2090,12 @@ const TR_COLS=[
   {g:'lead', label:'New Share',  title:'Share of leads that are new, and how many', wide:true, get:s=>`${s.newShare}%<span class="sub">(${fmtN(s.newLeads)})</span>`,
    v:s=>s.newShare, dir:'up', pts:true},
 ];
-// Thresholds taken from the observed distribution of week-on-week movement,
-// not picked by eye. Across complete weeks the median absolute change is 17%
-// on count columns and 3.0 points on rates — so those are ordinary, not news.
-// These sit near the 70th percentile (28% / 5.2 pts), marking roughly the top
-// quarter of moves. An earlier 8% / 3pt pair marked 70% of cells, which is the
-// confetti this is meant to avoid.
-const TR_MIN_PCT = 25;   // counts: percent change
-const TR_MIN_PTS = 6;    // rates: percentage points
-// …and a floor on the absolute move, because percentage change is unstable on
-// small counts. Agent Missed averages ~17 a week, so 2 → 4 is "+100%" and would
-// otherwise light up almost every row while meaning nothing.
-const TR_MIN_ABS = 10;   // counts: minimum absolute change to be worth a mark
+// Dead-band for the row verdict, in the score's own units (answer-rate points
+// plus working-hours points, less a tenth of the change in missed-per-1000).
+// Measured on complete weeks: scores run from -45 to +60, and ±3 leaves genuinely
+// unchanged weeks — 29 Jul at +1.1, 10 Jun at +0.7 — reading as flat rather than
+// being forced into a colour they don't deserve.
+const TR_VERDICT = 3;
 // Group-edge classes: the outline round each band is drawn as left/right borders
 // on its first and last column, so it runs the full height of the table without
 // needing a wrapper element per group.
@@ -2188,14 +2201,23 @@ function renderTrends(p){
       // Rates move in points; counts in percent of the previous value. Counts
       // must also clear an absolute floor, so a swing between small numbers
       // doesn't out-shout a real change in a big column.
+      if(a===b) return;                              // an exact tie is not a move
+      // Every real move is marked, so the arrow is a cell's normal state and its
+      // colour is the signal. The row tint carries importance, which frees these
+      // marks to answer only "which metric moved?".
       const d = c.pts ? a-b : (b ? (a-b)/b*100 : 0);
-      const big = c.pts
-        ? Math.abs(d) >= TR_MIN_PTS
-        : Math.abs(d) >= TR_MIN_PCT && Math.abs(a-b) >= TR_MIN_ABS;
-      if(!big) return;
       const better = c.dir==='up' ? d>0 : d<0;
       r.mv[ci]={better, d, pts:c.pts, abs:a-b};
     });
+    // Row verdict. Answer rate carries the most weight because it is the thing
+    // the team controls; working-hours rate confirms it; missed share inverts.
+    // Scored in comparable units (points, and missed-per-1000 scaled down) so
+    // no single term can dominate through its natural scale.
+    const shr = s => s.total ? (s.agentMissed+s.queueMissed+s.aohMissed)/s.total*1000 : 0;
+    r.score = (r.s.ar-prev.s.ar) + (r.s.arOff-prev.s.arOff)
+            - (shr(r.s)-shr(prev.s))/10;
+    r.verdict = r.score>TR_VERDICT ? 'better'
+              : r.score<-TR_VERDICT ? 'worse' : 'flat';
   });
   // Every grouping gets a baseline row on top: the question "is this period
   // good?" always needs something to sit against. Rate columns are recomputed
@@ -2234,9 +2256,13 @@ function renderTrends(p){
         <td>${avgLbl}</td>
         ${TR_COLS.map(c=>`<td class="${grpEdge(c)}${c.big?' big':''}">${c.get(avg)}</td>`).join('')}
       </tr>`:''}
-      ${rows.map(({pr,s,mv,cmp})=>`<tr${pr.part?' class="part"':''}>
+      ${rows.map(({pr,s,mv,cmp,verdict,score})=>`<tr class="${pr.part?'part':(verdict?'v-'+verdict:'')}">
         <td>${pr.label}${pr.sub?`<span class="sub">${pr.sub}</span>`:''}${
-          pr.part?`<span class="tag" title="Still in progress — not compared">in progress</span>`:''}</td>
+          pr.part?`<span class="tag" title="Still in progress — not compared">in progress</span>`
+          : verdict&&verdict!=='flat'
+            ? `<span class="vtag ${verdict}" title="Overall vs ${cmp}: answer rate, working-hours rate and missed share, combined">${
+                verdict==='better'?'Better':'Worse'}</span>`
+            : ''}</td>
         ${TR_COLS.map((c,ci)=>{
           const m=mv&&mv[ci];
           const arrow = m
@@ -2257,9 +2283,9 @@ function renderTrends(p){
   document.getElementById('tr-note').innerHTML = '<ul>'+
     `<li>${scope}, newest first, with the average pinned on top.</li>`+
     `<li>Grouping follows the <b>Daily / Weekly / Monthly</b> filter above; only Custom narrows which rows appear.</li>`+
-    `<li>A <b>▲/▼</b> marks a metric that moved against the previous complete ${unit} — green is better, red is worse, and the direction is read per metric (fewer missed calls is green). Hover a mark for the size of the move.</li>`+
-    `<li>Marks appear only past routine movement — ${TR_MIN_PTS} points on rates, or ${TR_MIN_PCT}% <i>and</i> at least ${TR_MIN_ABS} calls on counts. The second test matters: Agent Missed runs ~17 a week, so 2→4 is "+100%" and would otherwise mark almost every row.</li>`+
-    `<li>Thresholds come from the observed spread, not taste: the median week-on-week move is 17% on counts and 3 points on rates, so those are ordinary. About a quarter of cells end up marked.</li>`+
+    `<li><b>The row tint is the headline.</b> Green means the ${unit} was better overall than the previous complete ${unit}, red means worse, and no tint means it was level.</li>`+
+    `<li>That verdict combines the three things the team controls: answer rate, working-hours answer rate, and missed calls as a share of volume. Hover the Better/Worse tag to see what it compared against.</li>`+
+    `<li>Inside a row, a <b>▲/▼</b> shows which metrics moved — green better, red worse, read per metric so fewer missed calls is green. Hover one for the size of the move.</li>`+
     `<li><b>Call Volume totals carry no mark</b> — more inbound calls is demand, not performance.</li>`+
     `<li>A period still in progress is greyed, tagged, and never compared, so a young ${unit} cannot read as a collapse.</li>`+
     `<li>Rates in the average row are weighted by volume, not a mean of the percentages — a quiet Sunday cannot outvote a busy Monday.</li>`+
