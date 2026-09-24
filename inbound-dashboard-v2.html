@@ -2072,10 +2072,12 @@ function trendPeriods(group,p){
   const lim = FILTER.mode==='custom' && p
     ? (from,to)=>to>=p.from && from<=p.to        // any overlap with the range
     : ()=>true;
-  // `part` marks a period the data doesn't fully cover — the week or month in
-  // progress, and the first one if collection started mid-period. Those rows
-  // carry no movement marks: a week one day old is not down 83%, it is young.
-  const partial = (from,to) => to>DATA_MAX || from<DATA_MIN;
+  // `part` marks a period the data doesn't fully cover: the day, week or month
+  // still in progress, and the first one if collection started mid-period.
+  // DATA_MAX is today, which is itself only filled in as far as the last sync —
+  // so a week or month containing it is also incomplete, not merely ending on
+  // it. Without this the newest row reads as a collapse rather than as young.
+  const partial = (from,to) => to>=DATA_MAX || from<DATA_MIN;
   if(group==='month')
     return dataMonths().map(m=>{const r=monthRange(m);
         return {label:r.label, from:r.from, to:r.to, part:partial(r.from,r.to)};})
@@ -2091,11 +2093,11 @@ function trendPeriods(group,p){
   // Short date + weekday sub-label. The year is only printed when it differs
   // from the most recent one, so it doesn't repeat down every row but a
   // cross-year comparison is still unambiguous.
-  // Days are never partial: the sync lands whole days, so every day row is
-  // complete and comparable.
+  // Today is partial too — the sync fills it in through the day, so the newest
+  // day row holds only the calls taken so far.
   const curY=DATA_MAX.slice(0,4);
   return ds.map(d=>({label:d.slice(0,4)===curY?_dm(d):_dmy(d), sub:_dowOf(d),
-    from:d, to:d, part:false}));
+    from:d, to:d, part:d>=DATA_MAX}));
 }
 // Weekday selector — shown only for the Day grouping, where it means something.
 // This is the one control the master filter can't replace: the filter picks one
