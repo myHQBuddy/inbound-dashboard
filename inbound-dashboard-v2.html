@@ -299,6 +299,12 @@ table.trend tr.avg-row td:first-child{color:var(--brand)}
 @media(max-width:860px){.row2{grid-template-columns:1fr}}
 
 .empty{padding:40px;text-align:center;color:var(--muted);font-size:13px}
+/* A single headline figure above a chart, for the cases where one number is
+   worth stating outright (medians on skewed distributions). */
+.cardstat{display:flex;align-items:baseline;gap:8px;margin:-4px 0 10px}
+.cardstat .statv{font-size:20px;font-weight:700;letter-spacing:-.02em;color:var(--ink);
+  font-variant-numeric:tabular-nums}
+.cardstat .statl{font-size:11.5px;color:var(--muted)}
 
 /* breakdown rows (missed types) */
 .brow{display:flex;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px solid var(--line);cursor:pointer;transition:.12s}
@@ -402,6 +408,21 @@ table.trend td:first-child{color:var(--ink);font-weight:700;white-space:normal}
 table.trend tbody tr:hover td{background:var(--surface-2)}
 table.trend tbody tr:last-child td{border-bottom:0}
 table.trend .sub{color:var(--muted);font-size:11px;margin-left:3px}
+/* Movement marks. Only cells that moved more than routine noise get one, so the
+   table stays mostly unmarked and a mark carries weight. The number keeps its
+   normal colour — the arrow says "this moved", not "this value is bad". */
+table.trend .mv{display:inline-flex;vertical-align:middle;margin-left:3px}
+table.trend .mv .ar{width:7px;height:7px}
+table.trend .mv.up .ar{fill:var(--good)}
+table.trend .mv.down .ar{fill:var(--bad)}
+/* A period the data doesn't fully cover: shown, but greyed and never compared,
+   so an in-progress week can't read as a collapse in volume. */
+table.trend tr.part td{color:var(--faint)}
+table.trend tr.part td:first-child{color:var(--muted)}
+table.trend .tag{display:inline-block;margin-left:6px;padding:1px 5px;border-radius:5px;
+  background:var(--surface-2);border:1px solid var(--line);
+  color:var(--muted);font-size:9.5px;font-weight:600;letter-spacing:.02em;
+  text-transform:uppercase;vertical-align:middle}
 table.trend .big{color:var(--ink);font-weight:700}
 
 /* comparison table */
@@ -549,12 +570,14 @@ table.dt tbody tr:hover td{background:var(--surface-2)}
           <div class="chips" id="cb-speed-chips"></div></div>
         <!-- rewritten by renderCallbacks with the active cohort and its figures -->
         <div class="card-note"><ul><li>How long after a miss the first callback went out.</li></ul></div>
+        <div class="cardstat" id="cb-speed-stat"></div>
         <div class="chart-wrap"><canvas id="cb-speed-chart"></canvas></div>
       </div>
       <div class="card">
         <div class="card-h"><div class="card-title">Which attempt reached them?</div></div>
         <!-- rewritten by renderCallbacks with the reached total -->
         <div class="card-note" id="cb-freq-note"><ul><li>Of the callers we did reach, the attempt that got through.</li></ul></div>
+        <div class="cardstat" id="cb-freq-stat"></div>
         <div id="cb-freq"></div>
       </div>
     </div>
@@ -645,6 +668,25 @@ const _hr1  = h => `${h%12===0?12:h%12} ${h<12?'AM':'PM'}`;
 
 const fmtN = n => n==null ? '—' : Math.round(n).toLocaleString('en-IN');
 const pct = (a,b) => b ? Math.round(a/b*100) : 0;
+// Median, for the two distributions where the mean is not a fair summary:
+// callback attempts per number (mean 3.7 vs median 2, max 95) and minutes to
+// the first callback (mean 109h vs median 16h). A handful of numbers chased
+// for weeks drags those averages far above anything a typical caller sees.
+// Volume and rate metrics keep the mean — see the benchmark note below.
+function median(arr){
+  if(!arr || !arr.length) return null;
+  const s=arr.slice().sort((a,b)=>a-b), h=s.length>>1;
+  return s.length%2 ? s[h] : (s[h-1]+s[h])/2;
+}
+// "2 h 15 m" / "45 m" / "3 d" — a duration in minutes read at a glance.
+function fmtDur(m){
+  if(m==null || !isFinite(m)) return '—';
+  if(m<60) return `${Math.round(m)} min`;
+  if(m<1440){ const h=Math.floor(m/60), r=Math.round(m%60);
+    return r ? `${h} h ${r} m` : `${h} h`; }
+  const d=Math.floor(m/1440), h=Math.round((m%1440)/60);
+  return h ? `${d} d ${h} h` : `${d} d`;
+}
 const toMin = (d,ti) => { const [y,mo,da]=d.split('-').map(Number); const [h,m,s]=ti.split(':').map(Number);
   return ((y*12+mo)*31+da)*1440 + h*60 + m + (s||0)/60; };
 function fmtTime(ti){ if(!ti) return ''; let [h,m]=ti.split(':').map(Number); const ap=h<12?'am':'pm';
@@ -1420,10 +1462,13 @@ function callbackStats(from,to){
   const reached=rows.filter(o=>o.reached);
   const notReached=rows.filter(o=>!o.reached);
   const noAttempt=rows.filter(o=>o.attempts===0);
-  const totAtt=rows.reduce((s,o)=>s+o.attempts,0);
+  // Median rather than mean: attempts run 1..95, so the mean (3.7 all-time)
+  // describes nobody. The median (2) is what a typical chased number receives.
+  const medAtt = median(called.map(o=>o.attempts));
+  const medGap = median(called.filter(o=>o.gapMin!=null).map(o=>o.gapMin));
   return {rows,called,reached,notReached,noAttempt,
     unique:rows.length, calledN:called.length, reachedN:reached.length,
-    avgAtt: called.length?+(totAtt/called.length).toFixed(1):0};
+    medAtt, medGap};
 }
 
 const CB_COLS=[
@@ -1544,10 +1589,24 @@ function renderCallbacks(p){
   });
   const freqTot=freq.reduce((a,g)=>a+g.length,0);
   const fMax=Math.max(1,...freq.map(g=>g.length));
+  // Median attempt among those a callback actually reached. Median because the
+  // tail runs long — a few numbers connect on the 20th try — so the mean would
+  // overstate what it takes for a typical caller.
+  const hitAt=[];
+  A.reached.forEach(o=>{
+    const cbs=(CB_ALL[o.cn]||[]).filter(c=>toMin(c.d,c.ti)>o.lastT);
+    const idx=cbs.findIndex(c=>c.st==='answered' && c.ct!=='Voice Mail');
+    if(idx>=0) hitAt.push(idx+1);
+  });
+  const medHit=median(hitAt);
+  document.getElementById('cb-freq-stat').innerHTML = medHit==null ? '' :
+    `<span class="statv">${medHit%1?medHit.toFixed(1):medHit}</span>
+     <span class="statl">median attempts to reach someone</span>`;
   document.getElementById('cb-freq-note').innerHTML = '<ul>'+
     `<li>Of the <b>${fmtN(freqTot)}</b> callers we reached, which attempt got through.</li>`+
     `<li>Counted from their most recent miss, so attempt 1 is the first callback after it.</li>`+
     `<li><b>They rang in</b> means we never connected — the caller came back to us first.</li>`+
+    `<li>The headline is the <b>median</b> attempt among those a callback reached: the tail runs long (some connect on the 20th try), so the mean would overstate the typical effort.</li>`+
     `<li>Click a row for the numbers behind it.</li>`+
     '</ul>';
   const FREQ_LBL=['1st attempt','2nd attempt','3rd attempt','4th attempt','5th+ attempt','They rang in'];
@@ -1618,10 +1677,17 @@ function renderCallbacks(p){
   const whLbl = CB_SPEED_WH.size!==1 ? 'all misses'          // none or both selected
     : CB_SPEED_WH.has('wh') ? 'misses inside working hours (9 AM–7 PM)'
     : 'misses outside working hours';
+  // Median, not mean: a few numbers chased for weeks push the mean to ~109h
+  // against a median near 16h, so the average describes no real caller.
+  const medGap = median(withGap.map(o=>o.gapMin));
+  document.getElementById('cb-speed-stat').innerHTML = medGap==null ? '' :
+    `<span class="statv">${fmtDur(medGap)}</span>
+     <span class="statl">median wait for the first callback</span>`;
   document.querySelector('#cb-speed-chart').closest('.card').querySelector('.card-note').innerHTML = '<ul>'+
     `<li>How long after a miss the <b>first</b> callback went out.</li>`+
     `<li>Showing <b>${whLbl}</b> — ${fmtN(withGap.length)} numbers.</li>`+
     `<li><b>${pct(within1h,withGap.length)}%</b> went out inside the first hour.</li>`+
+    `<li>The headline figure is the <b>median</b>, not the average: a few numbers chased for weeks pull the mean to several days, which describes no real caller.</li>`+
     `<li>Split on the hour of the <b>miss</b>, not the callback: a miss at 11 PM cannot be returned as fast as one at 11 AM.</li>`+
     `<li>Colour escalates as the delay grows. Working hours are 9 AM–7 PM.</li>`+
     '</ul>';
@@ -1947,7 +2013,8 @@ function fullStats(from,to){
     queueMissed:s.byType['Queue Missed - Within Hours'].length,
     aohMissed:s.byType['Queue Missed - After Hours'].length,
     uniqueMissed:c.unique, calledBack:pct(c.calledN,c.unique), reconnect:pct(c.reachedN,c.unique),
-    noAttempt:c.noAttempt.length, notReached:c.notReached.length, avgAtt:c.avgAtt,
+    noAttempt:c.noAttempt.length, notReached:c.notReached.length,
+    medAtt:c.medAtt, medGap:c.medGap,
     leads:l.total, newLeads:l.newN, newShare:l.newShare,
     AM:l.byProd.AM.length, VO:l.byProd.VO.length, OD:l.byProd.OD.length,
   };
@@ -1968,23 +2035,54 @@ const TR_GROUPS=[
   {label:'Callback Follow-Up',key:'cb'},
   {label:'Leads',             key:'lead'},
 ];
+// Each column also declares:
+//   v    how to read its comparable number out of a stats object
+//   dir  'up' = higher is better, 'down' = lower is better
+//   pts  true for percentages, which move in points rather than percent
+// Volume columns are deliberately directionless: more inbound calls is demand,
+// not performance, so marking a busy week "good" would be meaningless.
 const TR_COLS=[
-  {g:'vol',  label:'Total',      title:'Total inbound calls',            get:s=>fmtN(s.total), big:true},
-  {g:'vol',  label:'Answered',   title:'Answered calls',                 get:s=>fmtN(s.answered)},
-  {g:'vol',  label:'Rate',       title:'Answer rate — all hours',        get:s=>`${s.ar}%`},
-  {g:'vol',  label:'Rate 9–7',   title:'Answer rate — working hours, 9 AM to 7 PM', get:s=>`${s.arOff}%`},
-  {g:'miss', label:'Total',      title:'Total missed calls',             get:s=>fmtN(s.agentMissed+s.queueMissed+s.aohMissed)},
-  {g:'miss', label:'Agent',      title:'Agent missed — rang, not picked up', get:s=>fmtN(s.agentMissed)},
-  {g:'miss', label:'Queue',      title:'Queue missed — dropped in queue', get:s=>fmtN(s.queueMissed)},
-  {g:'miss', label:'After Hours',title:'Missed outside working hours, 9 AM to 7 PM', get:s=>fmtN(s.aohMissed)},
-  {g:'cb',   label:'Called Back',title:'Share of missed numbers called back, and how many numbers', wide:true, get:s=>`${s.calledBack}%<span class="sub">(${fmtN(s.uniqueMissed)})</span>`},
+  {g:'vol',  label:'Total',      title:'Total inbound calls',            get:s=>fmtN(s.total), big:true,
+   v:s=>s.total},
+  {g:'vol',  label:'Answered',   title:'Answered calls',                 get:s=>fmtN(s.answered),
+   v:s=>s.answered, dir:'up'},
+  {g:'vol',  label:'Rate',       title:'Answer rate — all hours',        get:s=>`${s.ar}%`,
+   v:s=>s.ar, dir:'up', pts:true},
+  {g:'vol',  label:'Rate 9–7',   title:'Answer rate — working hours, 9 AM to 7 PM', get:s=>`${s.arOff}%`,
+   v:s=>s.arOff, dir:'up', pts:true},
+  {g:'miss', label:'Total',      title:'Total missed calls',             get:s=>fmtN(s.agentMissed+s.queueMissed+s.aohMissed),
+   v:s=>s.agentMissed+s.queueMissed+s.aohMissed, dir:'down'},
+  {g:'miss', label:'Agent',      title:'Agent missed — rang, not picked up', get:s=>fmtN(s.agentMissed),
+   v:s=>s.agentMissed, dir:'down'},
+  {g:'miss', label:'Queue',      title:'Queue missed — dropped in queue', get:s=>fmtN(s.queueMissed),
+   v:s=>s.queueMissed, dir:'down'},
+  {g:'miss', label:'After Hours',title:'Missed outside working hours, 9 AM to 7 PM', get:s=>fmtN(s.aohMissed),
+   v:s=>s.aohMissed, dir:'down'},
+  {g:'cb',   label:'Called Back',title:'Share of missed numbers called back, and how many numbers', wide:true, get:s=>`${s.calledBack}%<span class="sub">(${fmtN(s.uniqueMissed)})</span>`,
+   v:s=>s.calledBack, dir:'up', pts:true},
   // Two words rather than "Reconnected"/"Unreached": a single 11-character token
   // can't wrap cleanly in a ~70px column, whereas a space gives it a break point.
-  {g:'cb',   label:'Reconnect Rate',title:'Reconnection rate — missed numbers actually reached', get:s=>`${s.reconnect}%`},
-  {g:'cb',   label:'Not Reached',title:'Missed numbers never reached',   get:s=>fmtN(s.notReached)},
-  {g:'lead', label:'Disposed',   title:'Total leads disposed',           get:s=>fmtN(s.leads)},
-  {g:'lead', label:'New Share',  title:'Share of leads that are new, and how many', wide:true, get:s=>`${s.newShare}%<span class="sub">(${fmtN(s.newLeads)})</span>`},
+  {g:'cb',   label:'Reconnect Rate',title:'Reconnection rate — missed numbers actually reached', get:s=>`${s.reconnect}%`,
+   v:s=>s.reconnect, dir:'up', pts:true},
+  {g:'cb',   label:'Not Reached',title:'Missed numbers never reached',   get:s=>fmtN(s.notReached),
+   v:s=>s.notReached, dir:'down'},
+  {g:'lead', label:'Disposed',   title:'Total leads disposed',           get:s=>fmtN(s.leads),
+   v:s=>s.leads, dir:'up'},
+  {g:'lead', label:'New Share',  title:'Share of leads that are new, and how many', wide:true, get:s=>`${s.newShare}%<span class="sub">(${fmtN(s.newLeads)})</span>`,
+   v:s=>s.newShare, dir:'up', pts:true},
 ];
+// Thresholds taken from the observed distribution of week-on-week movement,
+// not picked by eye. Across complete weeks the median absolute change is 17%
+// on count columns and 3.0 points on rates — so those are ordinary, not news.
+// These sit near the 70th percentile (28% / 5.2 pts), marking roughly the top
+// quarter of moves. An earlier 8% / 3pt pair marked 70% of cells, which is the
+// confetti this is meant to avoid.
+const TR_MIN_PCT = 25;   // counts: percent change
+const TR_MIN_PTS = 6;    // rates: percentage points
+// …and a floor on the absolute move, because percentage change is unstable on
+// small counts. Agent Missed averages ~17 a week, so 2 → 4 is "+100%" and would
+// otherwise light up almost every row while meaning nothing.
+const TR_MIN_ABS = 10;   // counts: minimum absolute change to be worth a mark
 // Group-edge classes: the outline round each band is drawn as left/right borders
 // on its first and last column, so it runs the full height of the table without
 // needing a wrapper element per group.
@@ -2012,11 +2110,17 @@ function trendPeriods(group,p){
   const lim = FILTER.mode==='custom' && p
     ? (from,to)=>to>=p.from && from<=p.to        // any overlap with the range
     : ()=>true;
+  // `part` marks a period the data doesn't fully cover — the week or month in
+  // progress, and the first one if collection started mid-period. Those rows
+  // carry no movement marks: a week one day old is not down 83%, it is young.
+  const partial = (from,to) => to>DATA_MAX || from<DATA_MIN;
   if(group==='month')
-    return dataMonths().map(m=>{const r=monthRange(m); return {label:r.label, from:r.from, to:r.to};})
+    return dataMonths().map(m=>{const r=monthRange(m);
+        return {label:r.label, from:r.from, to:r.to, part:partial(r.from,r.to)};})
       .filter(r=>lim(r.from,r.to));
   if(group==='week')
-    return dataWeeks().map(w=>({label:_wkLabel(w.from,w.to), sub:`W${w.week}`, from:w.from, to:w.to}))
+    return dataWeeks().map(w=>({label:_wkLabel(w.from,w.to), sub:`W${w.week}`,
+        from:w.from, to:w.to, part:partial(w.from,w.to)}))
       .filter(r=>lim(r.from,r.to));
   // Day grouping, optionally narrowed to one weekday so a single day can be
   // compared across the dataset (every Monday, every Tuesday, …).
@@ -2025,8 +2129,11 @@ function trendPeriods(group,p){
   // Short date + weekday sub-label. The year is only printed when it differs
   // from the most recent one, so it doesn't repeat down every row but a
   // cross-year comparison is still unambiguous.
+  // Days are never partial: the sync lands whole days, so every day row is
+  // complete and comparable.
   const curY=DATA_MAX.slice(0,4);
-  return ds.map(d=>({label:d.slice(0,4)===curY?_dm(d):_dmy(d), sub:_dowOf(d), from:d, to:d}));
+  return ds.map(d=>({label:d.slice(0,4)===curY?_dm(d):_dmy(d), sub:_dowOf(d),
+    from:d, to:d, part:false}));
 }
 // Weekday selector — shown only for the Day grouping, where it means something.
 // This is the one control the master filter can't replace: the filter picks one
@@ -2063,6 +2170,33 @@ function renderTrends(p){
   renderDowBar(group,p);
   const periods=trendPeriods(group,p);
   const rows=periods.map(pr=>({pr, s:fullStats(pr.from,pr.to)}));
+  // Movement marks: each complete period is compared with the previous complete
+  // one, skipping partial rows entirely so an in-progress week neither carries
+  // marks nor becomes anyone's baseline. Rows are newest-first, so the
+  // comparison target is the next complete row *below*.
+  rows.forEach((r,i)=>{
+    r.mv={};
+    if(r.pr.part) return;
+    let j=i+1; while(j<rows.length && rows[j].pr.part) j++;
+    if(j>=rows.length) return;                       // oldest row: nothing before it
+    const prev=rows[j];
+    r.cmp=prev.pr.label;
+    TR_COLS.forEach((c,ci)=>{
+      if(!c.dir || !c.v) return;                     // volume columns stay unmarked
+      const a=c.v(r.s), b=c.v(prev.s);
+      if(a==null||b==null||!isFinite(a)||!isFinite(b)) return;
+      // Rates move in points; counts in percent of the previous value. Counts
+      // must also clear an absolute floor, so a swing between small numbers
+      // doesn't out-shout a real change in a big column.
+      const d = c.pts ? a-b : (b ? (a-b)/b*100 : 0);
+      const big = c.pts
+        ? Math.abs(d) >= TR_MIN_PTS
+        : Math.abs(d) >= TR_MIN_PCT && Math.abs(a-b) >= TR_MIN_ABS;
+      if(!big) return;
+      const better = c.dir==='up' ? d>0 : d<0;
+      r.mv[ci]={better, d, pts:c.pts, abs:a-b};
+    });
+  });
   // Every grouping gets a baseline row on top: the question "is this period
   // good?" always needs something to sit against. Rate columns are recomputed
   // from summed numerator and denominator rather than averaged, so a quiet
@@ -2100,9 +2234,20 @@ function renderTrends(p){
         <td>${avgLbl}</td>
         ${TR_COLS.map(c=>`<td class="${grpEdge(c)}${c.big?' big':''}">${c.get(avg)}</td>`).join('')}
       </tr>`:''}
-      ${rows.map(({pr,s})=>`<tr>
-        <td>${pr.label}${pr.sub?`<span class="sub">${pr.sub}</span>`:''}</td>
-        ${TR_COLS.map(c=>`<td class="${grpEdge(c)}${c.big?' big':''}">${c.get(s)}</td>`).join('')}
+      ${rows.map(({pr,s,mv,cmp})=>`<tr${pr.part?' class="part"':''}>
+        <td>${pr.label}${pr.sub?`<span class="sub">${pr.sub}</span>`:''}${
+          pr.part?`<span class="tag" title="Still in progress — not compared">in progress</span>`:''}</td>
+        ${TR_COLS.map((c,ci)=>{
+          const m=mv&&mv[ci];
+          const arrow = m
+            ? `<span class="mv ${m.better?'up':'down'}" title="${
+                m.pts ? `${m.d>0?'+':''}${Math.round(m.d)} pts`
+                      : `${m.abs>0?'+':''}${fmtN(m.abs)} (${m.d>0?'+':''}${Math.round(m.d)}%)`
+                } vs ${cmp} — ${m.better?'better':'worse'}">${
+                m.d>0?ARROW_UP:ARROW_DOWN}</span>`
+            : '';
+          return `<td class="${grpEdge(c)}${c.big?' big':''}">${c.get(s)}${arrow}</td>`;
+        }).join('')}
       </tr>`).join('')}</tbody></table>`;
   const unit = group==='day'?'day':group==='week'?'week':'month';
   const scope = FILTER.mode==='custom'
@@ -2112,6 +2257,11 @@ function renderTrends(p){
   document.getElementById('tr-note').innerHTML = '<ul>'+
     `<li>${scope}, newest first, with the average pinned on top.</li>`+
     `<li>Grouping follows the <b>Daily / Weekly / Monthly</b> filter above; only Custom narrows which rows appear.</li>`+
+    `<li>A <b>▲/▼</b> marks a metric that moved against the previous complete ${unit} — green is better, red is worse, and the direction is read per metric (fewer missed calls is green). Hover a mark for the size of the move.</li>`+
+    `<li>Marks appear only past routine movement — ${TR_MIN_PTS} points on rates, or ${TR_MIN_PCT}% <i>and</i> at least ${TR_MIN_ABS} calls on counts. The second test matters: Agent Missed runs ~17 a week, so 2→4 is "+100%" and would otherwise mark almost every row.</li>`+
+    `<li>Thresholds come from the observed spread, not taste: the median week-on-week move is 17% on counts and 3 points on rates, so those are ordinary. About a quarter of cells end up marked.</li>`+
+    `<li><b>Call Volume totals carry no mark</b> — more inbound calls is demand, not performance.</li>`+
+    `<li>A period still in progress is greyed, tagged, and never compared, so a young ${unit} cannot read as a collapse.</li>`+
     `<li>Rates in the average row are weighted by volume, not a mean of the percentages — a quiet Sunday cannot outvote a busy Monday.</li>`+
     (group==='day'?`<li><b>Compare</b> narrows to a single weekday, so you can put every Monday side by side.</li>`:'')+
     `<li>Columns are grouped into Call Volume, Missed Calls, Callback Follow-Up and Leads. Hover a header for its full definition.</li>`+
