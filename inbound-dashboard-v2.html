@@ -1192,10 +1192,12 @@ M.cbCalled= {key:'cbCalled',rate:true, of:d=>{const s=_cbDay(d);
 M.cbReach = {key:'cbReach', rate:true, of:d=>{const s=_cbDay(d);
               return {n:s.reachedN, d:s.unique};}};
 M.cbNot   = {key:'cbNot',   of:d=>({n:_cbDay(d).notReached.length, d:1})};
-M.cbAtt0  = {key:'cbAtt0',  of:d=>({n:_cbDay(d).noAttempt.length, d:1})};
-M.cbAtt12 = {key:'cbAtt12', of:d=>({n:_cbDay(d).notReached.filter(o=>o.attempts>0&&o.attempts<3).length, d:1})};
-M.cbAtt39 = {key:'cbAtt39', of:d=>({n:_cbDay(d).notReached.filter(o=>o.attempts>=3&&o.attempts<10).length, d:1})};
-M.cbAtt10 = {key:'cbAtt10', of:d=>({n:_cbDay(d).notReached.filter(o=>o.attempts>=10).length, d:1})};
+// Attempt bands benchmark against the same "still unresolved" set the Action
+// cards are cut from, or the average would be measured on a different rule.
+M.cbAtt0  = {key:'cbAtt0',  of:d=>({n:_cbDay(d).open.filter(o=>o.attempts===0).length, d:1})};
+M.cbAtt12 = {key:'cbAtt12', of:d=>({n:_cbDay(d).open.filter(o=>o.attempts>0&&o.attempts<3).length, d:1})};
+M.cbAtt39 = {key:'cbAtt39', of:d=>({n:_cbDay(d).open.filter(o=>o.attempts>=3&&o.attempts<10).length, d:1})};
+M.cbAtt10 = {key:'cbAtt10', of:d=>({n:_cbDay(d).open.filter(o=>o.attempts>=10).length, d:1})};
 
 // ── Day-by-day trend: same shape as the Leads chart, for call volume ─────────
 // Lines per metric with a dashed average each, plus weekday toggles that also
@@ -1419,18 +1421,32 @@ function renderOverview(p){
 // ── all-time per-number indexes (built once): callbacks + connect times ──
 // "Reached" must look across ALL data, not just the filtered window, otherwise a
 // number reached a day after the period ends would look unreached.
-const CB_ALL={}, ANS_T={};
+const CB_ALL={}, ANS_T={}, RES_T={};
+// A call counts as RESOLVED when the agent dispositioned it as actual business:
+// a product tag (AM/VO/OD, whether New, Existing or a Query), or an explicit
+// Completion / Outreach Lead. The talk times bear this out — product-tagged
+// calls average 177–320s, whereas "Did Not Respond" is 38s, "Disconnected" 15s
+// and "Voice Mail" 11s: connected, but nothing was settled.
+const RESOLVED_CT = new Set(['Completion','Outreach Leads']);
+const isResolved = r => r.st==='answered' && (r.dr==='inbound'||r.dr==='callback')
+  && (!!r.pr || RESOLVED_CT.has(r.ct));
 (function(){
   REC.forEach(r=>{
     if(!r.cn) return;
     if(r.dr==='callback') (CB_ALL[r.cn]=CB_ALL[r.cn]||[]).push(r);
     if(r.st==='answered' && r.ct!=='Voice Mail' && (r.dr==='inbound'||r.dr==='callback'))
       (ANS_T[r.cn]=ANS_T[r.cn]||[]).push(toMin(r.d,r.ti));
+    if(isResolved(r)) (RES_T[r.cn]=RES_T[r.cn]||[]).push(toMin(r.d,r.ti));
   });
   Object.values(ANS_T).forEach(a=>a.sort((x,y)=>x-y));
+  Object.values(RES_T).forEach(a=>a.sort((x,y)=>x-y));
   Object.values(CB_ALL).forEach(a=>a.sort((x,y)=>toMin(x.d,x.ti)-toMin(y.d,y.ti)));
 })();
 const reachedAfter=(cn,t)=>{ const a=ANS_T[cn]; return !!a && a[a.length-1]>t; };
+// Did they get their query dealt with after that miss? Used by the Action tab,
+// which is a worklist: a number whose question was answered — even if they rang
+// us rather than us calling them — is closed, not outstanding.
+const resolvedAfter=(cn,t)=>{ const a=RES_T[cn]; return !!a && a[a.length-1]>t; };
 
 // Per-number callback picture for a period: last miss in window, attempts since
 // that miss (all-time callbacks), whether reached after it, and speed of the first.
@@ -1450,16 +1466,20 @@ function callbackStats(from,to){
     o.firstCb=cbs.length?cbs[0]:null;
     o.gapMin=cbs.length?(toMin(cbs[0].d,cbs[0].ti)-o.lastT):null;
     o.reached=reachedAfter(o.cn,o.lastT);
+    o.resolved=resolvedAfter(o.cn,o.lastT);
   });
   const called=rows.filter(o=>o.attempts>0);
   const reached=rows.filter(o=>o.reached);
   const notReached=rows.filter(o=>!o.reached);
   const noAttempt=rows.filter(o=>o.attempts===0);
+  // Still open = nobody resolved their query since the miss, whoever placed the
+  // call. Drives the Action worklist, which should only list work outstanding.
+  const open=rows.filter(o=>!o.resolved);
   // Median rather than mean: attempts run 1..95, so the mean (3.7 all-time)
   // describes nobody. The median (2) is what a typical chased number receives.
   const medAtt = median(called.map(o=>o.attempts));
   const medGap = median(called.filter(o=>o.gapMin!=null).map(o=>o.gapMin));
-  return {rows,called,reached,notReached,noAttempt,
+  return {rows,called,reached,notReached,noAttempt,open,
     unique:rows.length, calledN:called.length, reachedN:reached.length,
     medAtt, medGap};
 }
@@ -1975,13 +1995,17 @@ function renderAction(p){
   _cardHandlers={};
   renderAgentActivity(p);
 
-  // Worklist cards: the four attempt bands partition the unreached numbers, so
-  // every open number sits in exactly one of them and nothing falls through.
+  // Worklist cards. All four bands are cut from the same set — numbers whose
+  // query is still unresolved — so they genuinely partition the outstanding
+  // work: every open number sits in exactly one band and nothing falls through.
+  // Previously the first band was every 0-attempt number regardless of outcome,
+  // so a caller who rang back and got sorted still counted as needing a callback.
   const cbStats=callbackStats(p.from,p.to);
-  const none=cbStats.noAttempt;                                            // 0 attempts
-  const low=cbStats.notReached.filter(o=>o.attempts>0&&o.attempts<3);      // 1–2
-  const mid=cbStats.notReached.filter(o=>o.attempts>=3&&o.attempts<10);    // 3–9
-  const stuck=cbStats.notReached.filter(o=>o.attempts>=10);                // 10+
+  const openRows=cbStats.open;
+  const none=openRows.filter(o=>o.attempts===0);                       // 0 attempts
+  const low=openRows.filter(o=>o.attempts>0&&o.attempts<3);            // 1–2
+  const mid=openRows.filter(o=>o.attempts>=3&&o.attempts<10);          // 3–9
+  const stuck=openRows.filter(o=>o.attempts>=10);                      // 10+
   document.getElementById('ac-cards').innerHTML =
     mcard({label:'0 Callbacks Made', value:fmtN(none.length), cur:none.length, prev:none.length, dir:'bad', color:'var(--bad)',
            target:avgTarget(M.cbAtt0,p,none.length,{dir:'bad',noNote:true}),
