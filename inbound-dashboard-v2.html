@@ -88,8 +88,15 @@ body{background:var(--bg);color:var(--ink);
 .brand-sub{font-size:11.5px;color:var(--muted);margin-top:1px}
 
 /* ── Filter bar ── */
-.filterbar{max-width:1240px;margin:0 auto;padding:18px 24px 6px;
-  display:flex;align-items:center;gap:0;flex-wrap:wrap;}
+/* The period controls live in the sticky header beside the theme toggle, so the
+   selected range stays visible while you scroll rather than scrolling away. */
+.topbar-in .fgroup{flex-shrink:0}
+/* Below ~900px the header wraps: the filter drops to its own line and stretches,
+   instead of squeezing the brand into a column of broken text. */
+@media (max-width:900px){
+  .topbar-in .spacer{display:none}
+  .topbar-in .fgroup{order:3;width:100%;margin-top:10px}
+}
 /* one connected control: [ mode segment | picker ] */
 .fgroup{display:inline-flex;align-items:stretch;background:var(--surface);
   border:1px solid var(--line-2);border-radius:13px;box-shadow:var(--shadow-sm);overflow:hidden}
@@ -470,11 +477,6 @@ table.dt tbody tr:hover td{background:var(--surface-2)}
       </div>
     </div>
     <div class="spacer"></div>
-    <button class="theme-btn" id="theme-btn" title="Toggle theme" aria-label="Toggle theme"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6a6.4 6.4 0 100 12.8A6.4 6.4 0 008 1.6z"/><path class="fill" d="M8 1.6a6.4 6.4 0 000 12.8V1.6z"/></svg></button>
-  </div>
-</div>
-
-<div class="filterbar">
   <div class="fgroup">
     <div class="seg" id="mode-seg">
       <div class="seg-ind" id="seg-ind"></div>
@@ -494,6 +496,8 @@ table.dt tbody tr:hover td{background:var(--surface-2)}
       <!-- "all" has nothing to pick, so it states the range it resolved to -->
       <div class="pick" id="pick-all"><svg class="p-ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3.2" width="12" height="11" rx="2"/><path d="M2 6.6h12M5.4 1.8v2.6M10.6 1.8v2.6"/><rect class="fill" x="4" y="8.4" width="8" height="3.2" rx=".7"/></svg><span class="allrange" id="all-range"></span></div>
     </div>
+  </div>
+    <button class="theme-btn" id="theme-btn" title="Toggle theme" aria-label="Toggle theme"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6a6.4 6.4 0 100 12.8A6.4 6.4 0 008 1.6z"/><path class="fill" d="M8 1.6a6.4 6.4 0 000 12.8V1.6z"/></svg></button>
   </div>
 </div>
 
@@ -951,9 +955,38 @@ function render(){
   wireInfoIcons();
 }
 
-// last-updated stamp
-(function(){ const u=document.getElementById('updated');
-  if(DATA_MAX) u.textContent=`Data through ${_dmy(DATA_MAX)}`; })();
+// Last-updated stamp. GENERATED_AT is written by the sync, so it says when the
+// data was actually refreshed — not merely how far it reaches. Shown as a
+// relative age ("updated 12 min ago"), which is what you want to know at a
+// glance; the exact timestamp and the data range sit in the tooltip.
+function _ago(mins){
+  if(mins<1)  return 'just now';
+  if(mins<60) return `${Math.floor(mins)} min ago`;
+  const h=Math.floor(mins/60);
+  if(h<24)    return h===1 ? '1 hour ago' : `${h} hours ago`;
+  const d=Math.floor(h/24);
+  return d===1 ? 'yesterday' : `${d} days ago`;
+}
+function renderUpdated(){
+  const u=document.getElementById('updated');
+  if(!u) return;
+  const g = (typeof GENERATED_AT!=='undefined' && GENERATED_AT) ? GENERATED_AT : '';
+  if(!g){ if(DATA_MAX) u.textContent=`Data through ${_dmy(DATA_MAX)}`; return; }
+  // "YYYY-MM-DD HH:MM", written in IST by the sync and read as local time here;
+  // the dashboard and its users are both on IST, so no conversion is applied.
+  const [dpart,tpart]=g.split(' ');
+  const [y,mo,da]=dpart.split('-').map(Number);
+  const [hh,mi]=(tpart||'0:0').split(':').map(Number);
+  const when=new Date(y,mo-1,da,hh,mi);
+  const mins=(Date.now()-when.getTime())/60000;
+  const stamp=`${_dmy(dpart)}, ${fmtTime(`${String(hh).padStart(2,'0')}:${String(mi).padStart(2,'0')}:00`)}`;
+  u.textContent = mins<0 ? `Updated ${stamp}` : `Updated ${_ago(mins)}`;
+  u.title = `Last sync ${stamp}`
+    + (DATA_MAX?` · data ${_dmy(DATA_MIN)} to ${_dmy(DATA_MAX)}`:'');
+}
+renderUpdated();
+// Keep the age honest on a tab left open all afternoon.
+setInterval(renderUpdated, 60000);
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  SHARED STATS  — one definition of every headline metric, used by all tabs
