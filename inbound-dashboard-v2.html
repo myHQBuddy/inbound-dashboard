@@ -832,10 +832,14 @@ function renderModal(){ const {rows,cols,sortKey,sortDir}=_modal; const body=doc
   let ord=rows.slice();
   if(sortKey){ const c=cols.find(x=>x.key===sortKey);
     ord.sort((a,b)=>{ let va=c.get(a),vb=c.get(b);
-      if(c.type==='num') return sortDir*((va||0)-(vb||0));
+      // Missing numerics sort to the bottom whichever way the column is sorted,
+      // so "never dialled" never masquerades as the earliest attempt.
+      if(c.type==='num'){ const na=va==null, nb=vb==null;
+        if(na||nb) return na&&nb?0:(na?1:-1);
+        return sortDir*(va-vb); }
       return sortDir*String(va).localeCompare(String(vb)); }); }
   body.innerHTML=`<table class="dt"><thead><tr>${cols.map(c=>`<th data-k="${c.key}">${c.label}${sortKey===c.key?(sortDir>0?ARROW_UP:ARROW_DOWN):''}</th>`).join('')}</tr></thead>
-    <tbody>${ord.map(r=>`<tr>${cols.map(c=>`<td>${c.fmt?c.fmt(c.get(r)):c.get(r)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    <tbody>${ord.map(r=>`<tr>${cols.map(c=>`<td>${c.cell?c.cell(r):(c.fmt?c.fmt(c.get(r)):c.get(r))}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
   body.querySelectorAll('th').forEach(th=>th.onclick=()=>{ const k=th.dataset.k;
     if(_modal.sortKey===k)_modal.sortDir*=-1; else {_modal.sortKey=k;_modal.sortDir=1;} renderModal(); });
 }
@@ -1497,6 +1501,12 @@ function callbackStats(from,to){
     const cbs=(CB_ALL[o.cn]||[]).filter(c=>toMin(c.d,c.ti)>o.lastT);
     o.attempts=cbs.length;
     o.firstCb=cbs.length?cbs[0]:null;
+    // CB_ALL is sorted ascending, so the final entry is the most recent dial.
+    // lastAttT drives sorting; lastAttStr is what the table prints.
+    const lc=cbs.length?cbs[cbs.length-1]:null;
+    o.lastAtt=lc;
+    o.lastAttT=lc?toMin(lc.d,lc.ti):null;
+    o.lastAttStr=lc?`${_dm(lc.d)} ${fmtTime(lc.ti)}`:'—';
     o.gapMin=cbs.length?(toMin(cbs[0].d,cbs[0].ti)-o.lastT):null;
     o.reached=reachedAfter(o.cn,o.lastT);
     o.resolved=resolvedAfter(o.cn,o.lastT);
@@ -1521,6 +1531,11 @@ const CB_COLS=[
   {key:'cn',label:'Phone',type:'str',get:r=>r.cn},
   {key:'att',label:'Attempts',type:'num',get:r=>r.attempts},
   {key:'miss',label:'Last missed',type:'str',get:r=>r.lastStr},
+  // Sorts on the packed minute key so "2 Sep" can't sort above "10 Aug", but
+  // prints the string built when the row was made. `cell` gets the whole row;
+  // never-dialled numbers show an em dash and sort last.
+  {key:'lastatt',label:'Last attempt',type:'num',get:r=>r.lastAttT,
+   cell:r=>r.lastAttStr},
   {key:'camp',label:'Campaign / Queue',type:'str',get:r=>r.camp},
 ];
 
