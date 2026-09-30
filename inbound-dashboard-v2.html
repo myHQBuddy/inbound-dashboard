@@ -261,7 +261,7 @@ table.dt th svg.ar{margin-left:4px;vertical-align:-1px}
 /* pinned average row when a single weekday is isolated */
 table.trend tr.avg-row td{background:var(--brand-soft);font-weight:700;
   border-bottom:1px solid var(--line-2)}
-table.trend tr.avg-row td:first-child{color:var(--brand)}
+table.trend tr.avg-row td:nth-child(2){color:var(--brand)}
 .chip.on .c-dot,.chip:hover .c-dot{opacity:1}
 
 .card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
@@ -371,12 +371,13 @@ table.hm td.thin{opacity:.45}
    of z-index. Borders are therefore drawn per cell, with spacing zeroed so the
    grid still reads as one surface. */
 table.trend{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px;table-layout:fixed}
-/* 13.5% + (11 x 6.3%) + (2 x 8.6%) = 100%. The period column needs enough for
-   a week range ("23-29 Sep"); the metric columns can afford less now that their
-   headers wrap instead of needing to fit on one line. */
-table.trend col.c-per{width:13.5%}               /* period label */
-table.trend col.c-num{width:6.3%}                /* plain numeric columns */
-table.trend col.c-wide{width:8.6%}               /* columns carrying a (sub) count */
+/* 4% + 12.5% + (11 x 6.1%) + (2 x 8.2%) = 100%. The row number takes its width
+   from the metric columns rather than from Period, which still has to hold a
+   week range ("23-29 Sep"). */
+table.trend col.c-sno{width:4%}                  /* row number */
+table.trend col.c-per{width:12.5%}               /* period label */
+table.trend col.c-num{width:6.1%}                /* plain numeric columns */
+table.trend col.c-wide{width:8.2%}               /* columns carrying a (sub) count */
 /* Everything centred: with fixed, equal columns the header and its numbers
    share one axis, so the grid reads as a grid rather than three alignments. */
 /* Headers wrap to two lines rather than ellipsising: at ~70px a column can't
@@ -411,14 +412,20 @@ table.trend td{padding:10px 6px;text-align:center;border-bottom:1px solid var(--
   overflow:hidden;text-overflow:ellipsis}
 /* The period cell may wrap — a week range plus its "W36" tag is longer than a
    plain number, and truncating the row's own name is worse than a second line. */
-table.trend td:first-child{color:var(--ink);font-weight:700;white-space:normal}
+table.trend td:nth-child(2){color:var(--ink);font-weight:700;white-space:normal}
 table.trend tbody tr:hover td{background:var(--surface-2)}
 table.trend tbody tr:last-child td{border-bottom:0}
 table.trend .sub{color:var(--muted);font-size:11px;margin-left:3px}
+/* Row numbers are an index, not data: muted, tabular, and right-aligned so the
+   digits line up as the count crosses into double and triple figures. */
+table.trend th.sno,table.dt th.sno{text-align:right;color:var(--faint)}
+table.trend td.sno,table.dt td.sno{text-align:right;color:var(--faint);
+  font-variant-numeric:tabular-nums;font-weight:500}
+table.dt th.sno,table.dt td.sno{width:52px;padding-right:14px}
 /* A period the data doesn't fully cover: shown, but greyed and labelled, so a
    week one day old can't read as a collapse in volume. */
 table.trend tr.part td{color:var(--faint)}
-table.trend tr.part td:first-child{color:var(--muted)}
+table.trend tr.part td:nth-child(2){color:var(--muted)}
 table.trend .tag{display:inline-block;margin-left:6px;padding:1px 5px;border-radius:5px;
   background:var(--surface-2);border:1px solid var(--line);
   color:var(--muted);font-size:9.5px;font-weight:600;letter-spacing:.02em;
@@ -459,7 +466,7 @@ table.dt th{position:sticky;top:0;z-index:2;background:var(--surface-2);text-ali
   font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);cursor:pointer;white-space:nowrap;
   box-shadow:inset 0 -1px 0 var(--line-2)}
 table.dt td{padding:8px 16px;box-shadow:inset 0 -1px 0 var(--line);color:var(--ink-2);white-space:nowrap}
-table.dt td:first-child{color:var(--ink);font-weight:600}
+table.dt td:nth-child(2){color:var(--ink);font-weight:600}
 table.dt tbody tr:hover td{background:var(--surface-2)}
 
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
@@ -838,9 +845,14 @@ function renderModal(){ const {rows,cols,sortKey,sortDir}=_modal; const body=doc
         if(na||nb) return na&&nb?0:(na?1:-1);
         return sortDir*(va-vb); }
       return sortDir*String(va).localeCompare(String(vb)); }); }
-  body.innerHTML=`<table class="dt"><thead><tr>${cols.map(c=>`<th data-k="${c.key}">${c.label}${sortKey===c.key?(sortDir>0?ARROW_UP:ARROW_DOWN):''}</th>`).join('')}</tr></thead>
-    <tbody>${ord.map(r=>`<tr>${cols.map(c=>`<td>${c.cell?c.cell(r):(c.fmt?c.fmt(c.get(r)):c.get(r))}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
-  body.querySelectorAll('th').forEach(th=>th.onclick=()=>{ const k=th.dataset.k;
+  // S.No is positional, not a property of the row: it numbers what you are
+  // looking at, so it renumbers 1..n whenever the sort changes.
+  body.innerHTML=`<table class="dt"><thead><tr><th class="sno">S.No</th>${cols.map(c=>`<th data-k="${c.key}">${c.label}${sortKey===c.key?(sortDir>0?ARROW_UP:ARROW_DOWN):''}</th>`).join('')}</tr></thead>
+    <tbody>${ord.map((r,i)=>`<tr><td class="sno">${i+1}</td>${cols.map(c=>`<td>${c.cell?c.cell(r):(c.fmt?c.fmt(c.get(r)):c.get(r))}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  // The S.No header carries no data-k: it indexes the current order rather than
+  // being a column you can sort by, so clicking it must do nothing (sorting by
+  // an undefined key would throw in the comparator).
+  body.querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{ const k=th.dataset.k;
     if(_modal.sortKey===k)_modal.sortDir*=-1; else {_modal.sortKey=k;_modal.sortDir=1;} renderModal(); });
 }
 document.getElementById('modal-x').onclick=()=>document.getElementById('modal').classList.remove('on');
@@ -2230,20 +2242,22 @@ function renderTrends(p){
     : group==='week' ? 'Weekly average' : 'Monthly average';
   document.getElementById('tr-table').innerHTML=
     `<table class="trend">
-     <colgroup><col class="c-per">${TR_COLS.map(c=>`<col class="${c.wide?'c-wide':'c-num'}">`).join('')}</colgroup>
+     <colgroup><col class="c-sno"><col class="c-per">${TR_COLS.map(c=>`<col class="${c.wide?'c-wide':'c-num'}">`).join('')}</colgroup>
      <thead>
-       <tr class="gband"><th class="gp"></th>${TR_GROUPS.map(g=>{
+       <tr class="gband"><th class="sno"></th><th class="gp"></th>${TR_GROUPS.map(g=>{
          const n=TR_COLS.filter(c=>c.g===g.key).length;
          return `<th colspan="${n}" class="gh g-${g.key}">${g.label}</th>`;
        }).join('')}</tr>
-       <tr class="chead"><th class="gp">Period</th>${TR_COLS.map(c=>
+       <tr class="chead"><th class="sno">S.No</th><th class="gp">Period</th>${TR_COLS.map(c=>
          `<th class="${grpEdge(c)}" title="${c.title||c.label}">${c.label}</th>`).join('')}</tr>
      </thead>
      <tbody>${avg?`<tr class="avg-row">
+        <td class="sno"></td>
         <td>${avgLbl}</td>
         ${TR_COLS.map(c=>`<td class="${grpEdge(c)}${c.big?' big':''}">${c.get(avg)}</td>`).join('')}
       </tr>`:''}
-      ${rows.map(({pr,s})=>`<tr${pr.part?' class="part"':''}>
+      ${rows.map(({pr,s},i)=>`<tr${pr.part?' class="part"':''}>
+        <td class="sno">${i+1}</td>
         <td>${pr.label}${pr.sub?`<span class="sub">${pr.sub}</span>`:''}${
           pr.part?`<span class="tag" title="This period is still in progress">in progress</span>`:''}</td>
         ${TR_COLS.map(c=>`<td class="${grpEdge(c)}${c.big?' big':''}">${c.get(s)}</td>`).join('')}
