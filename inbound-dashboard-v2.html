@@ -1173,18 +1173,36 @@ const OV_SERIES=new Set();
 // selected window. Summing those averages over the selected dates gives the
 // benchmark, so a week's benchmark is exactly the sum of its seven days' and
 // nothing shifts when you switch Daily → Weekly → Monthly.
+// Per-weekday baseline for a metric, ignoring the period being graded.
+// `metric.med` switches from mean to median of the daily values. For a rate
+// that means the median of each day's percentage rather than pooled
+// numerator/denominator, so every day counts once regardless of how busy it
+// was — a quiet Sunday stops being drowned out by a heavy Monday.
 const _DOW_AVG_CACHE={};
 function dowAverages(metric, excludeFrom, excludeTo){
   const key=metric.key+'|'+excludeFrom+'|'+excludeTo;
   if(_DOW_AVG_CACHE[key]) return _DOW_AVG_CACHE[key];
-  const sn={},sd={},cnt={};
+  const sn={},sd={},cnt={},vals={};
   allDates.forEach(dt=>{
     if(dt>=excludeFrom && dt<=excludeTo) return;       // don't grade against itself
     const w=_dowOf(dt), v=metric.of(dt);
     sn[w]=(sn[w]||0)+v.n; sd[w]=(sd[w]||0)+v.d; cnt[w]=(cnt[w]||0)+1;
+    if(metric.med){
+      // Rates hold the day's own percentage; counts hold the day's count.
+      const dayVal = metric.rate ? (v.d? v.n/v.d*100 : null) : v.n;
+      if(dayVal!=null) (vals[w]=vals[w]||[]).push(dayVal);
+    }
   });
   const avg={};
-  DOW_ORDER.forEach(w=>{ avg[w]=cnt[w]?{n:sn[w]/cnt[w], d:sd[w]/cnt[w]}:null; });
+  DOW_ORDER.forEach(w=>{
+    if(!cnt[w]){ avg[w]=null; return; }
+    if(metric.med){ const m=median(vals[w]||[]);
+      // n carries the median in the metric's own units; d=1 keeps dowBench's
+      // summing arithmetic unchanged for both counts and rates.
+      avg[w] = m==null ? null : {n:m, d:1, med:true};
+      return; }
+    avg[w]={n:sn[w]/cnt[w], d:sd[w]/cnt[w]};
+  });
   return _DOW_AVG_CACHE[key]=avg;
 }
 // Returns the benchmark for `metric` over period `p`, in the metric's own
@@ -1193,12 +1211,24 @@ function dowBench(metric,p){
   const cur=allDates.filter(d=>d>=p.from&&d<=p.to);
   if(!cur.length) return null;
   const avg=dowAverages(metric,p.from,p.to);
-  let n=0,d=0,days=0;
-  for(const dt of cur){ const a=avg[_dowOf(dt)]; if(a){ n+=a.n; d+=a.d; days++; } }
+  let n=0,d=0,days=0,parts=[];
+  for(const dt of cur){ const a=avg[_dowOf(dt)];
+    if(a){ n+=a.n; d+=a.d; days++; parts.push(a.n); } }
   if(!days) return null;
-  const val = metric.rate ? (d?Math.round(n/d*100):null)
-            : metric.perDay ? Math.round(n/days)
-            : Math.round(n);
+  let val;
+  if(metric.med && metric.rate){
+    // Percentages don't sum. Over a multi-day period the baseline is the median
+    // of the weekday medians the period actually covers, so a week containing
+    // two Sundays isn't pulled down twice over.
+    val = Math.round(median(parts));
+  } else if(metric.med){
+    // Counts do sum: a week's baseline is its seven days' medians added up.
+    val = metric.perDay ? Math.round(n/days) : Math.round(n);
+  } else {
+    val = metric.rate ? (d?Math.round(n/d*100):null)
+        : metric.perDay ? Math.round(n/days)
+        : Math.round(n);
+  }
   if(val==null || !isFinite(val)) return null;
   return {val, days, note: p.from===p.to ? `${_dowOf(p.from)}s` : `${days}-day mix`};
 }
@@ -1209,18 +1239,24 @@ function avgTarget(metric,p,cur,{dir='good',pct=false,unit='',noNote=false}={}){
   const b=dowBench(metric,p);
   if(!b) return null;
   const shown = pct ? `${b.val}%` : `${fmtN(b.val)}${unit}`;
+  // Name the statistic actually used, so the pill can't imply a mean when the
+  // baseline is a median.
+  const stat = metric.med ? 'median' : 'avg';
   return {cur, val:b.val, dir,
-    label:`avg ${shown}${(noNote||!b.note)?'':` · ${b.note}`}`};
+    label:`${stat} ${shown}${(noNote||!b.note)?'':` · ${b.note}`}`};
 }
 // Per-date measurements. Each is cheap because it reads BY_DATE directly, and
 // dowAverages caches the weekday table per metric + window.
 const _ibOf = d => (BY_DATE[d]||[]).filter(r=>r.dr==='inbound');
 const M = {
-  total:   {key:'total',   of:d=>({n:_ibOf(d).length, d:1})},
-  perDay:  {key:'total',   perDay:true, of:d=>({n:_ibOf(d).length, d:1})},
-  ar:      {key:'ar',      rate:true, of:d=>{const ib=_ibOf(d);
+  // The four Call Volume cards benchmark against the weekday MEDIAN (med:true),
+  // so one freak day can't move the bar the team is judged against. `key` must
+  // be unique per aggregation, or two metrics sharing a key collide in the cache.
+  total:   {key:'total',   med:true, of:d=>({n:_ibOf(d).length, d:1})},
+  perDay:  {key:'perDay',  med:true, perDay:true, of:d=>({n:_ibOf(d).length, d:1})},
+  ar:      {key:'ar',      med:true, rate:true, of:d=>{const ib=_ibOf(d);
              return {n:ib.filter(r=>r.st==='answered').length, d:ib.length};}},
-  arOff:   {key:'arOff',   rate:true, of:d=>{
+  arOff:   {key:'arOff',   med:true, rate:true, of:d=>{
              const ib=_ibOf(d).filter(r=>r.h>=9&&r.h<=18);
              return {n:ib.filter(r=>r.st==='answered').length, d:ib.length};}},
   missed:  {key:'missed',  of:d=>({n:_ibOf(d).filter(r=>r.st!=='answered').length, d:1})},
@@ -1325,9 +1361,10 @@ function renderOverview(p){
   _cardHandlers={};
 
   // ── row 1: call volume ──
-  // Volume benchmarks are the historical average for a comparable period: a
+  // Volume benchmarks are the historical MEDIAN for a comparable period: a
   // Monday is judged against other Mondays, a part-month against the same span
-  // of earlier months. Rate benchmarks are fixed service levels.
+  // of earlier months. Median rather than mean so one freak day — an outage, a
+  // campaign spike — doesn't move the bar the team is measured against.
   document.getElementById('ov-cards-vol').innerHTML =
     mcard({label:'Total Inbound Calls', value:fmtN(A.total), color:'var(--brand)',
            target:avgTarget(M.total,p,A.total)}) +
