@@ -33,6 +33,8 @@
   --shadow-sm:0 1px 2px rgba(19,26,46,.06);
   --shadow:0 2px 4px rgba(19,26,46,.05),0 10px 26px -14px rgba(19,26,46,.20);
   --r:14px; --r-sm:10px;
+  /* Measured at runtime by syncTopbarH(); this is only the first-paint guess. */
+  --topbar-h:59px;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#0f1320; --surface:#171c2c; --surface-2:#1e2438;
@@ -389,9 +391,12 @@ table.trend th{text-align:center;padding:8px 4px;font-size:9.5px;text-transform:
   position:sticky;z-index:1;
   vertical-align:bottom;line-height:1.2;white-space:normal;overflow-wrap:break-word;hyphens:none}
 /* Two sticky header rows: the group band sits on top, the column names below it.
-   Each needs its own `top` or they'd stack on the same line when scrolling. */
-table.trend tr.gband th{top:0;height:26px;padding:6px 6px 4px;white-space:nowrap}
-table.trend tr.chead th{top:26px;height:30px;border-bottom:1px solid var(--line-2)}
+   Each needs its own `top` or they'd stack on the same line when scrolling.
+   Both are offset by --topbar-h because this table scrolls with the page, where
+   the sticky topbar already owns top:0 — without the offset the header slides
+   under it and disappears instead of pinning below it. */
+table.trend tr.gband th{top:var(--topbar-h);height:26px;padding:6px 6px 4px;white-space:nowrap}
+table.trend tr.chead th{top:calc(var(--topbar-h) + 26px);height:30px;border-bottom:1px solid var(--line-2)}
 /* The band label is the group's name — larger and inked, since it's the thing
    that carries the meaning the short column names lean on. */
 table.trend th.gh{font-size:10.5px;font-weight:700;color:var(--ink-2);
@@ -454,7 +459,10 @@ table.cmp tr:last-child td{border-bottom:0}
 .modal-head{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
 .modal-title{font-weight:700;font-size:15px}
 .modal-x{border:0;background:var(--surface-2);width:30px;height:30px;border-radius:8px;cursor:pointer;color:var(--ink-2);font-size:16px}
-.modal-body{overflow:auto;padding:6px 0}
+/* No top padding: the sticky header anchors at top:0 of this scroller, so any
+   padding above it is a gap rows slide through before the header catches them.
+   The breathing room goes on the last row instead. */
+.modal-body{overflow:auto;padding:0 0 6px}
 /* separate, not collapse: with collapsed borders the browser paints cell
    backgrounds at the table layer, so z-index on a sticky th does nothing and
    rows scroll straight over the header. Separators are drawn as shadows. */
@@ -706,6 +714,12 @@ const _wkLabel = (from,to) => from.slice(0,7)===to.slice(0,7)
   : `${_dm(from)} – ${_dm(to)}`;
 const _dmy = d => { const [y,mo,da]=d.split('-'); return `${+da} ${MONTH_NM[+mo-1]} ${y}`; };
 const _dowOf = d => DOW3[_pd(d).getDay()];
+// Full weekday name, for prose where "Suns" would read as a typo. getDay() is
+// Sunday-first, unlike DOW_ORDER which starts Monday for the UI.
+const DOW_FULL = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const _dowFull = d => DOW_FULL[_pd(d).getDay()];
+// Same, from the 3-letter code the weekday toggles use.
+const _dowName = w => DOW_FULL[(DOW_ORDER.indexOf(w)+1)%7] || w;
 
 const allDates = [...new Set(REC.map(r=>r.d).filter(Boolean))].sort();
 const DATA_MIN = allDates[0] || '';
@@ -1230,7 +1244,7 @@ function dowBench(metric,p){
         : Math.round(n);
   }
   if(val==null || !isFinite(val)) return null;
-  return {val, days, note: p.from===p.to ? `${_dowOf(p.from)}s` : `${days}-day mix`};
+  return {val, days, note: p.from===p.to ? `${_dowFull(p.from)}s` : `${days}-day mix`};
 }
 // Card-ready benchmark: computes the average for this period and formats the
 // pill. `dir:'bad'` inverts the pass test, so fewer missed calls than average
@@ -2263,7 +2277,7 @@ function renderTrends(p){
       newShare:Math.round(sum('newShare')/n)};
   })() : null;
   // label for the baseline row — the name alone, no period count beside it
-  const avgLbl = TR_DOW ? `${TR_DOW} average`
+  const avgLbl = TR_DOW ? `${_dowName(TR_DOW)} average`
     : group==='day' ? 'Daily average'
     : group==='week' ? 'Weekly average' : 'Monthly average';
   document.getElementById('tr-table').innerHTML=
@@ -2291,7 +2305,7 @@ function renderTrends(p){
   const unit = group==='day'?'day':group==='week'?'week':'month';
   const scope = FILTER.mode==='custom'
     ? `The ${rows.length} ${unit}${rows.length===1?'':'s'} in the selected range`
-    : TR_DOW ? `Every ${TR_DOW} in the data`
+    : TR_DOW ? `Every ${_dowName(TR_DOW)} in the data`
     : `Every ${unit} in the data`;
   document.getElementById('tr-note').innerHTML = '<ul>'+
     `<li>${scope}, newest first, with the average pinned on top.</li>`+
@@ -2351,6 +2365,21 @@ function wireInfoIcons(){
 // do not.
 addEventListener('click', e=>{ if(!e.target.closest('.info')) closeInfo(); });
 addEventListener('keydown', e=>{ if(e.key==='Escape') closeInfo(); });
+
+// The topbar wraps to two rows on narrow screens and its height changes with
+// the filter controls, so --topbar-h is measured rather than assumed. The trend
+// table's sticky header offsets itself by it.
+function syncTopbarH(){
+  const t=document.querySelector('.topbar');
+  if(!t) return;
+  document.documentElement.style.setProperty('--topbar-h', `${Math.round(t.offsetHeight)}px`);
+}
+syncTopbarH();
+addEventListener('resize', syncTopbarH);
+if(typeof ResizeObserver!=='undefined'){
+  const t=document.querySelector('.topbar');
+  if(t) new ResizeObserver(syncTopbarH).observe(t);
+}
 
 render();                                  // render() attaches the info icons
 requestAnimationFrame(moveSegIndicator);   // ensure indicator sits right after layout
