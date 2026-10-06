@@ -1250,7 +1250,12 @@ function dowBench(metric,p){
         : Math.round(n);
   }
   if(val==null || !isFinite(val)) return null;
-  return {val, days, note: p.from===p.to ? `${_dowFull(p.from)}s` : `${days}-day mix`};
+  // The note says what the baseline was built from. A single day is graded
+  // against the same weekday ("Mondays"); a span is graded against the same
+  // weekdays it actually contains, so "same 6 days" is not a generic 6-day
+  // average — it is this period's own mix of weekdays.
+  const note = p.from===p.to ? `${_dowFull(p.from)}s` : `same ${days} days`;
+  return {val, days, note};
 }
 // Card-ready benchmark: computes the average for this period and formats the
 // pill. `dir:'bad'` inverts the pass test, so fewer missed calls than average
@@ -1279,13 +1284,15 @@ const M = {
   arOff:   {key:'arOff',   med:true, rate:true, of:d=>{
              const ib=_ibOf(d).filter(r=>r.h>=9&&r.h<=18);
              return {n:ib.filter(r=>r.st==='answered').length, d:ib.length};}},
-  missed:  {key:'missed',  of:d=>({n:_ibOf(d).filter(r=>r.st!=='answered').length, d:1})},
+  missed:  {key:'missed',  med:true, of:d=>({n:_ibOf(d).filter(r=>r.st!=='answered').length, d:1})},
   leads:   {key:'leads',   of:d=>({n:leadStats(d,d).total, d:1})},
   newLead: {key:'newLead', of:d=>({n:leadStats(d,d).newN, d:1})},
   newShr:  {key:'newShr',  rate:true, of:d=>{const s=leadStats(d,d);
              return {n:s.newN, d:s.total};}},
 };
-MISS_TYPES.forEach(t=>{ M['mt_'+t.key]={key:'mt_'+t.key,
+// Median like the volume cards above: Agent Missed in particular runs ~17 a
+// week, where one bad day would drag a mean well off what a normal day looks like.
+MISS_TYPES.forEach(t=>{ M['mt_'+t.key]={key:'mt_'+t.key, med:true,
   of:d=>({n:_ibOf(d).filter(r=>r.st!=='answered'&&r.mt===t.key).length, d:1})}; });
 // Callback metrics need the all-time callback map per date, so they memoise a
 // single-day stat object and reuse it across every callback benchmark.
