@@ -650,7 +650,7 @@ table.dt tbody tr:hover td{background:var(--surface-2)}
       </div>
       <!-- rewritten by renderAgentActivity with the peak and day count -->
       <div class="card-note" id="aa-note"><ul><li>How many agents were on an inbound call in each 15-minute slot.</li></ul></div>
-      <div class="chart-wrap" style="height:210px"><canvas id="aa-chart"></canvas></div>
+      <div class="chart-wrap" style="height:240px"><canvas id="aa-chart"></canvas></div>
     </div>
   </div>
   <div class="panel" id="panel-trends">
@@ -2148,67 +2148,88 @@ function renderLeads(p){
 // Inbound only. dr='callback' is every outbound dial — Lead Qualification,
 // Outreach Sprint, the city campaigns — so including it would mix the outreach
 // floor into a chart about inbound coverage.
-const AA_SLOT=15;                                   // minutes per slot
-const AA_FROM=9, AA_TO=19;                          // office hours: 9am–7pm
+const AA_FROM=9, AA_TO=19;                          // office hours: 9am-7pm
+
+// ── Agents on inbound calls, by hour ─────────────────────────────────────────
+// Agents are whole people, so this does not average them across days: a "2.3
+// agents" figure describes no real moment and reads as noise. Instead each hour
+// shows the TYPICAL count (the median day) with the BUSIEST day behind it, both
+// whole numbers. A wide gap between the two means coverage that hour is
+// inconsistent, which is the thing worth acting on.
+// Hourly rather than 15-minute slots so it lines up with the demand chart above.
 function renderAgentActivity(p){
   const cv=cssVar;
   const rows=recsIn(p.from,p.to).filter(r=>
     r.st==='answered' && r.ag && r.ti && r.dr==='inbound');
   const days=[...new Set(rows.map(r=>r.d))];
   const nDays=Math.max(1,days.length);
-  const s0=Math.floor(AA_FROM*60/AA_SLOT), s1=Math.floor(AA_TO*60/AA_SLOT);
-  // distinct agents per slot per day, then averaged over the days in range
-  const perDay={}, bySlotAg={};
+  const hours=[]; for(let h=AA_FROM;h<AA_TO;h++) hours.push(h);
+
+  // distinct agents per hour per day, plus who they were (for the tooltip)
+  const perDay={}, byHourAg={};
   rows.forEach(r=>{
-    const [h,m]=r.ti.split(':').map(Number);
-    const s=Math.floor((h*60+m)/AA_SLOT);
-    if(s<s0||s>=s1) return;
-    ((perDay[r.d]=perDay[r.d]||{})[s]=perDay[r.d][s]||new Set()).add(r.ag);
-    (bySlotAg[s]=bySlotAg[s]||new Set()).add(r.ag);     // named in the tooltip
+    if(r.h<AA_FROM || r.h>=AA_TO) return;
+    ((perDay[r.d]=perDay[r.d]||{})[r.h]=perDay[r.d][r.h]||new Set()).add(r.ag);
+    (byHourAg[r.h]=byHourAg[r.h]||new Set()).add(r.ag);
   });
-  const slots=[]; for(let s=s0;s<s1;s++) slots.push(s);
-  const data=slots.map(s=>{
-    let t=0; days.forEach(d=>{ t+=(perDay[d]&&perDay[d][s])?perDay[d][s].size:0; });
-    return +(t/nDays).toFixed(nDays>1?1:0);
-  });
-  const peak=Math.max(0,...data);
-  const lbl=s=>{ const t=s*AA_SLOT, h=Math.floor(t/60), m=t%60;
-    return `${h%12===0?12:h%12}${m?':'+String(m).padStart(2,'0'):''} ${h<12?'AM':'PM'}`; };
-  makeChart('aa-chart',{type:'line',
-    data:{labels:slots.map(lbl),
-      datasets:[{data, stepped:'before', fill:true,
-        borderColor:cv('var(--brand)'), borderWidth:1.8,
-        backgroundColor:(()=>{const c=document.getElementById('aa-chart');
-          if(!c) return 'rgba(58,65,214,.14)';
-          const g=c.getContext('2d').createLinearGradient(0,0,0,210);
-          g.addColorStop(0,'rgba(58,65,214,.28)'); g.addColorStop(1,'rgba(58,65,214,.03)');
-          return g;})(),
-        pointRadius:0, pointHoverRadius:4, pointHoverBackgroundColor:cv('var(--brand)')}]},
+  const countsFor = h => days.map(d=>(perDay[d]&&perDay[d][h])?perDay[d][h].size:0);
+  // Median, not mean: with a handful of agents the mean lands between two whole
+  // numbers and describes neither. The median is a day that actually happened.
+  const typical = hours.map(h=>Math.round(median(countsFor(h))||0));
+  const busiest = hours.map(h=>Math.max(0,...countsFor(h)));
+  const peak    = Math.max(0,...busiest);
+
+  makeChart('aa-chart',{type:'bar',
+    data:{labels:hours.map(_hr2),
+      datasets:[
+        // Drawn first so it sits behind: the fainter bar is the ceiling, the
+        // solid one in front is what a normal day looks like.
+        {label:'Busiest day', data:busiest, backgroundColor:cv('var(--brand-soft)'),
+         borderColor:cv('var(--brand)'), borderWidth:{top:1.5,left:0,right:0,bottom:0},
+         borderRadius:{topLeft:3,topRight:3}, borderSkipped:false,
+         barPercentage:.92, categoryPercentage:.86, order:2,
+         datalabels:{display:false}},
+        {label:'Typical day', data:typical, backgroundColor:cv('var(--brand)'),
+         borderRadius:{topLeft:3,topRight:3}, borderSkipped:false,
+         barPercentage:.52, categoryPercentage:.86, order:1,
+         datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,
+           anchor:'end', align:'end', offset:2, clamp:true,
+           color:cv('var(--ink-2)'), font:{size:11,weight:'700'},
+           formatter:v=>v}}
+      ]},
     options:{responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
-      plugins:{legend:{display:false},datalabels:{display:false},
+      layout:{padding:{top:16}},
+      plugins:{legend:{display:false},
         tooltip:{callbacks:{
-          title:it=>it[0].label,
-          label:c=>` ${c.parsed.y} agent${c.parsed.y===1?'':'s'} on a call`+
-            (nDays>1?` (avg of ${nDays} days)`:''),
-          // name who was on calls in that slot
-          afterBody:it=>{ const set=bySlotAg[slots[it[0].dataIndex]];
-            return set&&set.size ? [...set].sort().join(', ') : ''; }}}},
-      scales:{x:{grid:{display:false},border:{display:false},
-                 ticks:{maxRotation:0,autoSkip:true,autoSkipPadding:22,
-                        color:cv('var(--muted)'),font:{size:10.5},padding:4}},
+          title:it=>_hr1(hours[it[0].dataIndex]),
+          label:c=>` ${c.dataset.label}: ${c.parsed.y} agent${c.parsed.y===1?'':'s'}`,
+          afterBody:it=>{ const set=byHourAg[hours[it[0].dataIndex]];
+            return set&&set.size ? ['', [...set].sort().join(', ')] : ''; }}}},
+      // Whole agents only: a 0.5 gridline would imply half a person.
+      scales:{x:{stacked:false,grid:{display:false},border:{display:false},
+                 ticks:{maxRotation:0,autoSkip:false,
+                        color:cv('var(--muted)'),font:{size:10.5},padding:6}},
               y:{beginAtZero:true,border:{display:false},
+                 suggestedMax:Math.max(1,peak),
                  grid:{color:cv('var(--line)'),drawTicks:false},
-                 ticks:{precision:0,maxTicksLimit:5,color:cv('var(--muted)'),
+                 ticks:{precision:0,stepSize:1,color:cv('var(--muted)'),
                         font:{size:10.5},padding:8}}}}});
-  document.getElementById('aa-note').innerHTML = '<ul>'+
-    `<li>Agents on an <b>inbound</b> call in each ${AA_SLOT}-minute slot, 9 AM–7 PM. Callbacks are excluded.</li>`+
-    `<li>${nDays>1?`Averaged across ${nDays} days`:'For this day'}, so it shows a typical day rather than a total.</li>`+
-    `<li>Peak <b>${peak}</b> agents on calls at once.</li>`+
-    `<li>Only answered calls carry an agent name, so this is time on calls — not roster. An agent between calls does not appear.</li>`+
-    `<li>Hover a slot for the agent names.</li>`+
-    '</ul>';
 
+  // The gap between typical and busiest is the headline: it is where cover
+  // depends on who happens to be in, rather than on a staffing decision.
+  let gapH=null, gapV=0;
+  hours.forEach((h,i)=>{ const g=busiest[i]-typical[i]; if(g>gapV){ gapV=g; gapH=h; } });
+  const thin = hours.filter((h,i)=>typical[i]<=1);
+  document.getElementById('aa-note').innerHTML = '<ul>'+
+    `<li>Agents on an <b>inbound</b> call in each hour, 9 AM–7 PM. Callbacks are excluded.</li>`+
+    `<li>The solid bar is a <b>typical day</b> (the median of ${nDays} day${nDays===1?'':'s'}); the faint bar behind it is the <b>busiest</b> that hour has been.</li>`+
+    `<li>Whole agents only — averaging people across days gives figures like "2.3", which describe no real moment.</li>`+
+    (gapH!=null?`<li>Widest gap is at <b>${_hr1(gapH)}</b>: ${gapV} more agent${gapV===1?'':'s'} on the busiest day than on a typical one.</li>`:'')+
+    (thin.length?`<li>Thinnest cover: <b>${thin.map(_hr1).join(', ')}</b> — one agent or fewer on a typical day.</li>`:'')+
+    `<li>Only answered calls carry an agent name, so this is time <b>on calls</b>, not roster. An agent between calls does not appear.</li>`+
+    `<li>Hover an hour for the names.</li>`+
+    '</ul>';
 }
 function renderAction(p){
   _cardHandlers={};
