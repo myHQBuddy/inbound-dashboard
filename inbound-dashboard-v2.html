@@ -546,6 +546,8 @@ table.dt tbody tr:hover td{background:var(--surface-2)}
       <div class="dow-bar" id="ov-tr-metrics"></div>
       <!-- weekday narrowing -->
       <div class="dow-bar" id="ov-tr-dow"></div>
+      <!-- week narrowing: pick specific weeks to compare -->
+      <div class="dow-bar" id="ov-tr-wk"></div>
       <!-- rewritten by renderOvTrend with the active metrics and day filter -->
       <div class="card-note" id="ov-tr-note"><ul><li>Each metric as a line over the period, with its average as a dashed reference.</li></ul></div>
       <div class="chart-wrap tall"><canvas id="ov-tr-chart"></canvas></div>
@@ -617,6 +619,8 @@ table.dt tbody tr:hover td{background:var(--surface-2)}
       <div class="dow-bar" id="ld-intent"></div>
       <!-- weekday narrowing: drop the days you don't want on the line -->
       <div class="dow-bar" id="ld-dow"></div>
+      <!-- day vs week buckets -->
+      <div class="dow-bar" id="ld-wk"></div>
       <!-- rewritten by renderLeads with the active product / intent / day filters -->
       <div class="card-note" id="ld-note"><ul><li>Dispositioned leads by product.</li></ul></div>
       <div class="chart-wrap tall"><canvas id="ld-trend-chart"></canvas></div>
@@ -1449,6 +1453,17 @@ function groupDates(dates, grain){
   });
 }
 const OV_TR_DOW=new Set();
+// Bucket size for the two trend lines: 'day' plots one point per day, 'week'
+// one per week with every week in range compared directly. Set on the chart
+// itself, independent of the Daily/Weekly filter at the top of the page.
+let OV_TR_GRAIN='day', LD_GRAIN='day';
+// Weeks covered by a period, oldest first, labelled "W40 · 30 Sep".
+function weeksIn(from,to){
+  const seen=new Map();
+  allDates.filter(d=>d>=from&&d<=to).forEach(d=>{
+    const w=weekRange(d); if(!seen.has(w.from)) seen.set(w.from,w); });
+  return [...seen.values()].sort((a,b)=>a.from<b.from?-1:1);
+}
 function renderOvTrend(p){
   const cv=cssVar;
   const bar=(id,items,sel,onPick,lbl)=>{
@@ -1464,13 +1479,23 @@ function renderOvTrend(p){
   };
   bar('ov-tr-metrics', OV_TR_METRICS, OV_TR_ON, ()=>renderOvTrend(p), 'Metrics');
   bar('ov-tr-dow', DOW_ORDER.map(d=>({key:d,label:d})), OV_TR_DOW, ()=>renderOvTrend(p), 'Days');
+  // Compare row: Days plots one point per day, Weeks one point per week with
+  // every week in range side by side. Lives on the chart, independent of the
+  // filter at the top. Hidden when the range holds a single week.
+  const wks=weeksIn(p.from,p.to);
+  const wkBar=document.getElementById('ov-tr-wk');
+  if(wks.length<2){ wkBar.style.display='none'; OV_TR_GRAIN='day'; }
+  else { wkBar.style.display='flex';
+    const mk=(k,l)=>`<button class="dow${OV_TR_GRAIN===k?' on':''}" data-g="${k}">${l}</button>`;
+    wkBar.innerHTML=`<span class="dow-lbl">Compare</span>`+mk('day','Days')+mk('week','Weeks');
+    wkBar.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+      OV_TR_GRAIN=b.dataset.g; renderOvTrend(p); }); }
 
   let dates=allDates.filter(d=>d>=p.from&&d<=p.to);
   if(OV_TR_DOW.size) dates=dates.filter(d=>OV_TR_DOW.has(_dowOf(d)));
-  // Buckets follow the master filter: Daily plots days, Weekly sums each week,
-  // Monthly each month. The weekday toggles still apply first, so "Sundays,
-  // weekly" is one point per week containing exactly that Sunday.
-  const grain=trendGroup();
+  // Weekday narrowing applies first, so "Sundays + Weeks" is one point per week
+  // holding exactly that Sunday — the weekly view of a single weekday.
+  const grain=OV_TR_GRAIN;
   const buckets=groupDates(dates,grain);
   // statsFor over a bucket's span rather than per day, so rates stay pooled.
   const stats=buckets.map(b=>b.dates.length===1 ? statsFor(b.dates[0],b.dates[0])
@@ -1510,7 +1535,8 @@ function renderOvTrend(p){
   document.getElementById('ov-tr-note').innerHTML = '<ul>'+
     `<li>Each selected metric as a line over the ${buckets.length} ${grain==='day'?'day':grain}${buckets.length===1?'':'s'} shown`+
     (OV_TR_DOW.size?` (${[...OV_TR_DOW].join(', ')} only)`:'')+`.</li>`+
-    (grain!=='day'?`<li>Points are ${grain}ly totals — grouping follows the <b>Daily / Weekly / Monthly</b> filter at the top.</li>`:'')+
+    (grain==='week'?`<li>Each point is a <b>week's total</b>, so every week in range is compared directly.</li>`:'')+
+    `<li><b>Compare</b> switches between one point per day and one per week. It is independent of the filter at the top.</li>`+
     `<li>Dashed lines are that metric's average, labelled with its value.</li>`+
     `<li>Narrowing the days recomputes the averages, so excluding weekends moves the baseline too.</li>`+
     `<li>Click a chip to show only it; <b>Ctrl/⌘-click</b> to pick more than one.</li>`+
@@ -2056,9 +2082,18 @@ function renderLeads(p){
   // (or a weekend dip) can be excluded rather than distorting the averages.
   renderLdIntentBar(p);
   renderLdDowBar(p, single);
-  // Buckets follow the master filter, same as the Overview trend: a single day
-  // is still plotted by hour, otherwise Daily/Weekly/Monthly decides the grain.
-  const grain = single ? 'day' : trendGroup();
+  // Compare row, same as the Overview trend: Days or Weeks, chosen on the chart
+  // rather than inherited from the filter at the top. A single day is still
+  // plotted by hour, where neither option means anything.
+  const wks = single ? [] : weeksIn(p.from,p.to);
+  const wkBar = document.getElementById('ld-wk');
+  if(single || wks.length<2){ wkBar.style.display='none'; if(single) LD_GRAIN='day'; }
+  else { wkBar.style.display='flex';
+    const mk=(k,l)=>`<button class="dow${LD_GRAIN===k?' on':''}" data-g="${k}">${l}</button>`;
+    wkBar.innerHTML=`<span class="dow-lbl">Compare</span>`+mk('day','Days')+mk('week','Weeks');
+    wkBar.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+      LD_GRAIN=b.dataset.g; renderLeads(p); }); }
+  const grain = single ? 'day' : LD_GRAIN;
   let dates = [...new Set(recsIn(p.from,p.to).map(r=>r.d))].sort();
   if(LD_DOW.size) dates = dates.filter(d=>LD_DOW.has(_dowOf(d)));
   const groups = single ? null : groupDates(dates, grain);
@@ -2121,7 +2156,8 @@ function renderLeads(p){
     (single ? '<li>Dispositioned leads by hour for the selected day.</li>'
             : `<li>Dispositioned leads per ${grain}, by product.</li>`+
               `<li>Dashed lines are each product's average over the ${grain}s shown.</li>`+
-              (grain!=='day'?`<li>Points are ${grain}ly totals — grouping follows the <b>Daily / Weekly / Monthly</b> filter at the top.</li>`:''))
+              (grain==='week'?`<li>Each point is a <b>week's total</b>, so every week in range is compared directly.</li>`:'')+
+              `<li><b>Compare</b> switches between one point per day and one per week, independent of the filter at the top.</li>`)
     + '<li>A lead is an answered call tagged with a product (AM, VO or OD), so this counts calls rather than people.</li>'
     + (LD_CT.size ? `<li>Filtered to <b>${[...LD_CT].join(' + ')}</b> only.</li>` : '')
     + (LD_DOW.size ? `<li>Filtered to <b>${[...LD_DOW].join(', ')}</b> only.</li>` : '')
