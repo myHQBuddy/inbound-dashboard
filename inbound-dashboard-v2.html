@@ -540,6 +540,15 @@ table.dt tbody tr:hover td{background:var(--surface-2)}
       </div>
       <div class="chart-wrap tall"><canvas id="ov-vol-chart"></canvas></div>
     </div>
+    <div class="card" style="margin-bottom:16px" id="ov-hr-card">
+      <div class="card-h">
+        <div class="card-title">Typical Day by Hour</div>
+        <div class="chips" id="ov-hr-chips"></div>
+      </div>
+      <!-- rewritten by renderHourProfile with the day count and peak hour -->
+      <div class="card-note" id="ov-hr-note"><ul><li>Average calls per hour across the days in range.</li></ul></div>
+      <div class="chart-wrap tall"><canvas id="ov-hr-chart"></canvas></div>
+    </div>
     <div class="card" style="margin-bottom:16px">
       <div class="card-h"><div class="card-title">Day-by-Day Trend</div></div>
       <!-- metric narrowing -->
@@ -1101,6 +1110,100 @@ function hmColor(rate){
   if(rate>=50) return {bg:'#f0b453', fg:'#3a2400'};
   return {bg:'#d9534f', fg:'#fff'};
 }
+// ── Typical day by hour ──────────────────────────────────────────────────────
+// The daily chart answers "which days were heavy?"; this answers "which HOURS
+// are heavy, on a normal day?" — the shape you staff against. Values are per-day
+// averages, so a 30-day range and a 7-day range are directly comparable.
+// Hidden on a single day, where the volume chart already shows that day by hour
+// and an "average" over one day would just restate it.
+// 8 AM to 11 PM. The hours either side carry ~0.5 calls a day between them, so
+// including them would spend a third of the axis on empty columns; the note
+// states the share that lands in working hours, which is the number that matters.
+const HOURS_ALL = Array.from({length:16},(_,i)=>i+8);
+const OV_HR=new Set();
+function renderHourProfile(A, p, single){
+  const card=document.getElementById('ov-hr-card');
+  if(single){ card.style.display='none'; return; }
+  card.style.display='';
+  const cv=cssVar;
+  const V_COL={'answered':'var(--v-ans)','Agent Missed':'var(--v-agent)',
+    'Queue Missed - Within Hours':'var(--v-queue)','Queue Missed - After Hours':'var(--v-aoh)'};
+  const chipItems=[{key:'answered',label:'Answered',color:'var(--v-ans)'},
+    ...MISS_TYPES.map(t=>({key:t.key,label:t.label,color:V_COL[t.key]}))];
+  chipGroup(document.getElementById('ov-hr-chips'), chipItems, OV_HR,
+    (k,e)=>pickToggle(OV_HR, k, e, ()=>renderHourProfile(A,p,single)));
+
+  // Divide by days that actually carry inbound calls, not calendar days in the
+  // range — a range including a closed day would otherwise understate the rest.
+  const nDays=new Set(A.ib.map(r=>r.d)).size || 1;
+  const per = rows => HOURS_ALL.map(h=>rows.filter(r=>r.h===h).length/nDays);
+
+  const allSets=[{key:'answered',label:'Answered',color:cv('var(--v-ans)'),rows:A.ans},
+    ...MISS_TYPES.map(t=>({key:t.key,label:t.label,color:cv(V_COL[t.key]),rows:A.byType[t.key]}))];
+  const sets = OV_HR.size ? allSets.filter(x=>OV_HR.has(x.key)) : allSets;
+  const partial = OV_HR.size>0 && OV_HR.size<allSets.length;
+  const lastIdx=sets.length-1;
+
+  const totals = per(A.ib);                        // all inbound, per hour
+  const shown  = HOURS_ALL.map((h,i)=>sets.reduce((a,x)=>a+x.rows.filter(r=>r.h===h).length/nDays,0));
+  const maxTot = Math.max(.001,...shown);
+  const MIN_SHARE=.07;
+  const fmt1 = v => Math.round(v*10)/10;           // one decimal: these are averages
+
+  const barSets = sets.map((x,i)=>({
+    label:x.label, data:per(x.rows), backgroundColor:x.color,
+    borderRadius:i===lastIdx?{topLeft:3,topRight:3}:0, borderSkipped:false,
+    barPercentage:.88, categoryPercentage:.9,
+    datalabels:{
+      display:ctx=>{ const v=ctx.dataset.data[ctx.dataIndex];
+        return v>0 && (v/maxTot)>=MIN_SHARE; },
+      color:x.key==='Queue Missed - After Hours'?cv('var(--ink-2)'):'#fff',
+      font:{size:10.5,weight:'700'},
+      formatter:(v,ctx)=>{ const t=totals[ctx.dataIndex];
+        return t?Math.round(v/t*100)+'%':''; }}}));
+  barSets[lastIdx].datalabels={labels:{
+    share: barSets[lastIdx].datalabels,
+    total: {display:ctx=>(partial?shown[ctx.dataIndex]:totals[ctx.dataIndex])>=.05,
+      anchor:'end', align:'end', offset:3, clamp:true,
+      color:cv('var(--ink-2)'), font:{size:10.5,weight:'700'},
+      formatter:(v,ctx)=>fmt1(partial?shown[ctx.dataIndex]:totals[ctx.dataIndex])}}};
+
+  makeChart('ov-hr-chart',{type:'bar',
+    data:{labels:HOURS_ALL.map(_hr2), datasets:barSets},
+    options:{responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      layout:{padding:{top:18}},
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{
+          title:it=>_hr1(HOURS_ALL[it[0].dataIndex]),
+          label:c=>` ${c.dataset.label}: ${fmt1(c.parsed.y)} / day`,
+          footer:it=>{ const i=it[0].dataIndex, t=totals[i];
+            if(!t) return '';
+            const a=A.ans.filter(r=>r.h===HOURS_ALL[i]).length/nDays;
+            const base=`All inbound ${fmt1(t)}/day · ${Math.round(a/t*100)}% answered`;
+            return partial ? `Shown ${fmt1(shown[i])} of ${fmt1(t)}
+${base}` : base; }}}},
+      scales:{x:{stacked:true,grid:{display:false},border:{display:false},
+                 ticks:{maxRotation:0,autoSkip:true,autoSkipPadding:10,
+                        color:cv('var(--muted)'),font:{size:10.5},padding:6}},
+              y:{stacked:true,beginAtZero:true,display:false,
+                 border:{display:false},grace:'8%'}}}});
+
+  // Peak hour and the office-hours share: the two things this chart is for.
+  let peakI=0; totals.forEach((v,i)=>{ if(v>totals[peakI]) peakI=i; });
+  // Measured against ALL inbound, not just the plotted hours — the axis starts
+  // at 8 AM, so summing `totals` would quietly exclude the overnight calls and
+  // inflate the working-hours share.
+  const inOffice = A.ib.filter(r=>r.h>=9&&r.h<=18).length;
+  const allDay   = A.ib.length;
+  document.getElementById('ov-hr-note').innerHTML='<ul>'+
+    `<li>Average calls per hour on a typical day, over the ${nDays} day${nDays===1?'':'s'} with calls in this range.</li>`+
+    `<li>Busiest hour is <b>${_hr1(HOURS_ALL[peakI])}</b> at ${fmt1(totals[peakI])} calls/day.</li>`+
+    `<li><b>${Math.round(inOffice/allDay*100)}%</b> of calls land inside working hours (9 AM–7 PM).</li>`+
+    `<li>Percentages inside each bar are that segment's share of the hour; the figure above is the hour's total.</li>`+
+    `<li>Click a chip to isolate a series; <b>Ctrl/⌘-click</b> to combine.</li>`+
+    '</ul>';
+}
 function renderHeatmap(A,p){
   const box=document.getElementById('ov-heatmap');
   // Monthly mode is a cross-month comparison: every month in the dataset gets a
@@ -1521,6 +1624,9 @@ function renderOverview(p){
                  grid:{color:cv('var(--line)'),drawTicks:false},
                  ticks:{precision:0,maxTicksLimit:5,color:cv('var(--muted)'),
                         font:{size:10.5},padding:8}}}}});
+
+  // ── typical day by hour ──
+  renderHourProfile(A, p, single);
 
   // ── answer-rate heatmap: rows = day (or day-of-week), cols = hour ──
   renderHeatmap(A, p);
