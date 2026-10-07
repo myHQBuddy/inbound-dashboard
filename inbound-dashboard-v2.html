@@ -540,15 +540,6 @@ table.dt tbody tr:hover td{background:var(--surface-2)}
       </div>
       <div class="chart-wrap tall"><canvas id="ov-vol-chart"></canvas></div>
     </div>
-    <div class="card" style="margin-bottom:16px" id="ov-hr-card">
-      <div class="card-h">
-        <div class="card-title">Typical Day by Hour</div>
-        <div class="chips" id="ov-hr-chips"></div>
-      </div>
-      <!-- rewritten by renderHourProfile with the day count and peak hour -->
-      <div class="card-note" id="ov-hr-note"><ul><li>Average calls per hour across the days in range.</li></ul></div>
-      <div class="chart-wrap tall"><canvas id="ov-hr-chart"></canvas></div>
-    </div>
     <div class="card" style="margin-bottom:16px">
       <div class="card-h"><div class="card-title">Day-by-Day Trend</div></div>
       <!-- metric narrowing -->
@@ -567,6 +558,15 @@ table.dt tbody tr:hover td{background:var(--surface-2)}
       <!-- rewritten by the heatmap render, which knows the active grouping -->
       <div class="card-note" id="ov-hm-note"><ul><li>Answer rate by day and hour. Darker green is better; red needs coverage.</li></ul></div>
       <div style="overflow-x:auto"><div id="ov-heatmap"></div></div>
+    </div>
+    <div class="card" style="margin-bottom:16px" id="ov-hr-card">
+      <div class="card-h">
+        <div class="card-title">Typical Day by Hour</div>
+        <div class="chips" id="ov-hr-chips"></div>
+      </div>
+      <!-- rewritten by renderHourProfile with the day count and peak hour -->
+      <div class="card-note" id="ov-hr-note"><ul><li>Average calls per hour across the days in range.</li></ul></div>
+      <div class="chart-wrap tall"><canvas id="ov-hr-chart"></canvas></div>
     </div>
   </div>
   <div class="panel" id="panel-callbacks">
@@ -618,7 +618,7 @@ table.dt tbody tr:hover td{background:var(--surface-2)}
       <!-- weekday narrowing: drop the days you don't want on the line -->
       <div class="dow-bar" id="ld-dow"></div>
       <!-- rewritten by renderLeads with the active product / intent / day filters -->
-      <div class="card-note" id="ld-note"><ul><li>Dispositioned leads per day by product.</li></ul></div>
+      <div class="card-note" id="ld-note"><ul><li>Dispositioned leads by product.</li></ul></div>
       <div class="chart-wrap tall"><canvas id="ld-trend-chart"></canvas></div>
     </div>
     <div class="row2">
@@ -650,7 +650,7 @@ table.dt tbody tr:hover td{background:var(--surface-2)}
       </div>
       <!-- rewritten by renderAgentActivity with the peak and day count -->
       <div class="card-note" id="aa-note"><ul><li>How many agents were on an inbound call in each 15-minute slot.</li></ul></div>
-      <div class="chart-wrap" style="height:240px"><canvas id="aa-chart"></canvas></div>
+      <div class="chart-wrap" style="height:210px"><canvas id="aa-chart"></canvas></div>
     </div>
   </div>
   <div class="panel" id="panel-trends">
@@ -1425,6 +1425,29 @@ const OV_TR_METRICS=[
   {key:'aoh',      label:'AOH Missed',    color:'var(--v-aoh)',   get:s=>s.byType['Queue Missed - After Hours'].length},
 ];
 const OV_TR_ON=new Set(['total','answered']);   // sensible default, not all five
+// Both trend lines follow the master filter's Daily / Weekly / Monthly rather
+// than carrying a toggle of their own — the control is already at the top of
+// the page, and a second one beside the chart would be a duplicate.
+// Groups dates into weeks (or months), preserving order. Returns the bucket keys and, for
+// each, the dates it covers — so a caller can sum whatever it already computes
+// per date rather than needing a second code path.
+// Returns the bucket keys and the dates each covers, so a caller can sum what it
+// already computes per date instead of needing a second code path.
+function groupDates(dates, grain){
+  if(grain==='day') return dates.map(d=>({key:d, dates:[d], label:[_dowOf(d),_dm(d)],
+                                          full:`${_dowOf(d)} ${_dm(d)}`}));
+  const map=new Map();
+  dates.forEach(d=>{
+    const k = grain==='week' ? weekRange(d).from : d.slice(0,7);
+    if(!map.has(k)) map.set(k,[]); map.get(k).push(d);
+  });
+  return [...map.entries()].map(([k,ds])=>{
+    if(grain==='week'){ const r=weekRange(k);
+      return {key:k, dates:ds, label:[`W${r.week}`,_dm(k)], full:_wkLabel(r.from,r.to)}; }
+    const r=monthRange(k);
+    return {key:k, dates:ds, label:[r.short, k.slice(0,4)], full:r.label};
+  });
+}
 const OV_TR_DOW=new Set();
 function renderOvTrend(p){
   const cv=cssVar;
@@ -1444,7 +1467,14 @@ function renderOvTrend(p){
 
   let dates=allDates.filter(d=>d>=p.from&&d<=p.to);
   if(OV_TR_DOW.size) dates=dates.filter(d=>OV_TR_DOW.has(_dowOf(d)));
-  const stats=dates.map(d=>statsFor(d,d));
+  // Buckets follow the master filter: Daily plots days, Weekly sums each week,
+  // Monthly each month. The weekday toggles still apply first, so "Sundays,
+  // weekly" is one point per week containing exactly that Sunday.
+  const grain=trendGroup();
+  const buckets=groupDates(dates,grain);
+  // statsFor over a bucket's span rather than per day, so rates stay pooled.
+  const stats=buckets.map(b=>b.dates.length===1 ? statsFor(b.dates[0],b.dates[0])
+    : statsFor(b.dates[0], b.dates[b.dates.length-1]));
   const shown=OV_TR_METRICS.filter(m=>OV_TR_ON.has(m.key));
   const sets=[];
   shown.forEach(m=>{
@@ -1452,9 +1482,9 @@ function renderOvTrend(p){
     const mean=data.length?Math.round(data.reduce((a,v)=>a+v,0)/data.length):0;
     sets.push({label:m.label, data, borderColor:cv(m.color), backgroundColor:cv(m.color),
       borderWidth:2.2, tension:.35, fill:false, order:1,
-      pointRadius:dates.length>45?0:3, pointHoverRadius:5,
+      pointRadius:buckets.length>45?0:3, pointHoverRadius:5,
       pointBackgroundColor:cv('var(--surface)'), pointBorderColor:cv(m.color), pointBorderWidth:2});
-    sets.push({label:`${m.label} avg`, data:dates.map(()=>mean), isAvg:true, order:2,
+    sets.push({label:`${m.label} avg`, data:buckets.map(()=>mean), isAvg:true, order:2,
       borderColor:cv(m.color), borderWidth:1.2, borderDash:[5,4],
       pointRadius:0, pointHoverRadius:0, fill:false, tension:0,
       datalabels:{display:ctx=>ctx.dataIndex===ctx.dataset.data.length-1,
@@ -1462,13 +1492,13 @@ function renderOvTrend(p){
         color:cv(m.color), font:{size:10.5,weight:'700'}, formatter:()=>mean}});
   });
   makeChart('ov-tr-chart',{type:'line',
-    data:{labels:dates.map(d=>[_dowOf(d),_dm(d)]), datasets:sets},
+    data:{labels:buckets.map(b=>b.label), datasets:sets},
     options:{responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
       layout:{padding:{right:28}},
       plugins:{legend:{display:false},
         tooltip:{filter:it=>!it.dataset.isAvg,
-          callbacks:{title:it=>`${_dowOf(dates[it[0].dataIndex])} ${_dm(dates[it[0].dataIndex])}`,
+          callbacks:{title:it=>buckets[it[0].dataIndex].full,
                      label:c=>` ${c.dataset.label}: ${fmtN(c.parsed.y)}`}}},
       scales:{x:{grid:{display:false},border:{display:false},
                  ticks:{maxRotation:0,autoSkip:true,autoSkipPadding:12,
@@ -1478,8 +1508,9 @@ function renderOvTrend(p){
                  ticks:{precision:0,maxTicksLimit:6,color:cv('var(--muted)'),
                         font:{size:10.5},padding:8}}}}});
   document.getElementById('ov-tr-note').innerHTML = '<ul>'+
-    `<li>Each selected metric as a line over the ${dates.length} day${dates.length===1?'':'s'} shown`+
+    `<li>Each selected metric as a line over the ${buckets.length} ${grain==='day'?'day':grain}${buckets.length===1?'':'s'} shown`+
     (OV_TR_DOW.size?` (${[...OV_TR_DOW].join(', ')} only)`:'')+`.</li>`+
+    (grain!=='day'?`<li>Points are ${grain}ly totals — grouping follows the <b>Daily / Weekly / Monthly</b> filter at the top.</li>`:'')+
     `<li>Dashed lines are that metric's average, labelled with its value.</li>`+
     `<li>Narrowing the days recomputes the averages, so excluding weekends moves the baseline too.</li>`+
     `<li>Click a chip to show only it; <b>Ctrl/⌘-click</b> to pick more than one.</li>`+
@@ -2025,12 +2056,20 @@ function renderLeads(p){
   // (or a weekend dip) can be excluded rather than distorting the averages.
   renderLdIntentBar(p);
   renderLdDowBar(p, single);
-  const labelOf = b => single ? _hr2(b) : [_dowOf(b),_dm(b)];
-  const labelFull = b => single ? _hr1(b) : `${_dowOf(b)} ${_dm(b)}`;
-  const inB=(r,b)=> single ? r.h===b : r.d===b;
-  let buckets = single ? Array.from({length:24},(_,h)=>h)
-                       : [...new Set(recsIn(p.from,p.to).map(r=>r.d))].sort();
-  if(!single && LD_DOW.size) buckets = buckets.filter(d=>LD_DOW.has(_dowOf(d)));
+  // Buckets follow the master filter, same as the Overview trend: a single day
+  // is still plotted by hour, otherwise Daily/Weekly/Monthly decides the grain.
+  const grain = single ? 'day' : trendGroup();
+  let dates = [...new Set(recsIn(p.from,p.to).map(r=>r.d))].sort();
+  if(LD_DOW.size) dates = dates.filter(d=>LD_DOW.has(_dowOf(d)));
+  const groups = single ? null : groupDates(dates, grain);
+  // Set, not Array.includes: inB runs once per record per bucket, so a linear
+  // scan of the dates would be O(records x days) on a full-range view.
+  if(groups) groups.forEach(g=>{ g.set=new Set(g.dates); });
+  // A bucket is an hour on a single day, otherwise the set of dates it covers.
+  let buckets = single ? Array.from({length:24},(_,h)=>h) : groups;
+  const labelOf = b => single ? _hr2(b) : b.label;
+  const labelFull = b => single ? _hr1(b) : b.full;
+  const inB=(r,b)=> single ? r.h===b : b.set.has(r.d);
   const shown = LD_PROD ? PRODUCTS.filter(x=>x.key===LD_PROD) : PRODUCTS;
 
   // Per-product series plus a dashed average line for each, so every point can
@@ -2080,8 +2119,9 @@ function renderLeads(p){
                         font:{size:10.5},padding:8}}}}});
   document.getElementById('ld-note').innerHTML = '<ul>'+
     (single ? '<li>Dispositioned leads by hour for the selected day.</li>'
-            : "<li>Dispositioned leads per day, by product.</li>"+
-              "<li>Dashed lines are each product's average over the days shown.</li>")
+            : `<li>Dispositioned leads per ${grain}, by product.</li>`+
+              `<li>Dashed lines are each product's average over the ${grain}s shown.</li>`+
+              (grain!=='day'?`<li>Points are ${grain}ly totals — grouping follows the <b>Daily / Weekly / Monthly</b> filter at the top.</li>`:''))
     + '<li>A lead is an answered call tagged with a product (AM, VO or OD), so this counts calls rather than people.</li>'
     + (LD_CT.size ? `<li>Filtered to <b>${[...LD_CT].join(' + ')}</b> only.</li>` : '')
     + (LD_DOW.size ? `<li>Filtered to <b>${[...LD_DOW].join(', ')}</b> only.</li>` : '')
@@ -2148,88 +2188,67 @@ function renderLeads(p){
 // Inbound only. dr='callback' is every outbound dial — Lead Qualification,
 // Outreach Sprint, the city campaigns — so including it would mix the outreach
 // floor into a chart about inbound coverage.
-const AA_FROM=9, AA_TO=19;                          // office hours: 9am-7pm
-
-// ── Agents on inbound calls, by hour ─────────────────────────────────────────
-// Agents are whole people, so this does not average them across days: a "2.3
-// agents" figure describes no real moment and reads as noise. Instead each hour
-// shows the TYPICAL count (the median day) with the BUSIEST day behind it, both
-// whole numbers. A wide gap between the two means coverage that hour is
-// inconsistent, which is the thing worth acting on.
-// Hourly rather than 15-minute slots so it lines up with the demand chart above.
+const AA_SLOT=15;                                   // minutes per slot
+const AA_FROM=9, AA_TO=19;                          // office hours: 9am–7pm
 function renderAgentActivity(p){
   const cv=cssVar;
   const rows=recsIn(p.from,p.to).filter(r=>
     r.st==='answered' && r.ag && r.ti && r.dr==='inbound');
   const days=[...new Set(rows.map(r=>r.d))];
   const nDays=Math.max(1,days.length);
-  const hours=[]; for(let h=AA_FROM;h<AA_TO;h++) hours.push(h);
-
-  // distinct agents per hour per day, plus who they were (for the tooltip)
-  const perDay={}, byHourAg={};
+  const s0=Math.floor(AA_FROM*60/AA_SLOT), s1=Math.floor(AA_TO*60/AA_SLOT);
+  // distinct agents per slot per day, then averaged over the days in range
+  const perDay={}, bySlotAg={};
   rows.forEach(r=>{
-    if(r.h<AA_FROM || r.h>=AA_TO) return;
-    ((perDay[r.d]=perDay[r.d]||{})[r.h]=perDay[r.d][r.h]||new Set()).add(r.ag);
-    (byHourAg[r.h]=byHourAg[r.h]||new Set()).add(r.ag);
+    const [h,m]=r.ti.split(':').map(Number);
+    const s=Math.floor((h*60+m)/AA_SLOT);
+    if(s<s0||s>=s1) return;
+    ((perDay[r.d]=perDay[r.d]||{})[s]=perDay[r.d][s]||new Set()).add(r.ag);
+    (bySlotAg[s]=bySlotAg[s]||new Set()).add(r.ag);     // named in the tooltip
   });
-  const countsFor = h => days.map(d=>(perDay[d]&&perDay[d][h])?perDay[d][h].size:0);
-  // Median, not mean: with a handful of agents the mean lands between two whole
-  // numbers and describes neither. The median is a day that actually happened.
-  const typical = hours.map(h=>Math.round(median(countsFor(h))||0));
-  const busiest = hours.map(h=>Math.max(0,...countsFor(h)));
-  const peak    = Math.max(0,...busiest);
-
-  makeChart('aa-chart',{type:'bar',
-    data:{labels:hours.map(_hr2),
-      datasets:[
-        // Drawn first so it sits behind: the fainter bar is the ceiling, the
-        // solid one in front is what a normal day looks like.
-        {label:'Busiest day', data:busiest, backgroundColor:cv('var(--brand-soft)'),
-         borderColor:cv('var(--brand)'), borderWidth:{top:1.5,left:0,right:0,bottom:0},
-         borderRadius:{topLeft:3,topRight:3}, borderSkipped:false,
-         barPercentage:.92, categoryPercentage:.86, order:2,
-         datalabels:{display:false}},
-        {label:'Typical day', data:typical, backgroundColor:cv('var(--brand)'),
-         borderRadius:{topLeft:3,topRight:3}, borderSkipped:false,
-         barPercentage:.52, categoryPercentage:.86, order:1,
-         datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,
-           anchor:'end', align:'end', offset:2, clamp:true,
-           color:cv('var(--ink-2)'), font:{size:11,weight:'700'},
-           formatter:v=>v}}
-      ]},
+  const slots=[]; for(let s=s0;s<s1;s++) slots.push(s);
+  const data=slots.map(s=>{
+    let t=0; days.forEach(d=>{ t+=(perDay[d]&&perDay[d][s])?perDay[d][s].size:0; });
+    return +(t/nDays).toFixed(nDays>1?1:0);
+  });
+  const peak=Math.max(0,...data);
+  const lbl=s=>{ const t=s*AA_SLOT, h=Math.floor(t/60), m=t%60;
+    return `${h%12===0?12:h%12}${m?':'+String(m).padStart(2,'0'):''} ${h<12?'AM':'PM'}`; };
+  makeChart('aa-chart',{type:'line',
+    data:{labels:slots.map(lbl),
+      datasets:[{data, stepped:'before', fill:true,
+        borderColor:cv('var(--brand)'), borderWidth:1.8,
+        backgroundColor:(()=>{const c=document.getElementById('aa-chart');
+          if(!c) return 'rgba(58,65,214,.14)';
+          const g=c.getContext('2d').createLinearGradient(0,0,0,210);
+          g.addColorStop(0,'rgba(58,65,214,.28)'); g.addColorStop(1,'rgba(58,65,214,.03)');
+          return g;})(),
+        pointRadius:0, pointHoverRadius:4, pointHoverBackgroundColor:cv('var(--brand)')}]},
     options:{responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
-      layout:{padding:{top:16}},
-      plugins:{legend:{display:false},
+      plugins:{legend:{display:false},datalabels:{display:false},
         tooltip:{callbacks:{
-          title:it=>_hr1(hours[it[0].dataIndex]),
-          label:c=>` ${c.dataset.label}: ${c.parsed.y} agent${c.parsed.y===1?'':'s'}`,
-          afterBody:it=>{ const set=byHourAg[hours[it[0].dataIndex]];
-            return set&&set.size ? ['', [...set].sort().join(', ')] : ''; }}}},
-      // Whole agents only: a 0.5 gridline would imply half a person.
-      scales:{x:{stacked:false,grid:{display:false},border:{display:false},
-                 ticks:{maxRotation:0,autoSkip:false,
-                        color:cv('var(--muted)'),font:{size:10.5},padding:6}},
+          title:it=>it[0].label,
+          label:c=>` ${c.parsed.y} agent${c.parsed.y===1?'':'s'} on a call`+
+            (nDays>1?` (avg of ${nDays} days)`:''),
+          // name who was on calls in that slot
+          afterBody:it=>{ const set=bySlotAg[slots[it[0].dataIndex]];
+            return set&&set.size ? [...set].sort().join(', ') : ''; }}}},
+      scales:{x:{grid:{display:false},border:{display:false},
+                 ticks:{maxRotation:0,autoSkip:true,autoSkipPadding:22,
+                        color:cv('var(--muted)'),font:{size:10.5},padding:4}},
               y:{beginAtZero:true,border:{display:false},
-                 suggestedMax:Math.max(1,peak),
                  grid:{color:cv('var(--line)'),drawTicks:false},
-                 ticks:{precision:0,stepSize:1,color:cv('var(--muted)'),
+                 ticks:{precision:0,maxTicksLimit:5,color:cv('var(--muted)'),
                         font:{size:10.5},padding:8}}}}});
-
-  // The gap between typical and busiest is the headline: it is where cover
-  // depends on who happens to be in, rather than on a staffing decision.
-  let gapH=null, gapV=0;
-  hours.forEach((h,i)=>{ const g=busiest[i]-typical[i]; if(g>gapV){ gapV=g; gapH=h; } });
-  const thin = hours.filter((h,i)=>typical[i]<=1);
   document.getElementById('aa-note').innerHTML = '<ul>'+
-    `<li>Agents on an <b>inbound</b> call in each hour, 9 AM–7 PM. Callbacks are excluded.</li>`+
-    `<li>The solid bar is a <b>typical day</b> (the median of ${nDays} day${nDays===1?'':'s'}); the faint bar behind it is the <b>busiest</b> that hour has been.</li>`+
-    `<li>Whole agents only — averaging people across days gives figures like "2.3", which describe no real moment.</li>`+
-    (gapH!=null?`<li>Widest gap is at <b>${_hr1(gapH)}</b>: ${gapV} more agent${gapV===1?'':'s'} on the busiest day than on a typical one.</li>`:'')+
-    (thin.length?`<li>Thinnest cover: <b>${thin.map(_hr1).join(', ')}</b> — one agent or fewer on a typical day.</li>`:'')+
-    `<li>Only answered calls carry an agent name, so this is time <b>on calls</b>, not roster. An agent between calls does not appear.</li>`+
-    `<li>Hover an hour for the names.</li>`+
+    `<li>Agents on an <b>inbound</b> call in each ${AA_SLOT}-minute slot, 9 AM–7 PM. Callbacks are excluded.</li>`+
+    `<li>${nDays>1?`Averaged across ${nDays} days`:'For this day'}, so it shows a typical day rather than a total.</li>`+
+    `<li>Peak <b>${peak}</b> agents on calls at once.</li>`+
+    `<li>Only answered calls carry an agent name, so this is time on calls — not roster. An agent between calls does not appear.</li>`+
+    `<li>Hover a slot for the agent names.</li>`+
     '</ul>';
+
 }
 function renderAction(p){
   _cardHandlers={};
