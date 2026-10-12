@@ -423,7 +423,7 @@ table.trend td{padding:10px 6px;text-align:center;border-bottom:1px solid var(--
 table.trend td:nth-child(2){color:var(--ink);font-weight:700;white-space:normal}
 table.trend tbody tr:hover td{background:var(--surface-2)}
 table.trend tbody tr:last-child td{border-bottom:0}
-table.trend .sub{color:var(--muted);font-size:11px;margin-left:3px}
+table.trend .sub{color:var(--muted);font-size:11px;margin-left:4px}
 /* Row numbers are an index, not data: muted, tabular, and right-aligned so the
    digits line up as the count crosses into double and triple figures. */
 table.trend th.sno,table.dt th.sno{text-align:right;color:var(--faint)}
@@ -2356,7 +2356,11 @@ const TR_COLS=[
   {g:'miss', label:'Agent',      title:'Agent missed — rang, not picked up', get:s=>fmtN(s.agentMissed)},
   {g:'miss', label:'Queue',      title:'Queue missed — dropped in queue', get:s=>fmtN(s.queueMissed)},
   {g:'miss', label:'After Hours',title:'Missed outside working hours, 9 AM to 7 PM', get:s=>fmtN(s.aohMissed)},
-  {g:'cb',   label:'Called Back',title:'Share of missed numbers called back, and how many numbers', wide:true, get:s=>`${s.calledBack}%<span class="sub">(${fmtN(s.uniqueMissed)})</span>`},
+  // "of 1,553", not "(1,553)": this figure is the DENOMINATOR — the distinct
+  // numbers behind the missed calls — and in brackets it read as the count that
+  // was called back. Note it differs from the Missed Total column, which counts
+  // calls: one number missed three times is 3 there and 1 here.
+  {g:'cb',   label:'Called Back',title:'Share of missed NUMBERS called back. The figure is how many distinct numbers were missed — the Missed columns count calls, so one number missed three times is 3 there and 1 here.', wide:true, get:s=>`${s.calledBack}%<span class="sub">of ${fmtN(s.uniqueMissed)}</span>`},
   // Two words rather than "Reconnected"/"Unreached": a single 11-character token
   // can't wrap cleanly in a ~70px column, whereas a space gives it a break point.
   {g:'cb',   label:'Reconnect Rate',title:'Reconnection rate — missed numbers actually reached', get:s=>`${s.reconnect}%`},
