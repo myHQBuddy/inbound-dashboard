@@ -67,6 +67,8 @@ DISPOSITION_MAP = {
     "Not Reachable": ("", "Not Reachable"), "No Answer": ("", "No Answer"),
 }
 
+from excluded_numbers import drop_from_missed
+
 DOW_SHORT = {"Monday": "Mon", "Tuesday": "Tue", "Wednesday": "Wed", "Thursday": "Thu",
              "Friday": "Fri", "Saturday": "Sat", "Sunday": "Sun"}
 
@@ -250,6 +252,21 @@ def _i(v):
 
 
 def regenerate_js(rows):
+    # Missed calls from trunk / dialler lines are dropped here, the single
+    # point every record passes through on its way to the dashboard, so one
+    # rule covers every metric and all five tabs. Answered calls from those
+    # lines are kept: they are conversations that happened, and removing
+    # them would cut call volume too.
+    kept, dropped = [], 0
+    for r in rows:
+        if drop_from_missed(r.get("client_number"), r.get("status")):
+            dropped += 1
+            continue
+        kept.append(r)
+    if dropped:
+        print("  dropped %d missed calls from trunk lines" % dropped)
+    rows = kept
+
     records = []
     for r in rows:
         records.append({
