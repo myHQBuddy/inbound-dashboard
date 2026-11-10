@@ -35,3 +35,72 @@ jobs:
 
       - name: Sync index.html to dashboard
         run: cp inbound-dashboard.html index.html
+
+      - name: Commit if data changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- inbound-dashboard-data.js inbound_call_records.csv sync_state.json index.html; then
+            echo "No data change — nothing to commit."
+          else
+            git add inbound-dashboard-data.js inbound_call_records.csv sync_state.json index.html
+            git commit -m "Auto-refresh data ($(date -u '+%Y-%m-%d %H:%M UTC'))"
+            for i in 1 2 3; do
+              git push && break
+              echo "Push rejected — pulling latest and retrying ($i)..."
+              git pull --rebase --autostash origin main
+            done
+          fi
+
+      - name: Business-health alert (emails only if something is wrong)
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: python scripts/alert.py
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      # Stage only what the browser actually fetches. Uploading the repo
+      # root sent 142 MB to Pages - 79 MB of that inbound_call_records.csv,
+      # which is sync.py's INPUT and is never requested by any page. On
+      # 10 Nov 2026 that tipped past what Pages will sync inside the 10 min
+      # deploy timeout: every run reached "syncing_files" and then aborted,
+      # so the data committed fine and the published site silently stayed
+      # days old. Keep this list tight - if a page starts fetching a new
+      # file, add it here or it will 404 in production.
+      - name: Stage site files
+        run: |
+          mkdir -p _site
+          cp index.html inbound-dashboard.html inbound-dashboard-v2.html _site/
+          cp inbound-dashboard-data.js _site/
+          touch _site/.nojekyll
+          du -sh _site; ls -la _site
+
+      - name: Upload static site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Notify on sync failure
+        if: failure()
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: |
+          python - <<'PY'
+          import os, smtplib
+          from email.mime.text import MIMEText
+          u=os.environ["GMAIL_USER"]; p=os.environ["GMAIL_APP_PASSWORD"]
+          to="rohit.bagga@myhq.in"
+          m=MIMEText("The hourly data refresh workflow FAILED.\n"
+                     "Check: https://github.com/myHQBuddy/inbound-dashboard/actions","plain","utf-8")
+          m["Subject"]="🔴 Inbound sync FAILED"; m["From"]=u; m["To"]=to
+          with smtplib.SMTP_SSL("smtp.gmail.com",465) as s:
+              s.login(u,p); s.sendmail(u,[to],m.as_string())
+          print("failure email sent")
+          PY
